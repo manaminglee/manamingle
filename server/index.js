@@ -2,6 +2,7 @@
  * Mana Mingle - Secure backend: interest-based group video (max 4), WebRTC signaling, WebSockets
  */
 const express = require('express');
+const fs = require('fs');
 const http = require('http');
 const path = require('path');
 const { Server } = require('socket.io');
@@ -512,13 +513,21 @@ app.post('/api/ai/translate', async (req, res) => {
   }
 });
 
-// Serve React build (only in production or when dist exists)
+// Serve React build when client/dist exists (single-host deploy). Else API-only (Vercel frontend).
 const clientBuild = path.join(__dirname, '..', 'client', 'dist');
-app.use(express.static(clientBuild, { index: false }));
+const clientExists = fs.existsSync(path.join(clientBuild, 'index.html'));
+if (clientExists) {
+  app.use(express.static(clientBuild, { index: false }));
+}
 app.get(/^(?!\/api|\/socket\.io|\/health)/, (req, res, next) => {
-  res.sendFile(path.join(clientBuild, 'index.html'), (err) => {
-    if (err) next();
-  });
+  if (clientExists) {
+    return res.sendFile(path.join(clientBuild, 'index.html'), (err) => {
+      if (err) next();
+    });
+  }
+  const frontendUrl = process.env.FRONTEND_ORIGIN || 'https://manamingle.vercel.app';
+  const url = frontendUrl.split(',')[0].trim();
+  res.redirect(302, url);
 });
 
 const server = http.createServer(app);

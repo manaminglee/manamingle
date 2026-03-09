@@ -43,11 +43,12 @@ export function useSocket() {
   }, []);
 
   // Initial fetch for settings so UI knows flags before any socket events
+  const apiBase = SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/settings');
+        const res = await fetch(`${apiBase}/api/settings`);
         if (!res.ok) return;
         const data = await res.json();
         if (!cancelled && typeof data.adsEnabled !== 'undefined') {
@@ -60,7 +61,7 @@ export function useSocket() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [apiBase]);
 
   return { socket, connected, country, onlineCount, adsEnabled, isBlocked };
 }
