@@ -340,8 +340,8 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
       <div className="section-divider" />
 
       {/* CHOOSE MODE SECTION */}
-      <section ref={startRef} className="relative z-10 max-w-7xl mx-auto px-6 py-12 scroll-mt-20">
-        <div className="text-center mb-10 max-w-2xl mx-auto">
+      <section ref={startRef} className="relative z-10 max-w-7xl mx-auto px-6 py-6 scroll-mt-20">
+        <div className="text-center mb-6 max-w-2xl mx-auto">
           <h2 className="text-4xl md:text-6xl font-black text-white mb-6 tracking-tight">Select Your Experience</h2>
           <p className="text-lg leading-relaxed" style={{ color: 'rgba(232,234,246,0.45)' }}>
             Jump into a private conversation instantly. Our WeConnect technology handles the
