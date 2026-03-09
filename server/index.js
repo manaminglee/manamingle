@@ -155,7 +155,12 @@ app.use(helmet({
 
 app.use(cors({
   origin: NODE_ENV === 'production'
-    ? [process.env.FRONTEND_ORIGIN || 'https://manamingle.site', 'http://localhost:5173']
+    ? [
+        'https://manamingle.site',
+        'https://www.manamingle.site',
+        process.env.FRONTEND_ORIGIN,
+        'http://localhost:5173',
+      ].filter(Boolean)
     : true,
   credentials: true,
 }));
