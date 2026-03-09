@@ -1,0 +1,40 @@
+{
+  "name": "mana-mingle",
+  "version": "2.0.0",
+  "description": "Mana Mingle - React + Tailwind group video chat with interest matching, WebRTC, WebSockets",
+  "main": "server/index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js",
+    "dev:client": "cd client && npm run dev",
+    "build": "cd client && npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.1",
+    "express-rate-limit": "^7.0.0",
+    "geoip-lite": "^1.4.10",
+    "helmet": "^8.1.0",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  },
+  "keywords": [
+    "chat",
+    "video-chat",
+    "websocket",
+    "webrtc",
+    "react",
+    "tailwind",
+    "group-chat"
+  ],
+  "license": "MIT"
+}
