@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { Turnstile } from 'react-turnstile';
 import { useSocket } from '../hooks/useSocket';
 import { useLatency } from '../hooks/useLatency';
 
@@ -41,8 +40,6 @@ const MODALS = {
 
 export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJoining = false }) {
   const { balance, streak, canClaim, claimCoins } = coinState || {};
-  const [ageVerified, setAgeVerified] = useState(false);
-  const [robotVerified, setRobotVerified] = useState(false);
   const [interests, setInterests] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const latency = useLatency();
@@ -51,11 +48,6 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [suggestedInterests, setSuggestedInterests] = useState([]);
   const startRef = useRef(null);
-
-  useEffect(() => {
-    if (sessionStorage.getItem('wc_age') === '1') setAgeVerified(true);
-    if (sessionStorage.getItem('wc_bot') === '1') setRobotVerified(true);
-  }, []);
 
   useEffect(() => {
     const pts = Array.from({ length: 50 }, (_, i) => ({
@@ -69,30 +61,6 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
     }));
     setParticles(pts);
   }, []);
-
-  const handleAgeConfirm = () => {
-    sessionStorage.setItem('wc_age', '1');
-    setAgeVerified(true);
-  };
-
-  const apiBase = import.meta.env.VITE_SOCKET_URL || '';
-
-  const handleTurnstileVerify = async (token, turnstile) => {
-    try {
-      const res = await fetch(`${apiBase}/api/verify-turnstile`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        sessionStorage.setItem('wc_bot', '1');
-        setRobotVerified(true);
-      } else if (turnstile?.reset) turnstile.reset();
-    } catch (e) {
-      if (turnstile?.reset) turnstile.reset();
-    }
-  };
 
   const getInterest = () => {
     if (interests.length === 0) return 'general';
@@ -141,76 +109,6 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
 
   const scrollToStart = () => startRef.current?.scrollIntoView({ behavior: 'smooth' });
 
-  // === AGE GATE ===
-  if (!ageVerified) {
-    return (
-      <div className="min-h-screen bg-[#070811] flex items-center justify-center p-6 relative overflow-hidden">
-        <div className="hero-glow hero-glow-1" />
-        <div className="hero-glow hero-glow-2" />
-        <div className="gate-card relative z-10">
-          <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-indigo-500/30 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center text-3xl">
-            🔞
-          </div>
-          <h2 className="text-2xl font-bold text-white mb-2">Age Verification</h2>
-          <p className="text-sm mb-7" style={{ color: 'rgba(232,234,246,0.55)' }}>
-            Mana Mingle (WeConnect) is an 18+ platform. You must confirm your age to continue.
-          </p>
-          <div className="flex flex-col gap-3">
-            <button
-              id="age-confirm-btn"
-              onClick={handleAgeConfirm}
-              className="btn btn-primary w-full py-3 text-base rounded-xl"
-            >
-              ✓ I am 18 years or older
-            </button>
-            <button
-              id="age-decline-btn"
-              onClick={() => (window.location.href = 'https://www.google.com')}
-              className="btn btn-ghost w-full py-3 text-base rounded-xl"
-            >
-              I am under 18 — Exit
-            </button>
-          </div>
-          <p className="text-xs mt-5" style={{ color: 'rgba(232,234,246,0.35)' }}>
-            By continuing you agree to our Terms of Service and Community Guidelines.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // === BOT GATE (Cloudflare Turnstile) ===
-  const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY;
-  if (!robotVerified) {
-    return (
-      <div className="min-h-screen bg-[#070811] flex items-center justify-center p-6 relative overflow-hidden">
-        <div className="hero-glow hero-glow-1" />
-        <div className="gate-card relative z-10">
-          <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-teal-500/30 to-cyan-500/20 border border-teal-500/30 flex items-center justify-center text-3xl">
-            🔒
-          </div>
-          <h2 className="text-2xl font-bold text-white mb-2">Security Check</h2>
-          <p className="text-sm mb-6" style={{ color: 'rgba(232,234,246,0.55)' }}>
-            Verify you're human to continue.
-          </p>
-          {turnstileSiteKey ? (
-            <div className="flex justify-center">
-              <Turnstile
-                siteKey={turnstileSiteKey}
-                onVerify={handleTurnstileVerify}
-                theme="dark"
-                size="normal"
-              />
-            </div>
-          ) : (
-            <p className="text-amber-400/80 text-sm">Turnstile not configured. Set VITE_TURNSTILE_SITE_KEY.</p>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // === MAIN LANDING PAGE ===
   return (
     <div className="min-h-screen bg-[#070811] text-white relative overflow-x-hidden">
       {/* Particle background */}

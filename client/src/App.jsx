@@ -6,6 +6,7 @@ import { GroupTextRoom } from './components/GroupTextRoom';
 import { VideoChat } from './components/VideoChat';
 import { AdminDashboard } from './components/AdminDashboard';
 import { PreloadSplash } from './components/PreloadSplash';
+import { AgeVerificationGate } from './components/AgeVerificationGate';
 import { useSocket } from './hooks/useSocket';
 import { useCoins } from './hooks/useCoins';
 
@@ -13,6 +14,10 @@ const STATES = { LANDING: 'landing', CHAT: 'chat', ADMIN: 'admin' };
 const MODES = { TEXT: 'text', VIDEO: 'video', GROUP_TEXT: 'group_text', GROUP_VIDEO: 'group_video' };
 
 export default function App() {
+  const [gateVerified, setGateVerified] = useState(() =>
+    sessionStorage.getItem('wc_age') === '1' && sessionStorage.getItem('wc_bot') === '1'
+  );
+
   const [appState, setAppState] = useState(
     window.location.pathname === '/admin' ? STATES.ADMIN : STATES.LANDING
   );
@@ -217,6 +222,12 @@ export default function App() {
     }
     return null;
   };
+
+  if (!gateVerified) {
+    return (
+      <AgeVerificationGate onVerified={() => setGateVerified(true)} />
+    );
+  }
 
   return (
     <>
