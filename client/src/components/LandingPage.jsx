@@ -38,7 +38,7 @@ const MODALS = {
   },
 };
 
-export function LandingPage({ onJoin, connected, onlineCount = 0, coinState }) {
+export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJoining = false }) {
   const { balance, streak, canClaim, claimCoins } = coinState || {};
   const [ageVerified, setAgeVerified] = useState(false);
   const [robotVerified, setRobotVerified] = useState(false);
@@ -430,11 +430,11 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState }) {
             </p>
             <button
               id="start-text-btn"
-              disabled={!connected}
+              disabled={!connected || isJoining}
               onClick={() => onJoin(getInterest(), 'Anonymous', 'text')}
-              className="btn btn-primary w-full py-3 rounded-xl"
+              className="btn btn-primary w-full py-3 rounded-xl disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Start →
+              {isJoining ? '...' : 'Start →'}
             </button>
           </div>
 
@@ -449,11 +449,11 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState }) {
             </p>
             <button
               id="start-video-btn"
-              disabled={!connected}
+              disabled={!connected || isJoining}
               onClick={() => onJoin(getInterest(), 'Anonymous', 'video')}
-              className="btn btn-teal w-full py-3 rounded-xl"
+              className="btn btn-teal w-full py-3 rounded-xl disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Start →
+              {isJoining ? '...' : 'Start →'}
             </button>
           </div>
 
@@ -468,11 +468,11 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState }) {
             </p>
             <button
               id="start-group-text-btn"
-              disabled={!connected}
+              disabled={!connected || isJoining}
               onClick={() => onJoin(getInterest(), 'Anonymous', 'group_text')}
-              className="btn btn-amber w-full py-3 rounded-xl"
+              className="btn btn-amber w-full py-3 rounded-xl disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Join →
+              {isJoining ? '...' : 'Join →'}
             </button>
           </div>
 
@@ -487,11 +487,11 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState }) {
             </p>
             <button
               id="start-group-video-btn"
-              disabled={!connected}
+              disabled={!connected || isJoining}
               onClick={() => onJoin(getInterest(), 'Anonymous', 'group_video')}
-              className="btn btn-danger w-full py-3 rounded-xl"
+              className="btn btn-danger w-full py-3 rounded-xl disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Join →
+              {isJoining ? '...' : 'Join →'}
             </button>
           </div>
         </div>

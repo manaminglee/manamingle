@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { LandingPage } from './components/LandingPage';
 import { TextChat } from './components/TextChat';
 import { GroupVideoRoom } from './components/GroupVideoRoom';
 import { GroupTextRoom } from './components/GroupTextRoom';
 import { VideoChat } from './components/VideoChat';
 import { AdminDashboard } from './components/AdminDashboard';
+import { PreloadSplash } from './components/PreloadSplash';
 import { useSocket } from './hooks/useSocket';
 import { useCoins } from './hooks/useCoins';
 
@@ -18,8 +19,12 @@ export default function App() {
   const [mode, setMode] = useState(null);
   const [interest, setInterest] = useState('general');
   const [roomId, setRoomId] = useState(null);
+  const [preloadDone, setPreloadDone] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
   const { socket, connected, country, onlineCount, adsEnabled, isBlocked } = useSocket();
   const coinState = useCoins();
+
+  const handlePreloadReady = useCallback(() => setPreloadDone(true), []);
 
   useEffect(() => {
     if (socket) {
@@ -52,7 +57,8 @@ export default function App() {
 
   // Called when user selects a mode from the landing page
   const handleJoin = (interestVal, _nickname, m) => {
-    if (!socket || !connected) return;
+    if (!socket || !connected || isJoining) return;
+    setIsJoining(true);
     const intst = (interestVal || 'general').trim().toLowerCase() || 'general';
     setInterest(intst);
     setMode(m);
@@ -66,6 +72,7 @@ export default function App() {
     } else {
       socket.emit('join-group-by-interest', { interest: intst, nickname: 'Anonymous', mode: m });
     }
+    setTimeout(() => setIsJoining(false), 500);
   };
 
   const handleJoined = (rid) => setRoomId(rid);
@@ -98,108 +105,117 @@ export default function App() {
     socket.emit('join-group-by-interest', { interest, nickname: 'Anonymous', mode });
   };
 
-  if (appState === STATES.ADMIN) {
-    return <AdminDashboard />;
-  }
-
-  if (isBlocked) {
-    return (
-      <div className="min-h-screen bg-[#070811] flex items-center justify-center p-6 text-white font-sans text-center">
-        <div className="max-w-md w-full p-8 rounded-3xl bg-rose-500/10 border border-rose-500/20 backdrop-blur-xl">
-          <div className="w-16 h-16 mx-auto rounded-full flex items-center justify-center bg-rose-500/20 mb-6 border border-rose-500/50 text-rose-500 text-3xl">⚠️</div>
-          <h1 className="text-2xl font-bold mb-3 tracking-tight text-white">Access Restricted</h1>
-          <p className="text-sm text-white/50 mb-8 leading-relaxed">
-            Your connection has been blocked due to multiple violations of our terms of service and community guidelines.
-          </p>
-          <div className="bg-black/40 p-5 rounded-2xl border border-white/5 mb-8">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-emerald-400 mb-2">Unblock Account</h3>
-            <p className="text-[11px] text-white/40 mb-4">Pay the $5.00 unblock fee using cryptocurrency to verify intent and clear your IP reputation.</p>
-            <button className="btn w-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500 shadow-none hover:text-white py-3 rounded-xl font-bold text-xs" onClick={() => alert('Payment processor would open here')}>
-              Pay $5.00 via Stripe
-            </button>
+  const renderContent = () => {
+    if (appState === STATES.ADMIN) return <AdminDashboard />;
+    if (isBlocked) {
+      return (
+        <div className="min-h-screen bg-[#070811] flex items-center justify-center p-6 text-white font-sans text-center">
+          <div className="max-w-md w-full p-8 rounded-3xl bg-rose-500/10 border border-rose-500/20 backdrop-blur-xl animate-fade-in">
+            <div className="w-16 h-16 mx-auto rounded-full flex items-center justify-center bg-rose-500/20 mb-6 border border-rose-500/50 text-rose-500 text-3xl">⚠️</div>
+            <h1 className="text-2xl font-bold mb-3 tracking-tight text-white">Access Restricted</h1>
+            <p className="text-sm text-white/50 mb-8 leading-relaxed">
+              Your connection has been blocked due to multiple violations of our terms of service and community guidelines.
+            </p>
+            <div className="bg-black/40 p-5 rounded-2xl border border-white/5 mb-8">
+              <h3 className="text-xs font-bold uppercase tracking-widest text-emerald-400 mb-2">Unblock Account</h3>
+              <p className="text-[11px] text-white/40 mb-4">Pay the $5.00 unblock fee using cryptocurrency to verify intent and clear your IP reputation.</p>
+              <button className="btn w-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500 shadow-none hover:text-white py-3 rounded-xl font-bold text-xs" onClick={() => alert('Payment processor would open here')}>
+                Pay $5.00 via Stripe
+              </button>
+            </div>
+            <p className="text-[10px] text-white/20">Provide the Admin with your IP if this was a mistake.</p>
           </div>
-          <p className="text-[10px] text-white/20">Provide the Admin with your IP if this was a mistake.</p>
         </div>
-      </div>
-    );
-  }
+      );
+    }
+    if (appState === STATES.LANDING) {
+      return (
+        <div className="animate-fade-in">
+          <LandingPage
+            onJoin={handleJoin}
+            connected={connected}
+            onlineCount={onlineCount}
+            coinState={coinState}
+            isJoining={isJoining}
+          />
+        </div>
+      );
+    }
+    if (mode === MODES.TEXT) {
+      return (
+        <div className="animate-fade-in">
+          <TextChat
+            interest={interest}
+            nickname="Anonymous"
+            adsEnabled={adsEnabled}
+            onBack={handleBack}
+            onJoined={handleJoined}
+            onFindNewPartner={handleFindNewPartner}
+            coinState={coinState}
+          />
+        </div>
+      );
+    }
+    if (mode === MODES.VIDEO) {
+      return (
+        <div className="animate-fade-in">
+          <VideoChat
+            interest={interest}
+            nickname="Anonymous"
+            adsEnabled={adsEnabled}
+            onBack={handleBack}
+            onJoined={handleJoined}
+            onFindNewPartner={handleFindNewPartner}
+            coinState={coinState}
+          />
+        </div>
+      );
+    }
+    if (mode === MODES.GROUP_TEXT) {
+      return (
+        <div className="animate-fade-in">
+          <GroupTextRoom
+            roomId={roomId}
+            interest={interest}
+            nickname="Anonymous"
+            myCountry={country}
+            socket={socket}
+            isQueuing={!roomId}
+            onLeave={roomId ? handleLeaveRoom : handleCancelQueue}
+            onFindNewPod={roomId ? handleFindNewPod : undefined}
+            onJoined={handleJoined}
+            coinState={coinState}
+          />
+        </div>
+      );
+    }
+    if (mode === MODES.GROUP_VIDEO) {
+      return (
+        <div className="animate-fade-in">
+          <GroupVideoRoom
+            roomId={roomId}
+            interest={interest}
+            nickname="Anonymous"
+            myCountry={country}
+            socket={socket}
+            isQueuing={!roomId}
+            onLeave={roomId ? handleLeaveRoom : handleCancelQueue}
+            onFindNewPod={roomId ? handleFindNewPod : undefined}
+            onJoined={handleJoined}
+            coinState={coinState}
+          />
+        </div>
+      );
+    }
+    return null;
+  };
 
-  if (appState === STATES.LANDING) {
-    return (
-      <LandingPage
-        onJoin={handleJoin}
-        connected={connected}
-        onlineCount={onlineCount}
-        coinState={coinState}
-      />
-    );
-  }
-
-  // Text Chat
-  if (mode === MODES.TEXT) {
-    return (
-      <TextChat
-        interest={interest}
-        nickname="Anonymous"
-        adsEnabled={adsEnabled}
-        onBack={handleBack}
-        onJoined={handleJoined}
-        onFindNewPartner={handleFindNewPartner}
-        coinState={coinState}
-      />
-    );
-  }
-
-  // Video Chat
-  if (mode === MODES.VIDEO) {
-    return (
-      <VideoChat
-        interest={interest}
-        nickname="Anonymous"
-        adsEnabled={adsEnabled}
-        onBack={handleBack}
-        onJoined={handleJoined}
-        onFindNewPartner={handleFindNewPartner}
-        coinState={coinState}
-      />
-    );
-  }
-
-  // Group Text
-  if (mode === MODES.GROUP_TEXT) {
-    return (
-      <GroupTextRoom
-        roomId={roomId}
-        interest={interest}
-        nickname="Anonymous"
-        myCountry={country}
-        socket={socket}
-        isQueuing={!roomId}
-        onLeave={roomId ? handleLeaveRoom : handleCancelQueue}
-        onFindNewPod={roomId ? handleFindNewPod : undefined}
-        onJoined={handleJoined}
-        coinState={coinState}
-      />
-    );
-  }
-
-  // Group Video
-  if (mode === MODES.GROUP_VIDEO) {
-    return (
-      <GroupVideoRoom
-        roomId={roomId}
-        interest={interest}
-        nickname="Anonymous"
-        myCountry={country}
-        socket={socket}
-        isQueuing={!roomId}
-        onLeave={roomId ? handleLeaveRoom : handleCancelQueue}
-        onFindNewPod={roomId ? handleFindNewPod : undefined}
-        onJoined={handleJoined}
-        coinState={coinState}
-      />
-    );
-  }
-
-  return null;
+  return (
+    <>
+      {!preloadDone && (
+        <PreloadSplash ready={connected} onReady={handlePreloadReady} />
+      )}
+      {renderContent()}
+    </>
+  );
 }
