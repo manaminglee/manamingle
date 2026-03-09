@@ -589,7 +589,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
       {/* BODY */}
       <div className="flex-1 flex flex-col sm:flex-row min-h-0 overflow-hidden">
         {/* VIDEO GRID */}
-        <div className={`flex-1 flex flex-col min-h-0 min-w-0 relative ${showChat ? 'sm:max-w-[calc(100%-300px)]' : ''}`}>
+        <div className={`flex-1 flex flex-col min-h-0 min-w-0 relative ${showChat ? 'sm:max-w-[calc(100%-260px)] sm:min-w-0' : ''}`}>
           {active3dEmoji && (
             <div className="absolute inset-0 pointer-events-none z-[100] flex items-center justify-center overflow-hidden">
               <div className="animate-3d-emoji-pop flex flex-col items-center gap-2">

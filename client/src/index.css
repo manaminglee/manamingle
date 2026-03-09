@@ -1298,8 +1298,12 @@ body::after {
   background: rgba(7, 8, 17, 0.9);
   border-left: 1px solid var(--c-border);
 }
+/* Mobile: cap height so video stays large; messages scroll */
+@media (max-width: 639px) {
+  .chat-panel { max-height: 42vh; }
+}
 @media (min-width: 640px) {
-  .chat-panel { width: 300px; }
+  .chat-panel { width: 260px; min-width: 220px; }
 }
 
 /* ============================================================
