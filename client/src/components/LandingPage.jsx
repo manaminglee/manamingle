@@ -297,39 +297,39 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
       </header>
 
       {/* HERO SECTION */}
-      <section className="relative z-10 max-w-6xl mx-auto px-6 pt-16 pb-12 text-center">
-        <div className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full border border-indigo-500/20 bg-indigo-500/5 text-indigo-300 text-sm font-semibold mb-8 animate-fade-in-up shadow-lg shadow-indigo-500/5 hover:border-indigo-500/40 transition-all cursor-default">
-          <span className="relative flex h-2 w-2">
+      <section className="relative z-10 max-w-6xl mx-auto px-6 pt-10 pb-8 text-center">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-indigo-500/20 bg-indigo-500/5 text-indigo-300 text-xs font-semibold mb-5 animate-fade-in-up shadow-lg shadow-indigo-500/5 hover:border-indigo-500/40 transition-all cursor-default">
+          <span className="relative flex h-1.5 w-1.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-indigo-500"></span>
           </span>
           No Accounts. No Tracking. Pure Social Discovery.
         </div>
 
-        <h1 className="text-6xl md:text-8xl font-black leading-[1.1] tracking-tight mb-6 animate-fade-in-up delay-100">
+        <h1 className="text-4xl md:text-5xl font-black leading-[1.15] tracking-tight mb-4 animate-fade-in-up delay-100">
           <span className="text-white">Mana Mingle:</span>
           <br />
           <span className="gradient-text drop-shadow-[0_0_30px_rgba(99,102,241,0.2)]">Connect Instantly</span>
         </h1>
 
-        <p className="text-xl md:text-2xl max-w-3xl mx-auto mb-8 animate-fade-in-up delay-200 leading-relaxed font-medium" style={{ color: 'rgba(232,234,246,0.55)' }}>
+        <p className="text-base md:text-lg max-w-2xl mx-auto mb-5 animate-fade-in-up delay-200 leading-relaxed font-medium" style={{ color: 'rgba(232,234,246,0.55)' }}>
           The world's most advanced anonymous social platform. Experience high-speed
-          <span className="text-indigo-400 font-bold px-2">Text & Video</span>
+          <span className="text-indigo-400 font-bold px-1.5">Text & Video</span>
           conversations with 100% privacy by default.
         </p>
 
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-5 animate-fade-in-up delay-300 mb-10">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 animate-fade-in-up delay-300 mb-6">
           <button
             id="hero-start-btn"
             onClick={scrollToStart}
-            className="btn btn-primary px-10 py-5 text-lg rounded-2xl w-full sm:w-auto shadow-2xl shadow-indigo-600/20 group hover:scale-[1.02] active:scale-[0.98] transition-all"
+            className="btn btn-primary px-6 py-3 text-base rounded-xl w-full sm:w-auto shadow-xl shadow-indigo-600/20 group hover:scale-[1.02] active:scale-[0.98] transition-all"
           >
             Start Chatting <span className="ml-2 group-hover:translate-x-1 transition-transform inline-block">→</span>
           </button>
           <button
             id="hero-howit-btn"
             onClick={() => setModal('safety')}
-            className="btn btn-ghost px-10 py-5 text-lg rounded-2xl w-full sm:w-auto border border-white/5 hover:bg-white/5 transition-all"
+            className="btn btn-ghost px-6 py-3 text-base rounded-xl w-full sm:w-auto border border-white/5 hover:bg-white/5 transition-all"
           >
             Safety First
           </button>
