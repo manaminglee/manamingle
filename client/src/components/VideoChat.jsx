@@ -139,21 +139,6 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
     roomIdRef.current = null;
   }, []);
 
-  // Send offer/answer once local stream is ready (fixes race when signaling before getUserMedia)
-  useEffect(() => {
-    if (!localStream) return;
-    const po = pendingOfferRef.current;
-    if (po && roomIdRef.current && peer?.socketId === po) {
-      pendingOfferRef.current = null;
-      doOffer(po);
-    }
-    const pa = pendingAnswerRef.current;
-    if (pa) {
-      pendingAnswerRef.current = null;
-      doAnswer(pa.from, pa.signal);
-    }
-  }, [localStream, peer?.socketId, doOffer, doAnswer]);
-
   const createPeerConnection = useCallback((remoteId) => {
     if (peerConnectionsRef.current.has(remoteId)) return peerConnectionsRef.current.get(remoteId);
     const pc = new RTCPeerConnection({ iceServers });
@@ -213,6 +198,21 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
       socket.emit('webrtc-signal', { roomId: rid, targetSocketId: remoteId, type: 'answer', signal: answer });
     } catch (err) { console.error('answer error', err); }
   }, [socket, createPeerConnection]);
+
+  // Send offer/answer once local stream is ready (fixes race when signaling before getUserMedia)
+  useEffect(() => {
+    if (!localStream) return;
+    const po = pendingOfferRef.current;
+    if (po && roomIdRef.current && peer?.socketId === po) {
+      pendingOfferRef.current = null;
+      doOffer(po);
+    }
+    const pa = pendingAnswerRef.current;
+    if (pa) {
+      pendingAnswerRef.current = null;
+      doAnswer(pa.from, pa.signal);
+    }
+  }, [localStream, peer?.socketId, doOffer, doAnswer]);
 
   const addIce = useCallback(async (remoteId, candidate) => {
     const pc = peerConnectionsRef.current.get(remoteId);
