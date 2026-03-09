@@ -339,12 +339,29 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
     const cost = type === 'video' ? 15 : 10;
     if (balance < cost) return alert(`Need ${cost} coins!`);
 
+    if (type === 'video') {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = function () {
+        window.URL.revokeObjectURL(video.src);
+        if (video.duration > 6) {
+          return alert('Video must be 5 seconds or less!');
+        }
+        processUpload(file);
+      };
+      video.src = URL.createObjectURL(file);
+    } else {
+      processUpload(file);
+    }
+    e.target.value = '';
+  };
+
+  const processUpload = (file) => {
     const reader = new FileReader();
     reader.onload = (ev) => {
-      socket.emit('send-media', { roomId: roomIdRef.current, type, content: ev.target.result });
+      socket.emit('send-media', { roomId: roomIdRef.current, type: file.type.startsWith('video') ? 'video' : 'image', content: ev.target.result });
     };
     reader.readAsDataURL(file);
-    e.target.value = '';
   };
 
   useEffect(() => {
@@ -541,6 +558,20 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
                   {/* Preview local video in idle */}
                   <div className="w-48 h-36 rounded-2xl overflow-hidden border border-white/10 bg-black">
                     <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" />
+                  </div>
+                </div>
+              )}
+
+              {active3dEmoji && (
+                <div className="absolute inset-0 pointer-events-none z-[100] flex items-center justify-center overflow-hidden">
+                  <div className="animate-3d-emoji-pop flex flex-col items-center gap-2">
+                    <picture>
+                      <source srcSet={active3dEmoji.emoji.url} type="image/webp" />
+                      <img src={active3dEmoji.emoji.url} className="w-40 h-40" alt="3d" />
+                    </picture>
+                    <span className="bg-black/80 px-4 py-1.5 rounded-full text-xs font-bold border border-white/10 shadow-2xl">
+                      {active3dEmoji.nickname} sent {active3dEmoji.emoji.char}
+                    </span>
                   </div>
                 </div>
               )}

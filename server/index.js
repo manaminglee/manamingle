@@ -209,6 +209,20 @@ app.get('/api/admin/overview', requireAdmin, (req, res) => {
     participants: room.users.size,
     createdAt: room.createdAt,
   }));
+
+  const userList = Array.from(users.values()).map(u => ({
+    nickname: u.nickname,
+    country: u.country,
+    ip: u.ip,
+    mode: u.mode || 'idle',
+    socketId: u.socketId
+  }));
+
+  const coinStats = {
+    totalUsers: coinUsers.size,
+    totalCoinsInSystem: Array.from(coinUsers.values()).reduce((sum, u) => sum + (u.coins || 0), 0)
+  };
+
   res.json({
     users: users.size,
     rooms: rooms.size,
@@ -217,6 +231,8 @@ app.get('/api/admin/overview', requireAdmin, (req, res) => {
       video: pairQueues.video.length,
     },
     roomList,
+    userList,
+    coinStats,
     reports,
     blockedIps: Array.from(blockedIps),
     stats: {
@@ -225,6 +241,30 @@ app.get('/api/admin/overview', requireAdmin, (req, res) => {
       uniqueIps: stats.uniqueIps.size,
     }
   });
+});
+
+app.post('/api/admin/coins/update', requireAdmin, (req, res) => {
+  const { ip, amount, set } = req.body || {};
+  if (!ip) return res.status(400).json({ error: 'IP required' });
+
+  if (!coinUsers.has(ip)) {
+    coinUsers.set(ip, { coins: 30, lastClaim: 0, streak: 1, lastClaimDate: null });
+  }
+
+  const user = coinUsers.get(ip);
+  if (set) user.coins = parseInt(amount);
+  else user.coins += parseInt(amount);
+
+  coinUsers.set(ip, user);
+
+  // Find connected sockets with this IP and notify them
+  for (const [sid, u] of users.entries()) {
+    if (u.ip === ip) {
+      io.to(sid).emit('coins-updated', { coins: user.coins });
+    }
+  }
+
+  res.json({ success: true, balance: user.coins });
 });
 
 app.post('/api/admin/block', requireAdmin, (req, res) => {

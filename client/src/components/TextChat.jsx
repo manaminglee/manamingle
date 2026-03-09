@@ -161,12 +161,29 @@ export function TextChat({ interest = 'general', nickname = 'Anonymous', onBack,
     const cost = type === 'video' ? 15 : 10;
     if (balance < cost) return alert(`Need ${cost} coins!`);
 
+    if (type === 'video') {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = function () {
+        window.URL.revokeObjectURL(video.src);
+        if (video.duration > 6) { // Allowing small buffer
+          return alert('Video must be 5 seconds or less!');
+        }
+        processUpload(file);
+      };
+      video.src = URL.createObjectURL(file);
+    } else {
+      processUpload(file);
+    }
+    e.target.value = '';
+  };
+
+  const processUpload = (file) => {
     const reader = new FileReader();
     reader.onload = (ev) => {
-      socket.emit('send-media', { roomId: roomIdRef.current, type, content: ev.target.result });
+      socket.emit('send-media', { roomId: roomIdRef.current, type: file.type.startsWith('video') ? 'video' : 'image', content: ev.target.result });
     };
     reader.readAsDataURL(file);
-    e.target.value = '';
   };
 
   // Handle translation for incoming messages

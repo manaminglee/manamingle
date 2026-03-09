@@ -254,9 +254,10 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState }) {
                   {canClaim && (
                     <button
                       onClick={claimCoins}
-                      className="hidden lg:flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-amber-400 to-orange-500 text-black text-[10px] font-black uppercase tracking-tighter rounded-full shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 transition-all animate-coin-glow"
+                      className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-amber-400 to-orange-500 text-black text-[10px] font-black uppercase tracking-tighter rounded-full shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 transition-all animate-coin-glow"
                     >
-                      Claim +30
+                      <span className="hidden sm:inline">Claim 30 Coins</span>
+                      <span className="sm:hidden">+30 🪙</span>
                     </button>
                   )}
                   <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20">

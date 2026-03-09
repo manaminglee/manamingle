@@ -333,12 +333,29 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
     const cost = type === 'video' ? 15 : 10;
     if (balance < cost) return alert(`Need ${cost} coins!`);
 
+    if (type === 'video') {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = function () {
+        window.URL.revokeObjectURL(video.src);
+        if (video.duration > 6) {
+          return alert('Video must be 5 seconds or less!');
+        }
+        processUpload(file);
+      };
+      video.src = URL.createObjectURL(file);
+    } else {
+      processUpload(file);
+    }
+    e.target.value = '';
+  };
+
+  const processUpload = (file) => {
     const reader = new FileReader();
     reader.onload = (ev) => {
-      socket.emit('send-media', { roomId: roomIdRef.current || roomId, type, content: ev.target.result });
+      socket.emit('send-media', { roomId: roomIdRef.current || roomId, type: file.type.startsWith('video') ? 'video' : 'image', content: ev.target.result });
     };
     reader.readAsDataURL(file);
-    e.target.value = '';
   };
 
   const startScreenShare = async () => {
