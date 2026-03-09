@@ -402,8 +402,8 @@ export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nick
           </div>
 
           {/* Input */}
-          <div className="flex-shrink-0 p-3 border-t border-white/[0.06] flex gap-2">
-            <div className="flex-1 relative group">
+          <div className="flex-shrink-0 p-3 border-t border-white/[0.06] flex gap-2 min-w-0">
+            <div className="flex-1 min-w-0 relative group">
               <input
                 ref={inputRef}
                 id="group-text-input"
@@ -411,9 +411,9 @@ export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nick
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                placeholder={isAiGenerating ? 'AI is thinking...' : (isQueuing ? 'Finding room...' : 'Type a message...')}
+                placeholder={isAiGenerating ? 'AI thinking...' : (isQueuing ? 'Finding room...' : 'Type a message...')}
                 disabled={isQueuing || !roomId || isAiGenerating}
-                className={`chat-input w-full py-3.5 pr-24 transition-all ${isAiGenerating ? 'opacity-50' : ''}`}
+                className={`chat-input w-full py-3.5 pr-28 sm:pr-32 transition-all ${isAiGenerating ? 'opacity-50' : ''}`}
               />
 
               <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">

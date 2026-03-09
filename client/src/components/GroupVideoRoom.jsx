@@ -814,17 +814,17 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
               })}
               <div ref={chatEndRef} />
             </div>
-            <div className="flex-shrink-0 p-3 border-t border-white/[0.06] flex gap-2">
-              <div className="flex-1 relative group">
+            <div className="flex-shrink-0 p-3 border-t border-white/[0.06] flex gap-2 min-w-0">
+              <div className="flex-1 min-w-0 relative group">
                 <input
                   id="group-video-chat-input"
                   type="text"
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                  placeholder={isAiGenerating ? 'Thinking...' : (isQueuing ? 'Joining...' : 'Message...')}
+                  placeholder={isAiGenerating ? 'AI thinking...' : (isQueuing ? 'Joining...' : 'Message...')}
                   disabled={isQueuing || !roomId || isAiGenerating}
-                  className={`chat-input w-full py-2.5 pr-24 text-sm transition-all ${isAiGenerating ? 'opacity-50' : ''}`}
+                  className={`chat-input w-full py-2.5 pr-28 sm:pr-32 text-sm transition-all ${isAiGenerating ? 'opacity-50' : ''}`}
                 />
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                   <button

@@ -571,7 +571,7 @@ export function TextChat({ interest = 'general', nickname = 'Anonymous', onBack,
             )}
 
             {/* Message input container */}
-            <div className="flex-1 relative group">
+            <div className="flex-1 min-w-0 relative group">
               <input
                 ref={inputRef}
                 id="text-message-input"
@@ -579,12 +579,12 @@ export function TextChat({ interest = 'general', nickname = 'Anonymous', onBack,
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && sendMsg()}
-                placeholder={isAiGenerating ? 'AI is thinking...' : (isConnected ? 'Type a message...' : 'Connect to start chatting')}
+                placeholder={isAiGenerating ? 'AI thinking...' : (isConnected ? 'Type a message...' : 'Connect first')}
                 disabled={!isConnected || isAiGenerating}
-                className={`chat-input w-full py-3.5 pr-12 transition-all ${isAiGenerating ? 'opacity-50' : ''}`}
+                className={`chat-input w-full py-3.5 pr-28 sm:pr-32 transition-all ${isAiGenerating ? 'opacity-50' : ''}`}
               />
 
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 shrink-0">
                 {/* 3D EMOJI BUTTON */}
                 {isConnected && (
                   <div className="relative">

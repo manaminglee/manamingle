@@ -843,17 +843,17 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
                 <div ref={chatEndRef} />
               </div>
 
-              <div className="p-3 border-t border-white/[0.06] flex gap-2">
-                <div className="flex-1 relative">
+              <div className="p-3 border-t border-white/[0.06] flex gap-2 min-w-0">
+                <div className="flex-1 min-w-0 relative">
                   <input
                     id="video-chat-input"
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && sendMsg()}
-                    placeholder={isAiGenerating ? 'AI Thinking...' : (isConnected ? 'Message...' : 'Connect first...')}
+                    placeholder={isAiGenerating ? 'AI thinking...' : (isConnected ? 'Message...' : 'Connect first')}
                     disabled={!isConnected || isAiGenerating}
-                    className="chat-input w-full py-2.5 pr-10 text-sm"
+                    className="chat-input w-full py-2.5 pr-28 sm:pr-32 text-sm"
                   />
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                     {/* 3D EMOJI BUTTON */}
