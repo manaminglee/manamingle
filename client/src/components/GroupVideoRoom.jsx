@@ -814,40 +814,39 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
               })}
               <div ref={chatEndRef} />
             </div>
-            <div className="flex-shrink-0 p-3 border-t border-white/[0.06] flex gap-2 min-w-0">
-              <div className="flex-1 min-w-0 relative group">
-                <input
-                  id="group-video-chat-input"
-                  type="text"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                  placeholder={isAiGenerating ? 'AI thinking...' : (isQueuing ? 'Joining...' : 'Message...')}
-                  disabled={isQueuing || !roomId || isAiGenerating}
-                  className={`chat-input w-full py-2.5 pr-28 sm:pr-32 text-sm transition-all ${isAiGenerating ? 'opacity-50' : ''}`}
-                />
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            <div className="flex-shrink-0 p-3 border-t border-white/[0.06] flex gap-1.5 sm:gap-2 min-w-0 items-center">
+              <input
+                id="group-video-chat-input"
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                placeholder={isAiGenerating ? 'AI thinking...' : (isQueuing ? 'Joining...' : 'Message...')}
+                disabled={isQueuing || !roomId || isAiGenerating}
+                className={`chat-input flex-1 min-w-0 py-2.5 px-4 text-sm transition-all ${isAiGenerating ? 'opacity-50' : ''}`}
+              />
+              {!isQueuing && (
+                <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="p-1 text-white/20 hover:text-emerald-400 transition-colors"
+                    className="p-2 rounded-lg bg-white/5 border border-white/5 text-white/30 hover:text-emerald-400 transition-colors"
                     title="Media (10-15 Coins)"
                   >
                     📂
                   </button>
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*" onChange={handleMediaUpload} />
-
                   <div className="relative">
                     <button
                       type="button"
                       onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                      className="p-1 text-white/20 hover:text-amber-400 transition-colors"
+                      className="p-2 rounded-lg bg-white/5 border border-white/5 text-white/30 hover:text-amber-400 transition-colors"
                       title="3D Emojis (5 Coins)"
                     >
                       ✨
                     </button>
                     {showEmojiPicker && (
-                      <div className="absolute bottom-full right-0 mb-3 p-2 bg-[#1b1f35] border border-white/10 rounded-xl shadow-2xl w-[160px] grid grid-cols-4 gap-1.5 animate-slide-in-up z-[60]">
+                      <div className="absolute bottom-full right-0 mb-2 p-2 bg-[#1b1f35] border border-white/10 rounded-xl shadow-2xl w-[160px] grid grid-cols-4 gap-1.5 animate-slide-in-up z-[60]">
                         <div className="col-span-4 text-[9px] font-black uppercase text-white/20 mb-0.5 px-0.5">3D Emojis (5🪙)</div>
                         {EMOJIS_3D.map(e => (
                           <button
@@ -861,21 +860,18 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
                       </div>
                     )}
                   </div>
-
-                  {!isQueuing && (
-                    <button
-                      type="button"
-                      onClick={generateAiSpark}
-                      disabled={isAiGenerating}
-                      className="text-white/20 hover:text-indigo-400 transition-colors p-1"
-                    >
-                      <svg className={`w-3.5 h-3.5 ${isAiGenerating ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={generateAiSpark}
+                    disabled={isAiGenerating}
+                    className="p-2 rounded-lg bg-white/5 border border-white/5 text-white/30 hover:text-indigo-400 transition-colors"
+                  >
+                    <svg className={`w-4 h-4 ${isAiGenerating ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </button>
                 </div>
-              </div>
+              )}
               <button
                 id="group-video-send-btn"
                 type="button"

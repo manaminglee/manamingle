@@ -843,43 +843,39 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
                 <div ref={chatEndRef} />
               </div>
 
-              <div className="p-3 border-t border-white/[0.06] flex gap-2 min-w-0">
-                <div className="flex-1 min-w-0 relative">
-                  <input
-                    id="video-chat-input"
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && sendMsg()}
-                    placeholder={isAiGenerating ? 'AI thinking...' : (isConnected ? 'Message...' : 'Connect first')}
-                    disabled={!isConnected || isAiGenerating}
-                    className="chat-input w-full py-2.5 pr-28 sm:pr-32 text-sm"
-                  />
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                    {/* 3D EMOJI BUTTON */}
+              <div className="p-3 border-t border-white/[0.06] flex gap-1.5 sm:gap-2 min-w-0 items-center">
+                <input
+                  id="video-chat-input"
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && sendMsg()}
+                  placeholder={isAiGenerating ? 'AI thinking...' : (isConnected ? 'Message...' : 'Connect first')}
+                  disabled={!isConnected || isAiGenerating}
+                  className="chat-input flex-1 min-w-0 py-2.5 px-4 text-sm"
+                />
+                {isConnected && (
+                  <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="p-2 rounded-lg bg-white/5 border border-white/5 text-white/30 hover:text-emerald-400 transition-colors"
+                      title="Media (10-15 Coins)"
+                    >
+                      📂
+                    </button>
+                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*" onChange={handleMediaUpload} />
                     <div className="relative">
-                      <div className="flex items-center gap-1 border-r border-white/5 pr-1.5 mr-0.5">
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="p-1 text-white/20 hover:text-emerald-400 transition-colors"
-                          title="Media (10-15 Coins)"
-                        >
-                          📂
-                        </button>
-                        <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*" onChange={handleMediaUpload} />
-
-                        <button
-                          type="button"
-                          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                          className="p-1 text-white/20 hover:text-amber-400 transition-colors"
-                          title="3D Emojis (5 Coins)"
-                        >
-                          ✨
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                        className="p-2 rounded-lg bg-white/5 border border-white/5 text-white/30 hover:text-amber-400 transition-colors"
+                        title="3D Emojis (5 Coins)"
+                      >
+                        ✨
+                      </button>
                       {showEmojiPicker && (
-                        <div className="absolute bottom-full right-0 mb-4 p-3 bg-[#151829] border border-white/10 rounded-2xl shadow-2xl w-[180px] grid grid-cols-4 gap-2 animate-slide-in-up z-[50]">
+                        <div className="absolute bottom-full right-0 mb-2 p-3 bg-[#151829] border border-white/10 rounded-2xl shadow-2xl w-[180px] grid grid-cols-4 gap-2 animate-slide-in-up z-[50]">
                           <div className="col-span-4 text-[10px] font-black uppercase tracking-widest text-white/30 mb-1 px-1">3D Emojis (5🪙)</div>
                           {EMOJIS_3D.map(e => (
                             <button
@@ -893,20 +889,19 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
                         </div>
                       )}
                     </div>
-
                     <button
                       type="button"
                       onClick={generateAiSpark}
                       disabled={isAiGenerating}
-                      className="text-white/20 hover:text-indigo-400 transition-colors p-1"
-                      title="AI Spark (Icebreaker)"
+                      className="p-2 rounded-lg bg-white/5 border border-white/5 text-white/30 hover:text-indigo-400 transition-colors"
+                      title="AI Spark"
                     >
-                      <svg className={`w-3.5 h-3.5 ${isAiGenerating ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className={`w-4 h-4 ${isAiGenerating ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                       </svg>
                     </button>
                   </div>
-                </div>
+                )}
                 <button
                   id="video-chat-send-btn"
                   type="button"

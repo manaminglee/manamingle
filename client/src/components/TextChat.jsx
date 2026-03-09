@@ -528,7 +528,7 @@ export function TextChat({ interest = 'general', nickname = 'Anonymous', onBack,
 
         {/* CONTROLS */}
         <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             {/* Main action button */}
             {status === 'idle' && (
               <button
@@ -571,7 +571,7 @@ export function TextChat({ interest = 'general', nickname = 'Anonymous', onBack,
             )}
 
             {/* Message input container */}
-            <div className="flex-1 min-w-0 relative group">
+            <div className="flex-1 min-w-0 flex gap-1.5 sm:gap-2 items-center">
               <input
                 ref={inputRef}
                 id="text-message-input"
@@ -581,35 +581,30 @@ export function TextChat({ interest = 'general', nickname = 'Anonymous', onBack,
                 onKeyDown={(e) => e.key === 'Enter' && sendMsg()}
                 placeholder={isAiGenerating ? 'AI thinking...' : (isConnected ? 'Type a message...' : 'Connect first')}
                 disabled={!isConnected || isAiGenerating}
-                className={`chat-input w-full py-3.5 pr-28 sm:pr-32 transition-all ${isAiGenerating ? 'opacity-50' : ''}`}
+                className={`chat-input flex-1 min-w-0 py-3 px-4 transition-all ${isAiGenerating ? 'opacity-50' : ''}`}
               />
-
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 shrink-0">
-                {/* 3D EMOJI BUTTON */}
-                {isConnected && (
+              {isConnected && (
+                <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-2 sm:p-2.5 rounded-lg bg-white/5 border border-white/5 text-white/30 hover:text-emerald-400 hover:border-emerald-500/30 transition-all"
+                    title="Media (10-15 Coins)"
+                  >
+                    📂
+                  </button>
+                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*" onChange={handleMediaUpload} />
                   <div className="relative">
-                    <div className="flex items-center gap-1 mr-1 border-r border-white/5 pr-1.5">
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="p-1.5 rounded-lg bg-white/5 border border-white/5 text-white/30 hover:text-emerald-400 hover:border-emerald-500/30 transition-all"
-                        title="Media (10-15 Coins)"
-                      >
-                        📂
-                      </button>
-                      <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*" onChange={handleMediaUpload} />
-
-                      <button
-                        type="button"
-                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                        className="p-1.5 rounded-lg bg-white/5 border border-white/5 text-white/30 hover:text-amber-400 hover:border-amber-500/30 transition-all"
-                        title="3D Emojis (5 Coins)"
-                      >
-                        ✨
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                      className="p-2 sm:p-2.5 rounded-lg bg-white/5 border border-white/5 text-white/30 hover:text-amber-400 hover:border-amber-500/30 transition-all"
+                      title="3D Emojis (5 Coins)"
+                    >
+                      ✨
+                    </button>
                     {showEmojiPicker && (
-                      <div className="absolute bottom-full right-0 mb-4 p-3 bg-[#151829] border border-white/10 rounded-2xl shadow-2xl w-[180px] grid grid-cols-4 gap-2 animate-slide-in-up z-[50]">
+                      <div className="absolute bottom-full right-0 mb-2 p-3 bg-[#151829] border border-white/10 rounded-2xl shadow-2xl w-[180px] grid grid-cols-4 gap-2 animate-slide-in-up z-[50]">
                         <div className="col-span-4 text-[10px] font-black uppercase tracking-widest text-white/30 mb-1 px-1">3D Emojis (5🪙)</div>
                         {EMOJIS_3D.map(e => (
                           <button
@@ -623,15 +618,11 @@ export function TextChat({ interest = 'general', nickname = 'Anonymous', onBack,
                       </div>
                     )}
                   </div>
-                )}
-
-                {/* AI SPARK BUTTON */}
-                {isConnected && (
                   <button
                     type="button"
                     onClick={generateAiSpark}
                     disabled={isAiGenerating}
-                    className={`p-1.5 rounded-lg transition-all border ${isAiGenerating
+                    className={`p-2 sm:p-2.5 rounded-lg transition-all border shrink-0 ${isAiGenerating
                       ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-400'
                       : 'bg-white/5 border-white/5 text-white/30 hover:border-indigo-500/30 hover:text-indigo-400 hover:bg-indigo-500/10'
                       }`}
@@ -640,8 +631,8 @@ export function TextChat({ interest = 'general', nickname = 'Anonymous', onBack,
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
                   </button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
             {/* Send button */}
