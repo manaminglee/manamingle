@@ -77,7 +77,7 @@ export function AgeVerificationGate({ onVerified }) {
 
         <div className="flex justify-center mb-6">
           <Turnstile
-            siteKey={turnstileSiteKey}
+            sitekey={turnstileSiteKey}
             onVerify={handleTurnstileVerify}
             onError={handleTurnstileError}
             onExpire={handleTurnstileError}
