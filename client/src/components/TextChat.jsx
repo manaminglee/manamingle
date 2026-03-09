@@ -57,6 +57,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
   const [isTranslatorActive, setIsTranslatorActive] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [active3dEmoji, setActive3dEmoji] = useState(null);
+  const [mutedStranger, setMutedStranger] = useState(false);
   const roomIdRef = useRef(null);
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -408,17 +409,37 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
                   <p className="text-xs" style={{ color: 'rgba(232,234,246,0.4)' }}>Anonymous · No identity shared</p>
                 </div>
               </div>
-              <button
-                id="report-text-btn"
-                type="button"
-                onClick={() => {
-                  if (socket) socket.emit('report-user', { reason: 'Inappropriate Behavior (Text)' });
-                  alert('User reported. Our Trust & Safety team has been notified and the IP logged.');
-                }}
-                className="text-xs px-3 py-1.5 rounded-lg border border-red-500/20 text-red-400/60 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/40 transition"
-              >
-                Report
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMutedStranger((m) => !m)}
+                  className={`text-xs px-3 py-1.5 rounded-lg border transition ${mutedStranger ? 'border-amber-500/40 text-amber-400 bg-amber-500/10' : 'border-white/10 text-white/60 hover:bg-white/5'}`}
+                >
+                  {mutedStranger ? 'Unmute' : 'Mute'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (socket) socket.emit('block-user', { targetSocketId: peer?.socketId });
+                    handleSkip();
+                    alert('User blocked. Finding someone new...');
+                  }}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-rose-500/20 text-rose-400/80 hover:bg-rose-500/10 transition"
+                >
+                  Block
+                </button>
+                <button
+                  id="report-text-btn"
+                  type="button"
+                  onClick={() => {
+                    if (socket) socket.emit('report-user', { reason: 'Inappropriate Behavior (Text)' });
+                    alert('User reported. Our Trust & Safety team has been notified.');
+                  }}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-red-500/20 text-red-400/60 hover:bg-red-500/10 hover:text-red-400 transition"
+                >
+                  Report
+                </button>
+              </div>
             </div>
           )}
 
@@ -500,6 +521,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
               )}
               {messages.map((m, i) => {
                 const isMe = isFromMe(m);
+                if (mutedStranger && !isMe && !m.system) return null;
                 const showTime = i === 0 || messages[i - 1]?.nickname !== m.nickname;
                 return (
                   <div key={m.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-message-pop`}>

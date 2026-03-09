@@ -198,13 +198,15 @@ export function AdminDashboard() {
         </header>
 
         {/* Analytics Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-8 md:grid-cols-4 gap-4 mb-10">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-10">
           {[
             { label: 'Active Users', value: stats?.users || 0, color: 'text-indigo-400' },
             { label: 'Active Rooms', value: stats?.rooms || 0, color: 'text-purple-400' },
             { label: 'Total Msgs', value: stats?.stats?.totalMessages || 0, color: 'text-emerald-400' },
-            { label: 'WebRTC Queue', value: (stats?.queues?.text || 0) + (stats?.queues?.video || 0), color: 'text-teal-400' },
-            { label: 'Total Conns', value: stats?.stats?.totalConnections || 0, color: 'text-blue-400' },
+            { label: 'Queue', value: (stats?.queues?.text || 0) + (stats?.queues?.video || 0), color: 'text-teal-400' },
+            { label: 'Open Reports', value: stats?.openReportsCount || 0, color: 'text-rose-400' },
+            { label: 'Uptime (min)', value: Math.floor((stats?.stats?.uptimeSeconds || 0) / 60), color: 'text-blue-400' },
+            { label: 'Total Conns', value: stats?.stats?.totalConnections || 0, color: 'text-cyan-400' },
             { label: 'Unique IPs', value: stats?.stats?.uniqueIps || 0, color: 'text-rose-400' },
             { label: 'Coin Wallets', value: stats?.coinStats?.totalUsers || 0, color: 'text-amber-400' },
             { label: 'System Coins', value: stats?.coinStats?.totalCoinsInSystem || 0, color: 'text-orange-400' },

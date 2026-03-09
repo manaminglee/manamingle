@@ -1,0 +1,22 @@
+{
+  "name": "Mana Mingle – Anonymous Video Chat",
+  "short_name": "Mana Mingle",
+  "description": "Free anonymous video and text chat. Connect with strangers instantly.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#070811",
+  "theme_color": "#000000",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

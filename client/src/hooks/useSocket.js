@@ -8,6 +8,7 @@ export function useSocket() {
   const [country, setCountry] = useState(null);
   const [onlineCount, setOnlineCount] = useState(0);
   const [adsEnabled, setAdsEnabled] = useState(false);
+  const [contentFlagged, setContentFlagged] = useState(null);
 
   const [isBlocked, setIsBlocked] = useState(false);
 
@@ -25,6 +26,10 @@ export function useSocket() {
       s.on('connected', (data) => setCountry(data?.country || null));
       s.on('online_count', (data) => setOnlineCount(data?.count ?? 0));
       s.on('blocked-ip', () => setIsBlocked(true));
+      s.on('content-flagged', (data) => {
+        setContentFlagged(data?.message || 'Your content was flagged for review. Please follow community guidelines.');
+        setTimeout(() => setContentFlagged(null), 6000);
+      });
       s.on('settings_updated', (data) => {
         if (data && typeof data.adsEnabled !== 'undefined') {
           setAdsEnabled(!!data.adsEnabled);
@@ -63,5 +68,5 @@ export function useSocket() {
     };
   }, [apiBase]);
 
-  return { socket, connected, country, onlineCount, adsEnabled, isBlocked };
+  return { socket, connected, country, onlineCount, adsEnabled, isBlocked, contentFlagged };
 }

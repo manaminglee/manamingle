@@ -21,7 +21,7 @@ export default function App() {
   const [roomId, setRoomId] = useState(null);
   const [preloadDone, setPreloadDone] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
-  const { socket, connected, country, onlineCount, adsEnabled, isBlocked } = useSocket();
+  const { socket, connected, country, onlineCount, adsEnabled, isBlocked, contentFlagged } = useSocket();
   const coinState = useCoins();
 
   const handlePreloadReady = useCallback(() => setPreloadDone(true), []);
@@ -224,6 +224,11 @@ export default function App() {
         <PreloadSplash ready={connected} onReady={handlePreloadReady} />
       )}
       {renderContent()}
+      {contentFlagged && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] px-6 py-3 rounded-xl bg-amber-500/90 text-black font-semibold text-sm shadow-xl animate-fade-in-up max-w-md text-center">
+          ⚠️ {contentFlagged}
+        </div>
+      )}
     </>
   );
 }

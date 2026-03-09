@@ -76,6 +76,8 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   const [status, setStatus] = useState('idle'); // idle | searching | connected | disconnected
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
+  const [mutedStranger, setMutedStranger] = useState(false);
+  const [lowBandwidth, setLowBandwidth] = useState(false);
   const [showChat, setShowChat] = useState(true);
   const [localStream, setLocalStream] = useState(null);
   const latency = useLatency();
@@ -119,6 +121,16 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       if (s) s.getTracks().forEach((t) => t.stop());
     };
   }, []);
+
+  // Apply quality constraints when lowBandwidth toggles
+  useEffect(() => {
+    const stream = localStreamRef.current;
+    if (!stream) return;
+    const vt = stream.getVideoTracks()[0];
+    if (!vt) return;
+    const c = lowBandwidth ? { width: 640, height: 480, frameRate: 15 } : { width: 1280, height: 720 };
+    vt.applyConstraints(c).catch(() => {});
+  }, [lowBandwidth]);
 
   useEffect(() => {
     if (localVideoRef.current && localStream) localVideoRef.current.srcObject = localStream;
@@ -656,7 +668,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                   <div className="flex-1 min-h-0 min-w-0 relative rounded-xl overflow-hidden bg-black/80 border border-white/10" style={{ flex: '1 1 50%' }}>
                     {peer?.stream ? (
                       <>
-                        <VideoEl stream={peer.stream} mirror className="absolute inset-0" />
+                        <VideoEl stream={peer.stream} mirror muted={mutedStranger} className="absolute inset-0" />
                         <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black/70 to-transparent" />
                         <div className="absolute bottom-2 left-3 flex items-center gap-2">
                           <div className="live-dot" style={{ width: 6, height: 6 }} />
@@ -664,19 +676,50 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                             {countryToFlag(peer?.country)} Stranger
                           </span>
                         </div>
-                        <button
-                          id="video-report-btn"
-                          type="button"
-                          onClick={() => {
-                            if (socket) socket.emit('report-user', { reason: 'Inappropriate Behavior (Video)' });
-                            alert('User reported. Our Trust & Safety team has been notified and the IP logged.');
-                          }}
-                          className="report-btn"
-                        >
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
-                          </svg>
-                        </button>
+                        <div className="absolute top-2 right-2 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setMutedStranger((m) => !m)}
+                            className={`report-btn ${mutedStranger ? 'bg-amber-500/30' : ''}`}
+                            title={mutedStranger ? 'Unmute stranger' : 'Mute stranger'}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              {mutedStranger ? (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                              ) : (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                              )}
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (socket) socket.emit('block-user', { targetSocketId: peer?.socketId });
+                              handleSkip();
+                              alert('User blocked. You won\'t be matched with them again.');
+                            }}
+                            className="report-btn"
+                            title="Block user"
+                          >
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                            </svg>
+                          </button>
+                          <button
+                            id="video-report-btn"
+                            type="button"
+                            onClick={() => {
+                              if (socket) socket.emit('report-user', { reason: 'Inappropriate Behavior (Video)' });
+                              alert('User reported. Our Trust & Safety team has been notified.');
+                            }}
+                            className="report-btn"
+                            title="Report only"
+                          >
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+                            </svg>
+                          </button>
+                        </div>
                       </>
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center flex-col gap-2">
@@ -748,6 +791,16 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                     )}
                   </button>
 
+                  <button
+                    type="button"
+                    onClick={() => setLowBandwidth((b) => !b)}
+                    className={`btn btn-icon ${lowBandwidth ? 'bg-teal-500/20' : ''}`}
+                    title={lowBandwidth ? 'High quality' : 'Low bandwidth (data saver)'}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </button>
                   <button
                     id="video-cam-btn"
                     type="button"

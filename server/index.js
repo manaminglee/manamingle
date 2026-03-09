@@ -57,6 +57,7 @@ const pairQueues = { text: [], video: [] };
 
 // Admin & Safety State
 const blockedIps = new Set();
+const userBlocks = new Map(); // ip -> Set of blocked IPs (user-level block list)
 const reports = [];
 const stats = { totalMessages: 0, totalConnections: 0, uniqueIps: new Set() };
 const coinUsers = new Map(); // ip -> { coins: 0, lastClaim: 0, streak: 0, lastClaimDate: null }
@@ -240,11 +241,13 @@ app.get('/api/admin/overview', requireAdmin, (req, res) => {
     userList,
     coinStats,
     reports,
+    openReportsCount: reports.length,
     blockedIps: Array.from(blockedIps),
     stats: {
       totalMessages: stats.totalMessages,
       totalConnections: stats.totalConnections,
       uniqueIps: stats.uniqueIps.size,
+      uptimeSeconds: Math.floor(process.uptime()),
     }
   });
 });
@@ -309,6 +312,19 @@ app.post('/api/admin/announcement', requireAdmin, (req, res) => {
   res.json({ success: true });
 });
 
+app.post('/api/admin/content-flagged', requireAdmin, (req, res) => {
+  const { ip, message } = req.body || {};
+  if (!ip) return res.status(400).json({ error: 'IP required' });
+  let count = 0;
+  for (const [socketId, user] of users.entries()) {
+    if (user.ip === ip) {
+      io.to(socketId).emit('content-flagged', { message: message || 'Your content was flagged for review. Please follow community guidelines.' });
+      count++;
+    }
+  }
+  res.json({ success: true, notified: count });
+});
+
 app.post('/api/admin/killswitch', requireAdmin, (req, res) => {
   let kickCount = 0;
   for (const [socketId] of users.entries()) {
@@ -321,6 +337,7 @@ app.post('/api/admin/killswitch', requireAdmin, (req, res) => {
   rooms.clear();
   interestToRoom.clear();
   users.clear();
+  userBlocks.clear();
   io.emit('online_count', { count: 0 }); // Update anyone reconnecting
   res.json({ success: true, kicked: kickCount });
 });
@@ -612,6 +629,31 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('block-user', (data) => {
+    let targetIp = null;
+    if (data?.targetSocketId) {
+      const u = users.get(data.targetSocketId);
+      if (u) targetIp = u.ip;
+    }
+    if (!targetIp) {
+      for (const [, room] of rooms) {
+        if (room.users.has(socket.id)) {
+          for (const pt of room.participants) {
+            if (pt.socketId !== socket.id) {
+              const opp = users.get(pt.socketId);
+              if (opp) { targetIp = opp.ip; break; }
+            }
+          }
+          if (targetIp) break;
+        }
+      }
+    }
+    if (targetIp && targetIp !== ip) {
+      if (!userBlocks.has(ip)) userBlocks.set(ip, new Set());
+      userBlocks.get(ip).add(targetIp);
+    }
+  });
+
   // Find partner for 1:1 text or video
   socket.on('find-partner', (data) => {
     const userData = users.get(socket.id);
@@ -621,9 +663,18 @@ io.on('connection', (socket) => {
     const nickname = sanitize(data?.nickname || 'Anonymous', 30);
     userData.nickname = nickname;
 
+    const myBlocks = userBlocks.get(ip);
+    const canMatch = (e) => {
+      if (e.socketId === socket.id) return false;
+      const otherIp = users.get(e.socketId)?.ip;
+      if (!otherIp || blockedIps.has(otherIp)) return false;
+      if (myBlocks && myBlocks.has(otherIp)) return false;
+      if (userBlocks.get(otherIp)?.has(ip)) return false;
+      return true;
+    };
     const queue = pairQueues[mode];
-    let match = queue.find((e) => e.interest === interest && e.socketId !== socket.id);
-    if (!match) match = queue.find((e) => e.socketId !== socket.id);
+    let match = queue.find((e) => e.interest === interest && canMatch(e));
+    if (!match) match = queue.find(canMatch);
     if (match) {
       const idx = queue.indexOf(match);
       queue.splice(idx, 1);
@@ -664,9 +715,24 @@ io.on('connection', (socket) => {
     const nickname = sanitize(data?.nickname || 'Anonymous', 30);
     userData.nickname = nickname;
 
+    const myBlocks = userBlocks.get(ip);
+    const canJoinRoom = (r) => {
+      for (const p of r.participants) {
+        const otherIp = users.get(p.socketId)?.ip;
+        if (!otherIp || blockedIps.has(otherIp)) return false;
+        if (myBlocks && myBlocks.has(otherIp)) return false;
+        if (userBlocks.get(otherIp)?.has(ip)) return false;
+      }
+      return true;
+    };
+
     const key = interestKey(interest, mode);
     let room = getRoomByInterestKey(key);
-    if (!room) room = getAnyRoomByMode(mode);
+    if (room && !canJoinRoom(room)) room = null;
+    if (!room) {
+      room = getAnyRoomByMode(mode);
+      if (room && !canJoinRoom(room)) room = null;
+    }
     if (!room) {
       room = createRoom(interest, mode, socket.id, { id: userData.id, nickname: userData.nickname, country: userData.country });
     } else {
