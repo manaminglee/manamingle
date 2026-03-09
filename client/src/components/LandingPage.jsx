@@ -104,7 +104,8 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
     if (isSuggesting) return;
     setIsSuggesting(true);
     try {
-      const res = await fetch('/api/ai/suggest', { method: 'POST' });
+      const apiBase = import.meta.env.VITE_SOCKET_URL || '';
+      const res = await fetch(`${apiBase}/api/ai/suggest`, { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
         setSuggestedInterests(data.suggestions);

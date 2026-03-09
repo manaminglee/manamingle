@@ -68,7 +68,8 @@ export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nick
     if (isAiGenerating) return;
     setIsAiGenerating(true);
     try {
-      const res = await fetch('/api/ai/spark', {
+      const apiBase = import.meta.env.VITE_SOCKET_URL || '';
+      const res = await fetch(`${apiBase}/api/ai/spark`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ interest: displayInterest })
@@ -215,7 +216,8 @@ export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nick
     const target = untranslated[untranslated.length - 1];
     const translateMsg = async () => {
       try {
-        const res = await fetch('/api/ai/translate', {
+        const apiBase = import.meta.env.VITE_SOCKET_URL || '';
+        const res = await fetch(`${apiBase}/api/ai/translate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: target.text, to: 'English' })

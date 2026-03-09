@@ -210,7 +210,8 @@ export function TextChat({ interest = 'general', nickname = 'Anonymous', onBack,
       const targetId = toTranslate.id || messages.indexOf(toTranslate);
       setMessages(prev => prev.map(m => (m.id === toTranslate.id || prev.indexOf(m) === targetId) ? { ...m, translating: true } : m));
 
-      fetch('/api/ai/translate', {
+      const apiBase = import.meta.env.VITE_SOCKET_URL || '';
+      fetch(`${apiBase}/api/ai/translate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: toTranslate.text })
@@ -280,7 +281,8 @@ export function TextChat({ interest = 'general', nickname = 'Anonymous', onBack,
     setIsAiGenerating(true);
 
     try {
-      const res = await fetch('/api/ai/spark', {
+      const apiBase = import.meta.env.VITE_SOCKET_URL || '';
+      const res = await fetch(`${apiBase}/api/ai/spark`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ interest })
