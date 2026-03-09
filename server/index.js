@@ -336,6 +336,12 @@ app.get('/health', (req, res) => {
 });
 
 // API TURN/ICE (optional TURN later)
+function normalizeTurnUrl(url) {
+  if (!url || typeof url !== 'string') return 'turn:global.relay.metered.ca:443';
+  const s = url.trim();
+  if (s.startsWith('stun:') || s.startsWith('turn:') || s.startsWith('turns:')) return s;
+  return `turn:${s}`;
+}
 app.get('/api/turn', (req, res) => {
   const iceServers = [
     { urls: 'stun:stun.l.google.com:19302' },
@@ -343,7 +349,7 @@ app.get('/api/turn', (req, res) => {
   ];
   if (process.env.TURN_USERNAME && process.env.TURN_PASSWORD) {
     iceServers.push({
-      urls: process.env.TURN_URL || 'turn:global.relay.metered.ca:443',
+      urls: normalizeTurnUrl(process.env.TURN_URL || 'turn:global.relay.metered.ca:443'),
       username: process.env.TURN_USERNAME,
       credential: process.env.TURN_PASSWORD,
     });
