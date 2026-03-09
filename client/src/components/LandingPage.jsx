@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Turnstile } from 'react-turnstile';
 import { useSocket } from '../hooks/useSocket';
 import { useLatency } from '../hooks/useLatency';
 
@@ -74,10 +75,22 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
     setAgeVerified(true);
   };
 
-  const handleRobotConfirm = (checked) => {
-    if (checked) {
-      sessionStorage.setItem('wc_bot', '1');
-      setRobotVerified(true);
+  const apiBase = import.meta.env.VITE_SOCKET_URL || '';
+
+  const handleTurnstileVerify = async (token, turnstile) => {
+    try {
+      const res = await fetch(`${apiBase}/api/verify-turnstile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        sessionStorage.setItem('wc_bot', '1');
+        setRobotVerified(true);
+      } else if (turnstile?.reset) turnstile.reset();
+    } catch (e) {
+      if (turnstile?.reset) turnstile.reset();
     }
   };
 
@@ -166,44 +179,32 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
     );
   }
 
-  // === BOT GATE ===
+  // === BOT GATE (Cloudflare Turnstile) ===
+  const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY;
   if (!robotVerified) {
     return (
       <div className="min-h-screen bg-[#070811] flex items-center justify-center p-6 relative overflow-hidden">
         <div className="hero-glow hero-glow-1" />
         <div className="gate-card relative z-10">
           <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-teal-500/30 to-cyan-500/20 border border-teal-500/30 flex items-center justify-center text-3xl">
-            🤖
+            🔒
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">Human Check</h2>
-          <p className="text-sm mb-7" style={{ color: 'rgba(232,234,246,0.55)' }}>
-            Please verify you're human before entering.
+          <h2 className="text-2xl font-bold text-white mb-2">Security Check</h2>
+          <p className="text-sm mb-6" style={{ color: 'rgba(232,234,246,0.55)' }}>
+            Verify you're human to continue.
           </p>
-          <label className="flex items-center gap-4 cursor-pointer p-4 rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.07] transition group">
-            <div className="w-6 h-6 rounded-md border-2 border-indigo-500/60 flex items-center justify-center bg-indigo-500/10 flex-shrink-0">
-              <input
-                id="robot-check"
-                type="checkbox"
-                onChange={(e) => handleRobotConfirm(e.target.checked)}
-                className="sr-only"
+          {turnstileSiteKey ? (
+            <div className="flex justify-center">
+              <Turnstile
+                siteKey={turnstileSiteKey}
+                onVerify={handleTurnstileVerify}
+                theme="dark"
+                size="normal"
               />
             </div>
-            <span className="text-base font-medium text-white/80">I'm not a robot</span>
-          </label>
-          <div
-            className="flex items-center gap-4 cursor-pointer p-4 rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.07] transition mt-3"
-            onClick={() => handleRobotConfirm(true)}
-            onKeyDown={(e) => e.key === 'Enter' && handleRobotConfirm(true)}
-            tabIndex={0}
-            role="button"
-          >
-            <div className="w-6 h-6 rounded-md bg-indigo-500 flex items-center justify-center flex-shrink-0">
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <span className="text-base font-medium text-white">Confirm &amp; Continue</span>
-          </div>
+          ) : (
+            <p className="text-amber-400/80 text-sm">Turnstile not configured. Set VITE_TURNSTILE_SITE_KEY.</p>
+          )}
         </div>
       </div>
     );
