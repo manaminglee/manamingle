@@ -124,7 +124,7 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
 
   useEffect(() => {
     if (localVideoRef.current && localStream) localVideoRef.current.srcObject = localStream;
-  }, [localStream]);
+  }, [localStream, status]);
 
   const clearRoom = useCallback(() => {
     peerConnectionsRef.current.forEach((pc) => pc.close());
@@ -651,14 +651,14 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
                 </div>
               )}
 
-              {/* CONNECTED — two panels: remote (top), local (bottom) */}
+              {/* CONNECTED — two panels: remote (top), local (bottom), same ratio */}
               {status === 'connected' && (
                 <div className="flex-1 flex flex-col gap-2 min-h-0">
                   {/* Remote video panel (top) */}
-                  <div className="flex-1 min-h-[120px] relative rounded-xl overflow-hidden bg-black/80 border border-white/10">
+                  <div className="flex-1 min-h-0 min-w-0 relative rounded-xl overflow-hidden bg-black/80 border border-white/10" style={{ flex: '1 1 50%' }}>
                     {peer?.stream ? (
                       <>
-                        <VideoEl stream={peer.stream} className="absolute inset-0" />
+                        <VideoEl stream={peer.stream} mirror className="absolute inset-0" />
                         <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black/70 to-transparent" />
                         <div className="absolute bottom-2 left-3 flex items-center gap-2">
                           <div className="live-dot" style={{ width: 6, height: 6 }} />
@@ -689,7 +689,7 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
                     )}
                   </div>
                   {/* Local video panel (bottom) */}
-                  <div className="h-28 sm:h-36 flex-shrink-0 relative rounded-xl overflow-hidden border border-white/20 bg-black">
+                  <div className="flex-1 min-h-0 min-w-0 relative rounded-xl overflow-hidden border border-white/20 bg-black" style={{ flex: '1 1 50%' }}>
                     <video
                       ref={localVideoRef}
                       autoPlay

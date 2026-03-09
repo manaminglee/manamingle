@@ -66,6 +66,14 @@ export function TextChat({ interest = 'general', nickname = 'Anonymous', onBack,
 
   const isConnected = !!peer && !!roomId;
 
+  const isFromMe = (m) => {
+    if (!m) return false;
+    if (socket && m.socketId) return m.socketId === socket.id;
+    if (typeof m.fromSelf === 'boolean') return m.fromSelf;
+    if (m.nickname && nickname) return m.nickname === nickname;
+    return false;
+  };
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -190,8 +198,14 @@ export function TextChat({ interest = 'general', nickname = 'Anonymous', onBack,
   useEffect(() => {
     if (!isTranslatorActive) return;
 
-    // Find last 3 messages from stranger that aren't translated yet
-    const toTranslate = messages.find(m => (m.nickname !== 'Anonymous' && !m.fromSelf) && !m.translated && !m.translating);
+    // Find messages from stranger that aren't translated yet
+    const toTranslate = messages.find(m =>
+      !m.system &&
+      !m.media &&
+      !isFromMe(m) &&
+      !m.translated &&
+      !m.translating
+    );
     if (toTranslate) {
       const targetId = toTranslate.id || messages.indexOf(toTranslate);
       setMessages(prev => prev.map(m => (m.id === toTranslate.id || prev.indexOf(m) === targetId) ? { ...m, translating: true } : m));
@@ -466,9 +480,14 @@ export function TextChat({ interest = 'general', nickname = 'Anonymous', onBack,
               </div>
               {/* Show last messages fadeout */}
               <div className="w-full max-w-sm space-y-2 opacity-40">
-                {messages.slice(-2).map((m) => (
-                  <div key={m.id}><div className={`msg-bubble ${m.nickname === 'Anonymous' ? 'me' : 'them'}`}>{m.text}</div></div>
-                ))}
+                {messages.slice(-2).map((m) => {
+                  const isMe = isFromMe(m);
+                  return (
+                    <div key={m.id}>
+                      <div className={`msg-bubble ${isMe ? 'me' : 'them'}`}>{m.text}</div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -480,7 +499,7 @@ export function TextChat({ interest = 'general', nickname = 'Anonymous', onBack,
                 <div className="sys-msg">Say hello! The conversation just started 👋</div>
               )}
               {messages.map((m, i) => {
-                const isMe = m.nickname === 'Anonymous' || m.fromSelf;
+                const isMe = isFromMe(m);
                 const showTime = i === 0 || messages[i - 1]?.nickname !== m.nickname;
                 return (
                   <div key={m.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-message-pop`}>

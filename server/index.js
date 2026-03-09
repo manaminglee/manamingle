@@ -731,7 +731,13 @@ io.on('connection', (socket) => {
     const msg = sanitize(String(text || ''), 500);
     if (!msg) return;
     stats.totalMessages++;
-    const entry = { id: generateId('msg'), nickname: userData.nickname, text: msg, ts: Date.now() };
+    const entry = {
+      id: generateId('msg'),
+      nickname: userData.nickname,
+      text: msg,
+      ts: Date.now(),
+      socketId: socket.id,
+    };
     room.messages = room.messages || [];
     room.messages.push(entry);
     if (room.messages.length > 100) room.messages = room.messages.slice(-MESSAGE_HISTORY);

@@ -135,6 +135,9 @@ export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nick
     socket.on('group-joined', onGroupJoined);
     socket.on('existing-peers', onExistingPeers);
     socket.on('chat-history', onHistory);
+    socket.on('chat-message', onMsg);
+    socket.on('user-joined', onUserJoined);
+    socket.on('user-left', onUserLeft);
     socket.on('system-announcement', onSystemMsg);
 
     return () => {
