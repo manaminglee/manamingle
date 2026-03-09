@@ -98,8 +98,11 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
   const [icebreaker] = useState(() => ICEBREAKERS[Math.floor(Math.random() * ICEBREAKERS.length)]);
   const localVideoRef = useRef(null);
   const localStreamRef = useRef(null);
+  const [localStreamReady, setLocalStreamReady] = useState(false);
   const peerConnectionsRef = useRef(new Map());
   const pendingCandidatesRef = useRef(new Map());
+  const pendingPeersRef = useRef([]);
+  const pendingOffersRef = useRef([]);
   const peerNicksRef = useRef(new Map());
   const peerCountriesRef = useRef(new Map());
   const hasJoinedRef = useRef(false);
@@ -111,15 +114,28 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-  // Camera + Mic setup
+  // Process pending peers/offers once local stream is ready
+  useEffect(() => {
+    if (!localStreamReady || !socket) return;
+    const pend = pendingPeersRef.current.splice(0);
+    pend.forEach((sid) => doOffer(sid));
+    const offs = pendingOffersRef.current.splice(0);
+    offs.forEach(({ from, signal }) => doAnswer(from, signal));
+  }, [localStreamReady, socket]);
+
+  // Camera + Mic setup – must complete before WebRTC signaling
   useEffect(() => {
     let s = null;
     (async () => {
       try {
         s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         localStreamRef.current = s;
+        setLocalStreamReady(true);
         if (localVideoRef.current) localVideoRef.current.srcObject = s;
-      } catch (err) { console.error('getUserMedia error:', err); }
+      } catch (err) {
+        console.error('getUserMedia error:', err);
+        setLocalStreamReady(true);
+      }
     })();
     return () => { if (s) s.getTracks().forEach((t) => t.stop()); };
   }, []);
@@ -261,11 +277,16 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
     const onExistingPeers = (data) => {
       if (data.roomId) roomIdRef.current = data.roomId;
       setParticipantCount((data.peers?.length || 0) + 1);
-      (data.peers || []).forEach((p) => {
+      const peerList = data.peers || [];
+      peerList.forEach((p) => {
         if (p.nickname) peerNicksRef.current.set(p.socketId, p.nickname);
         if (p.country) peerCountriesRef.current.set(p.socketId, p.country);
-        doOffer(p.socketId);
       });
+      if (localStreamRef.current) {
+        peerList.forEach((p) => doOffer(p.socketId));
+      } else {
+        pendingPeersRef.current.push(...peerList.map((p) => p.socketId));
+      }
     };
 
     const onHistory = (data) => {
@@ -281,6 +302,11 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
       if (data.nickname) peerNicksRef.current.set(data.socketId, data.nickname);
       if (data.country) peerCountriesRef.current.set(data.socketId, data.country);
       setMessages((m) => [...m, { id: `sys-${Date.now()}`, system: true, text: `${data.nickname || 'A stranger'} joined 👋` }]);
+      if (localStreamRef.current) {
+        doOffer(data.socketId);
+      } else {
+        pendingPeersRef.current.push(data.socketId);
+      }
     };
 
     const onUserLeft = (data) => {
@@ -300,8 +326,13 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
       if (!from || from === socket.id) return;
       if (data.fromNickname) peerNicksRef.current.set(from, data.fromNickname);
       if (data.fromCountry) peerCountriesRef.current.set(from, data.fromCountry);
-      if (data.type === 'offer') doAnswer(from, data.signal);
-      else if (data.type === 'answer') {
+      if (data.type === 'offer') {
+        if (localStreamRef.current) {
+          doAnswer(from, data.signal);
+        } else {
+          pendingOffersRef.current.push({ from, signal: data.signal });
+        }
+      } else if (data.type === 'answer') {
         const pc = peerConnectionsRef.current.get(from);
         pc?.setRemoteDescription(new RTCSessionDescription(data.signal));
       } else if (data.type === 'ice-candidate' && data.signal) addIce(from, data.signal);
@@ -565,6 +596,15 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
                       playsInline
                       className={`w-full h-full object-cover ${cameraOff ? 'opacity-20' : ''}`}
                     />
+                    {!localStreamReady && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[#0c0e1a]">
+                        <div className="relative w-12 h-12">
+                          <div className="radar-ring absolute inset-0" />
+                          <div className="absolute inset-2 rounded-full bg-indigo-500/20 flex items-center justify-center text-lg">📹</div>
+                        </div>
+                        <p className="text-xs" style={{ color: 'rgba(232,234,246,0.5)' }}>Starting camera...</p>
+                      </div>
+                    )}
                     {cameraOff && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/60">
                         <svg className="w-8 h-8 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
