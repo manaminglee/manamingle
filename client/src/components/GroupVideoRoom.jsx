@@ -172,9 +172,11 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
     pc.ontrack = (e) => {
       const nick = peerNicksRef.current.get(remoteId) || 'Stranger';
       const ctry = peerCountriesRef.current.get(remoteId);
+      const stream = e.streams?.[0] || (e.track ? new MediaStream([e.track]) : null);
+      if (!stream) return;
       setPeers((prev) => {
         const filtered = prev.filter((p) => p.socketId !== remoteId);
-        return [...filtered, { socketId: remoteId, stream: e.streams[0], nickname: nick, country: ctry }];
+        return [...filtered, { socketId: remoteId, stream, nickname: nick, country: ctry }];
       });
     };
 
@@ -218,18 +220,25 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
 
   const addIce = async (remoteId, candidate) => {
     const pc = peerConnectionsRef.current.get(remoteId);
+    const pend = pendingCandidatesRef.current.get(remoteId) || [];
     if (!pc) {
-      const pend = pendingCandidatesRef.current.get(remoteId) || [];
       pend.push(candidate);
       pendingCandidatesRef.current.set(remoteId, pend);
       return;
     }
-    try {
-      await pc.addIceCandidate(new RTCIceCandidate(candidate));
-      const pend = pendingCandidatesRef.current.get(remoteId) || [];
-      for (const c of pend) await pc.addIceCandidate(new RTCIceCandidate(c));
-      pendingCandidatesRef.current.set(remoteId, []);
-    } catch (err) { /* ignore */ }
+    const add = async (c) => {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(c));
+        return true;
+      } catch { return false; }
+    };
+    if (!(await add(candidate))) {
+      pend.push(candidate);
+      pendingCandidatesRef.current.set(remoteId, pend);
+      return;
+    }
+    for (const c of pend) await add(c);
+    pendingCandidatesRef.current.set(remoteId, []);
   };
 
   const sendMessage = () => {
@@ -334,7 +343,17 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
         }
       } else if (data.type === 'answer') {
         const pc = peerConnectionsRef.current.get(from);
-        pc?.setRemoteDescription(new RTCSessionDescription(data.signal));
+        if (pc) {
+          try {
+            pc.setRemoteDescription(new RTCSessionDescription(data.signal)).then(() => {
+              const pend = pendingCandidatesRef.current.get(from) || [];
+              pend.forEach((c) => {
+                pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
+              });
+              pendingCandidatesRef.current.set(from, []);
+            });
+          } catch (err) { console.error('setRemoteDescription err', err); }
+        }
       } else if (data.type === 'ice-candidate' && data.signal) addIce(from, data.signal);
     };
 

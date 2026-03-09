@@ -92,6 +92,8 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
   const localStreamRef = useRef(null);
   const peerConnectionsRef = useRef(new Map());
   const pendingCandidatesRef = useRef(new Map());
+  const pendingOfferRef = useRef(null);
+  const pendingAnswerRef = useRef(null);
   const peerInfoRef = useRef(new Map());
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -128,12 +130,29 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
     peerConnectionsRef.current.forEach((pc) => pc.close());
     peerConnectionsRef.current.clear();
     pendingCandidatesRef.current.clear();
+    pendingOfferRef.current = null;
+    pendingAnswerRef.current = null;
     peerInfoRef.current.clear();
     setPeer(null);
     setRoomId(null);
     setMessages([]);
     roomIdRef.current = null;
   }, []);
+
+  // Send offer/answer once local stream is ready (fixes race when signaling before getUserMedia)
+  useEffect(() => {
+    if (!localStream) return;
+    const po = pendingOfferRef.current;
+    if (po && roomIdRef.current && peer?.socketId === po) {
+      pendingOfferRef.current = null;
+      doOffer(po);
+    }
+    const pa = pendingAnswerRef.current;
+    if (pa) {
+      pendingAnswerRef.current = null;
+      doAnswer(pa.from, pa.signal);
+    }
+  }, [localStream, peer?.socketId, doOffer, doAnswer]);
 
   const createPeerConnection = useCallback((remoteId) => {
     if (peerConnectionsRef.current.has(remoteId)) return peerConnectionsRef.current.get(remoteId);
@@ -152,7 +171,9 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
 
     pc.ontrack = (e) => {
       const info = peerInfoRef.current.get(remoteId) || {};
-      setPeer((prev) => ({ ...(prev || {}), socketId: remoteId, stream: e.streams[0], nickname: info.nickname || prev?.nickname, country: info.country || prev?.country }));
+      const stream = e.streams?.[0] || (e.track ? new MediaStream([e.track]) : null);
+      if (!stream) return;
+      setPeer((prev) => ({ ...(prev || {}), socketId: remoteId, stream, nickname: info.nickname || prev?.nickname, country: info.country || prev?.country }));
     };
 
     pc.oniceconnectionstatechange = () => {
@@ -195,18 +216,28 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
 
   const addIce = useCallback(async (remoteId, candidate) => {
     const pc = peerConnectionsRef.current.get(remoteId);
+    const pend = pendingCandidatesRef.current.get(remoteId) || [];
     if (!pc) {
-      const pend = pendingCandidatesRef.current.get(remoteId) || [];
       pend.push(candidate);
       pendingCandidatesRef.current.set(remoteId, pend);
       return;
     }
-    try {
-      await pc.addIceCandidate(new RTCIceCandidate(candidate));
-      const pend = pendingCandidatesRef.current.get(remoteId) || [];
-      for (const c of pend) await pc.addIceCandidate(new RTCIceCandidate(c));
-      pendingCandidatesRef.current.set(remoteId, []);
-    } catch (err) { console.error('ice error', err); }
+    const add = async (c) => {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(c));
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    const ok = await add(candidate);
+    if (!ok) {
+      pend.push(candidate);
+      pendingCandidatesRef.current.set(remoteId, pend);
+      return;
+    }
+    for (const c of pend) await add(c);
+    pendingCandidatesRef.current.set(remoteId, []);
   }, []);
 
   // Socket events
@@ -220,7 +251,10 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
       if (p?.socketId) {
         peerInfoRef.current.set(p.socketId, { nickname: p.nickname, country: p.country });
         setPeer({ socketId: p.socketId, nickname: p.nickname, country: p.country, stream: null });
-        if (socket.id < p.socketId) doOffer(p.socketId);
+        if (socket.id < p.socketId) {
+          if (localStreamRef.current) doOffer(p.socketId);
+          else pendingOfferRef.current = p.socketId;
+        }
       }
       setStatus('connected');
       onJoined?.(data.roomId);
@@ -242,16 +276,28 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
     const onWaiting = () => setStatus('searching');
     const onSystemMsg = (data) => setMessages((m) => [...m, { id: Date.now(), system: true, text: `📢 ADMIN: ${data.message}`, ts: Date.now() }]);
 
-    const onSignal = (data) => {
+    const onSignal = async (data) => {
       const from = data.fromSocketId;
       if (!from || from === socket.id) return;
       if (data.fromNickname || data.fromCountry) {
         peerInfoRef.current.set(from, { nickname: data.fromNickname, country: data.fromCountry });
       }
-      if (data.type === 'offer') doAnswer(from, data.signal);
+      if (data.type === 'offer') {
+        if (localStreamRef.current) doAnswer(from, data.signal);
+        else pendingAnswerRef.current = { from, signal: data.signal };
+      }
       else if (data.type === 'answer') {
         const pc = peerConnectionsRef.current.get(from);
-        pc?.setRemoteDescription(new RTCSessionDescription(data.signal));
+        if (pc) {
+          try {
+            await pc.setRemoteDescription(new RTCSessionDescription(data.signal));
+            const pend = pendingCandidatesRef.current.get(from) || [];
+            for (const c of pend) {
+              try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch { /* ignore */ }
+            }
+            pendingCandidatesRef.current.set(from, []);
+          } catch (err) { console.error('setRemoteDescription error', err); }
+        }
       } else if (data.type === 'ice-candidate' && data.signal) {
         addIce(from, data.signal);
       }
