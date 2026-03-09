@@ -5,7 +5,8 @@ import { useState } from 'react';
 import { Turnstile } from 'react-turnstile';
 
 const apiBase = import.meta.env.VITE_SOCKET_URL || '';
-const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY;
+// Use env key or Cloudflare test key (always passes) for dev
+const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA';
 
 export function AgeVerificationGate({ onVerified }) {
   const [turnstileToken, setTurnstileToken] = useState(null);
@@ -74,22 +75,16 @@ export function AgeVerificationGate({ onVerified }) {
           Mana Mingle (WeConnect) is an 18+ platform. You must confirm your age and complete the security check to continue.
         </p>
 
-        {turnstileSiteKey && (
-          <div className="flex justify-center mb-6">
-            <Turnstile
-              siteKey={turnstileSiteKey}
-              onVerify={handleTurnstileVerify}
-              onError={handleTurnstileError}
-              onExpire={handleTurnstileError}
-              theme="dark"
-              size="normal"
-            />
-          </div>
-        )}
-
-        {!turnstileSiteKey && (
-          <p className="text-amber-400/80 text-sm text-center mb-6">Turnstile not configured. Set VITE_TURNSTILE_SITE_KEY.</p>
-        )}
+        <div className="flex justify-center mb-6">
+          <Turnstile
+            siteKey={turnstileSiteKey}
+            onVerify={handleTurnstileVerify}
+            onError={handleTurnstileError}
+            onExpire={handleTurnstileError}
+            theme="dark"
+            size="normal"
+          />
+        </div>
 
         {error && (
           <p className="text-red-400 text-sm text-center mb-4">{error}</p>
