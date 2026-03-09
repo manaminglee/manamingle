@@ -145,6 +145,10 @@ export default function App() {
       return (
         <div className="animate-fade-in">
           <TextChat
+            socket={socket}
+            connected={connected}
+            country={country}
+            onlineCount={onlineCount}
             interest={interest}
             nickname="Anonymous"
             adsEnabled={adsEnabled}
@@ -160,6 +164,10 @@ export default function App() {
       return (
         <div className="animate-fade-in">
           <VideoChat
+            socket={socket}
+            connected={connected}
+            country={country}
+            onlineCount={onlineCount}
             interest={interest}
             nickname="Anonymous"
             adsEnabled={adsEnabled}

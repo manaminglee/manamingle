@@ -5,7 +5,6 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { countryToFlag } from '../utils/countryFlag';
-import { useSocket } from '../hooks/useSocket';
 import { useLatency } from '../hooks/useLatency';
 import { useIceServers } from '../hooks/useIceServers';
 
@@ -67,9 +66,8 @@ const EMOJIS_3D = [
   { char: '👑', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f451/512.webp' },
 ];
 
-export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEnabled = false, onBack, onJoined, onFindNewPartner, coinState }) {
+export function VideoChat({ socket, connected, country, onlineCount, interest = 'general', nickname = 'Anonymous', adsEnabled = false, onBack, onJoined, onFindNewPartner, coinState }) {
   const { balance, streak, canClaim, claimCoins } = coinState;
-  const { socket, connected, country, onlineCount } = useSocket();
   const { iceServers } = useIceServers();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');

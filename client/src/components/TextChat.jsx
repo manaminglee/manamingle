@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { countryToFlag } from '../utils/countryFlag';
-import { useSocket } from '../hooks/useSocket';
 import { useLatency } from '../hooks/useLatency';
 
 const AI_ICEBREAKERS = {
@@ -45,9 +44,8 @@ const EMOJIS_3D = [
   { char: '👑', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f451/512.webp' },
 ];
 
-export function TextChat({ interest = 'general', nickname = 'Anonymous', onBack, onJoined, onFindNewPartner, adsEnabled, coinState }) {
+export function TextChat({ socket, connected, country, onlineCount, interest = 'general', nickname = 'Anonymous', onBack, onJoined, onFindNewPartner, adsEnabled, coinState }) {
   const { balance, streak, canClaim, claimCoins } = coinState;
-  const { socket, connected, country, onlineCount } = useSocket();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [roomId, setRoomId] = useState(null);
