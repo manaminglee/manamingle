@@ -168,7 +168,7 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
     peerConnectionsRef.current.set(remoteId, pc);
     pcRef.current = pc;
     return pc;
-  }, [socket]);
+  }, [socket, iceServers]);
 
   const doOffer = useCallback(async (remoteId) => {
     const rid = roomIdRef.current;
@@ -284,9 +284,10 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
     if (untranslated.length === 0) return;
 
     const target = untranslated[untranslated.length - 1];
+    const apiBase = import.meta.env.VITE_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
     const translateMsg = async () => {
       try {
-        const res = await fetch('/api/ai/translate', {
+        const res = await fetch(`${apiBase}/api/ai/translate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: target.text, to: 'English' })
@@ -432,11 +433,12 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
     setCameraOff(next);
   };
 
+  const apiBase = import.meta.env.VITE_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
   const generateAiSpark = async () => {
     if (isAiGenerating) return;
     setIsAiGenerating(true);
     try {
-      const res = await fetch('/api/ai/spark', {
+      const res = await fetch(`${apiBase}/api/ai/spark`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ interest })
@@ -482,38 +484,38 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap justify-end min-w-0">
           {connected && (
             <>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20">
-                  <span className="text-sm">🪙</span>
-                  <span className="text-[11px] font-bold text-indigo-300">{balance}</span>
-                  <div className="w-px h-3 bg-white/10 mx-0.5" />
-                  <span className="text-[10px] font-medium text-white/40">🔥 {streak}d</span>
+              <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+                <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 shrink-0">
+                  <span className="text-xs sm:text-sm">🪙</span>
+                  <span className="text-[10px] sm:text-[11px] font-bold text-indigo-300">{balance}</span>
+                  <div className="hidden sm:block w-px h-3 bg-white/10 mx-0.5" />
+                  <span className="hidden sm:inline text-[10px] font-medium text-white/40">🔥 {streak}d</span>
                 </div>
                 {canClaim && (
                   <button
                     onClick={claimCoins}
-                    className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-amber-400 to-orange-500 text-black text-[10px] font-black uppercase tracking-tighter rounded-full shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 transition-all animate-coin-glow"
+                    className="flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 bg-gradient-to-r from-amber-400 to-orange-500 text-black text-[9px] sm:text-[10px] font-black uppercase tracking-tighter rounded-full shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 transition-all animate-coin-glow shrink-0"
                   >
                     <span className="hidden sm:inline">Claim 30 Coins</span>
                     <span className="sm:hidden">+30 🪙</span>
                   </button>
                 )}
               </div>
-              <div className="hidden sm:flex px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-black text-emerald-400 uppercase tracking-tighter gap-1 items-center">
+              <div className="hidden sm:flex px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-black text-emerald-400 uppercase tracking-tighter gap-1 items-center shrink-0">
                 <div className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
                 {latency}ms
               </div>
-              <div className="online-pill">
-                <div className="live-dot" style={{ width: 7, height: 7 }} />
-                <span>{onlineCount?.toLocaleString()} online</span>
+              <div className="online-pill shrink-0 max-w-[100px] sm:max-w-none overflow-hidden text-ellipsis">
+                <div className="live-dot shrink-0" style={{ width: 6, height: 6 }} />
+                <span className="truncate text-[11px] sm:text-sm">{onlineCount?.toLocaleString()} online</span>
               </div>
               <button
                 type="button"
                 onClick={() => setIsTranslatorActive(!isTranslatorActive)}
-                className={`hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all border ${isTranslatorActive ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-400' : 'bg-white/5 border-white/10 text-white/30'}`}
+                className={`hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all border shrink-0 ${isTranslatorActive ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-400' : 'bg-white/5 border-white/10 text-white/30'}`}
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${isTranslatorActive ? 'bg-indigo-400 animate-pulse' : 'bg-white/20'}`} />
                 AI Translate
@@ -524,7 +526,7 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
             id="toggle-chat-btn"
             type="button"
             onClick={() => setShowChat(!showChat)}
-            className={`w-10 h-10 flex items-center justify-center rounded-xl transition ${showChat ? 'bg-indigo-500 text-white' : 'bg-white/5 text-realm-muted hover:bg-white/10'}`}
+            className={`w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl transition shrink-0 ${showChat ? 'bg-indigo-500 text-white' : 'bg-white/5 text-realm-muted hover:bg-white/10'}`}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
@@ -540,23 +542,22 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
             [Advertisement Placeholder Banner]
           </div>
         )}
-        <div className="flex-1 flex min-h-0 overflow-hidden">
-          {/* VIDEO AREA */}
-          <div className="flex-1 flex flex-col min-h-0 min-w-0">
-            <div className="flex-1 relative bg-[#05060f] min-h-0">
+        <div className="flex-1 flex flex-col sm:flex-row min-h-0 overflow-hidden">
+          {/* VIDEO AREA: two panels (remote top, local bottom) + chat right */}
+          <div className="flex-1 flex flex-col min-h-0 min-w-0 flex-shrink-0">
+            <div className="flex-1 flex flex-col gap-2 p-2 sm:p-3 bg-[#05060f] min-h-0 relative">
 
               {/* IDLE state */}
               {status === 'idle' && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 text-center p-8">
-                  <div className="w-28 h-28 rounded-3xl bg-indigo-500/10 border border-indigo-500/15 flex items-center justify-center text-5xl">
+                <div className="flex-1 flex flex-col items-center justify-center gap-4 sm:gap-6 text-center p-4 sm:p-8">
+                  <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-2xl sm:rounded-3xl bg-indigo-500/10 border border-indigo-500/15 flex items-center justify-center text-4xl sm:text-5xl">
                     📹
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold text-white mb-2">Ready for Video Chat</h2>
-                    <p style={{ color: 'rgba(232,234,246,0.5)' }}>Your camera is ready. Hit Start to meet a stranger.</p>
+                    <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">Ready for Video Chat</h2>
+                    <p className="text-sm" style={{ color: 'rgba(232,234,246,0.5)' }}>Your camera is ready. Hit Start to meet a stranger.</p>
                   </div>
-                  {/* Preview local video in idle */}
-                  <div className="w-48 h-36 rounded-2xl overflow-hidden border border-white/10 bg-black">
+                  <div className="w-40 h-28 sm:w-48 sm:h-36 rounded-xl sm:rounded-2xl overflow-hidden border border-white/10 bg-black flex-shrink-0">
                     <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" />
                   </div>
                 </div>
@@ -578,7 +579,7 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
 
               {/* SEARCHING state */}
               {status === 'searching' && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 text-center p-8">
+                <div className="flex-1 flex flex-col items-center justify-center gap-4 sm:gap-6 text-center p-4 sm:p-8">
                   <div className="relative w-28 h-28">
                     <div className="radar-ring absolute inset-0" />
                     <div className="radar-ring absolute inset-3" style={{ animationDelay: '0.6s' }} />
@@ -595,7 +596,7 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
 
               {/* DISCONNECTED state */}
               {status === 'disconnected' && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-center p-8">
+                <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-4 sm:p-8">
                   <div className="w-20 h-20 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-3xl">👋</div>
                   <div>
                     <h2 className="text-xl font-bold text-amber-400 mb-2">Stranger disconnected</h2>
@@ -604,64 +605,63 @@ export function VideoChat({ interest = 'general', nickname = 'Anonymous', adsEna
                 </div>
               )}
 
-              {/* CONNECTED — remote video fills the space */}
+              {/* CONNECTED — two panels: remote (top), local (bottom) */}
               {status === 'connected' && (
-                <div className="absolute inset-0">
-                  {peer?.stream ? (
-                    <>
-                      <VideoEl stream={peer.stream} className="absolute inset-0" />
-                      {/* Subtle gradient overlay at bottom */}
-                      <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black/70 to-transparent" />
-                      {/* Peer label */}
-                      <div className="absolute bottom-4 left-4 flex items-center gap-2">
-                        <div className="live-dot" />
-                        <span className="text-sm font-medium text-white/90">
-                          {countryToFlag(peer?.country)} Stranger
-                        </span>
+                <div className="flex-1 flex flex-col gap-2 min-h-0">
+                  {/* Remote video panel (top) */}
+                  <div className="flex-1 min-h-[120px] relative rounded-xl overflow-hidden bg-black/80 border border-white/10">
+                    {peer?.stream ? (
+                      <>
+                        <VideoEl stream={peer.stream} className="absolute inset-0" />
+                        <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black/70 to-transparent" />
+                        <div className="absolute bottom-2 left-3 flex items-center gap-2">
+                          <div className="live-dot" style={{ width: 6, height: 6 }} />
+                          <span className="text-xs sm:text-sm font-medium text-white/90">
+                            {countryToFlag(peer?.country)} Stranger
+                          </span>
+                        </div>
+                        <button
+                          id="video-report-btn"
+                          type="button"
+                          onClick={() => {
+                            if (socket) socket.emit('report-user', { reason: 'Inappropriate Behavior (Video)' });
+                            alert('User reported. Our Trust & Safety team has been notified and the IP logged.');
+                          }}
+                          className="report-btn"
+                        >
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+                          </svg>
+                        </button>
+                      </>
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center flex-col gap-2">
+                        <div className="peer-avatar text-xl sm:text-2xl w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center">👤</div>
+                        <p className="text-xs sm:text-sm" style={{ color: 'rgba(232,234,246,0.5)' }}>Connecting video...</p>
+                        <div className="search-dots"><span /><span /><span /></div>
                       </div>
-                      {/* Report button */}
-                      <button
-                        id="video-report-btn"
-                        type="button"
-                        onClick={() => {
-                          if (socket) socket.emit('report-user', { reason: 'Inappropriate Behavior (Video)' });
-                          alert('User reported. Our Trust & Safety team has been notified and the IP logged.');
-                        }}
-                        className="report-btn"
-                      >
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+                    )}
+                  </div>
+                  {/* Local video panel (bottom) */}
+                  <div className="h-28 sm:h-36 flex-shrink-0 relative rounded-xl overflow-hidden border border-white/20 bg-black">
+                    <video
+                      ref={localVideoRef}
+                      autoPlay
+                      muted
+                      playsInline
+                      className={`w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-30' : ''}`}
+                    />
+                    {cameraOff && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                        <svg className="w-6 h-6 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2zM3 3l18 18" />
                         </svg>
-                      </button>
-                    </>
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center flex-col gap-3">
-                      <div className="peer-avatar text-2xl" style={{ width: 64, height: 64, fontSize: '2rem' }}>👤</div>
-                      <p className="text-sm" style={{ color: 'rgba(232,234,246,0.5)' }}>Connecting video...</p>
-                      <div className="search-dots"><span /><span /><span /></div>
-                    </div>
-                  )}
+                      </div>
+                    )}
+                    <div className="absolute bottom-1 left-2 text-xs text-white/60 font-medium">You</div>
+                  </div>
                 </div>
               )}
-
-              {/* Local PiP video */}
-              <div className={`absolute bottom-4 right-4 w-36 h-28 rounded-xl overflow-hidden border border-white/20 bg-black shadow-xl z-20 ${status === 'idle' ? 'hidden' : ''}`}>
-                <video
-                  ref={localVideoRef}
-                  autoPlay
-                  muted
-                  playsInline
-                  className={`w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-30' : ''}`}
-                />
-                {cameraOff && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-                    <svg className="w-6 h-6 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2zM3 3l18 18" />
-                    </svg>
-                  </div>
-                )}
-                <div className="absolute bottom-1 left-2 text-xs text-white/60 font-medium">You</div>
-              </div>
             </div>
 
             {/* CONTROL BAR */}

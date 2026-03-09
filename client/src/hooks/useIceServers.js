@@ -11,9 +11,10 @@ export function useIceServers() {
 
     useEffect(() => {
         let cancelled = false;
-        (async () => {
-            try {
-                const res = await fetch('/api/turn');
+    (async () => {
+        try {
+            const base = import.meta.env.VITE_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+            const res = await fetch(`${base}/api/turn`);
                 if (res.ok) {
                     const data = await res.json();
                     if (!cancelled && data.iceServers && data.iceServers.length > 0) {

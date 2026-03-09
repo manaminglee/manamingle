@@ -224,6 +224,29 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
     setChatInput('');
   };
 
+  const apiBase = import.meta.env.VITE_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+  const generateAiSpark = async () => {
+    if (isAiGenerating) return;
+    setIsAiGenerating(true);
+    try {
+      const res = await fetch(`${apiBase}/api/ai/spark`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ interest: displayInterest })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setChatInput(data.spark || '');
+      } else {
+        setChatInput(ICEBREAKERS[Math.floor(Math.random() * ICEBREAKERS.length)] || '');
+      }
+    } catch {
+      setChatInput(ICEBREAKERS[Math.floor(Math.random() * ICEBREAKERS.length)] || '');
+    } finally {
+      setIsAiGenerating(false);
+    }
+  };
+
   useEffect(() => {
     if (!socket) return;
 
@@ -288,6 +311,11 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
 
     socket.on('group-joined', onGroupJoined);
     socket.on('existing-peers', onExistingPeers);
+    socket.on('chat-history', onHistory);
+    socket.on('chat-message', onMsg);
+    socket.on('user-joined', onUserJoined);
+    socket.on('user-left', onUserLeft);
+    socket.on('webrtc-signal', onSignal);
     socket.on('system-announcement', onSystemMsg);
 
     return () => {
@@ -392,9 +420,10 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
     const untranslated = messages.filter(m => !m.system && !m.translated && m.nickname !== nickname && m.text && m.text.length > 3);
     if (untranslated.length === 0) return;
     const target = untranslated[untranslated.length - 1];
+    const apiBase = import.meta.env.VITE_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
     const translateMsg = async () => {
       try {
-        const res = await fetch('/api/ai/translate', {
+        const res = await fetch(`${apiBase}/api/ai/translate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: target.text, to: 'English' })
@@ -447,32 +476,32 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20">
-            <span className="text-sm">🪙</span>
-            <span className="text-[11px] font-bold text-indigo-300">{balance}</span>
-            <div className="w-px h-3 bg-white/10 mx-0.5" />
-            <span className="text-[10px] font-medium text-white/40">🔥 {streak}d</span>
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end min-w-0">
+          <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 shrink-0">
+            <span className="text-xs sm:text-sm">🪙</span>
+            <span className="text-[10px] sm:text-[11px] font-bold text-indigo-300">{balance}</span>
+            <div className="hidden sm:block w-px h-3 bg-white/10 mx-0.5" />
+            <span className="hidden sm:inline text-[10px] font-medium text-white/40">🔥 {streak}d</span>
           </div>
           {canClaim && (
             <button
               onClick={claimCoins}
-              className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-amber-400 to-orange-500 text-black text-[10px] font-black uppercase tracking-tighter rounded-full shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 transition-all animate-coin-glow"
+              className="flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 bg-gradient-to-r from-amber-400 to-orange-500 text-black text-[9px] sm:text-[10px] font-black uppercase tracking-tighter rounded-full shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 transition-all animate-coin-glow shrink-0"
             >
               <span className="hidden sm:inline">Claim 30 Coins</span>
               <span className="sm:hidden">+30 🪙</span>
             </button>
           )}
 
-          <div className="online-pill">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="online-pill shrink-0 text-[11px] sm:text-sm">
+            <svg className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>
-            <span>{Object.keys(peers).length + 1}/4</span>
+            <span>{participantCount}/4</span>
           </div>
           <button
             onClick={() => setShowChat(!showChat)}
-            className={`w-10 h-10 flex items-center justify-center rounded-xl transition ${showChat ? 'bg-indigo-500 text-white' : 'bg-white/5 text-realm-muted hover:bg-white/10'}`}
+            className={`w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl transition shrink-0 ${showChat ? 'bg-indigo-500 text-white' : 'bg-white/5 text-realm-muted hover:bg-white/10'}`}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
@@ -508,9 +537,9 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
       }
 
       {/* BODY */}
-      <div className="flex-1 flex min-h-0 overflow-hidden">
+      <div className="flex-1 flex flex-col sm:flex-row min-h-0 overflow-hidden">
         {/* VIDEO GRID */}
-        <div className={`flex-1 flex flex-col min-h-0 ${showChat ? 'max-w-[calc(100%-300px)]' : ''} relative`}>
+        <div className={`flex-1 flex flex-col min-h-0 min-w-0 relative ${showChat ? 'sm:max-w-[calc(100%-300px)]' : ''}`}>
           {active3dEmoji && (
             <div className="absolute inset-0 pointer-events-none z-[100] flex items-center justify-center overflow-hidden">
               <div className="animate-3d-emoji-pop flex flex-col items-center gap-2">
