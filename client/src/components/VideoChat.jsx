@@ -909,8 +909,8 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                 </div>
               </div>
             </div>
-            {/* Control bar - small styled buttons in free space below video */}
-            <div className="flex-shrink-0 flex flex-row items-center justify-center gap-1.5 flex-nowrap px-2 py-2 mt-2 overflow-x-auto w-full">
+            {/* Control bar - buttons in free space below local video panel */}
+            <div className="flex-1 min-h-[56px] flex flex-row items-center justify-center gap-1.5 flex-nowrap px-2 py-3 overflow-x-auto w-full border-t border-white/5 mt-1">
                 {(status === 'idle' || status === 'disconnected') && (
                   <button id="video-start-btn" type="button" disabled={!connected} onClick={handleStart} className="shrink-0 px-2 py-1.5 text-[9px] font-semibold rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white transition-colors" title="Start">
                     <svg className="w-2.5 h-2.5 inline mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
