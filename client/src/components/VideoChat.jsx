@@ -909,33 +909,33 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                 </div>
               </div>
             </div>
-            {/* Control bar - always visible in space below video panels (mobile + desktop) */}
-            <div className="flex-shrink-0 min-h-[44px] flex flex-row items-center justify-center gap-1.5 flex-nowrap px-3 py-2.5 mt-2 rounded-xl bg-[#0a0b14] border border-indigo-500/20 overflow-x-auto w-full shadow-lg">
+            {/* Control bar - small styled buttons in free space below video */}
+            <div className="flex-shrink-0 flex flex-row items-center justify-center gap-1.5 flex-nowrap px-2 py-2 mt-2 overflow-x-auto w-full">
                 {(status === 'idle' || status === 'disconnected') && (
-                  <button id="video-start-btn" type="button" disabled={!connected} onClick={handleStart} className="btn btn-primary px-2 py-1 text-[10px] shrink-0 min-w-[48px]" title="Start">
-                    <svg className="w-3 h-3 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
-                    <span className="ml-0.5">Start</span>
+                  <button id="video-start-btn" type="button" disabled={!connected} onClick={handleStart} className="shrink-0 px-2 py-1.5 text-[9px] font-semibold rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white transition-colors" title="Start">
+                    <svg className="w-2.5 h-2.5 inline mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
+                    Start
                   </button>
                 )}
                 {(status === 'searching' || status === 'connected') && (
                   <>
-                    <button id="video-skip-btn" type="button" disabled={!connected} onClick={handleSkip} className="btn btn-amber px-2 py-1 text-[10px] shrink-0 min-w-[44px]" title="Skip">
-                      <svg className="w-3 h-3 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
-                      <span className="ml-0.5">Skip</span>
+                    <button id="video-skip-btn" type="button" disabled={!connected} onClick={handleSkip} className="shrink-0 px-2 py-1.5 text-[9px] font-semibold rounded-lg bg-amber-500/90 hover:bg-amber-500 text-white transition-colors" title="Skip">
+                      <svg className="w-2.5 h-2.5 inline mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
+                      Skip
                     </button>
-                    <button type="button" onClick={toggleMute} className={`btn btn-icon p-1 shrink-0 min-w-[24px] min-h-[24px] flex items-center justify-center rounded ${muted ? 'danger-active bg-rose-500/30' : 'bg-white/10'}`} title={muted ? 'Unmute' : 'Mute'}>
+                    <button type="button" onClick={toggleMute} className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${muted ? 'bg-rose-500/50 text-rose-200' : 'bg-white/8 hover:bg-white/15 text-white/80'}`} title={muted ? 'Unmute' : 'Mute'}>
                       {muted ? <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg> : <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>}
                     </button>
-                    <button type="button" onClick={() => { if (autoBandwidth) { setAutoBandwidth(false); setLowBandwidth(false); } else { if (!lowBandwidth) setLowBandwidth(true); else { setLowBandwidth(false); setAutoBandwidth(true); } } }} className={`btn btn-icon p-1 shrink-0 min-w-[24px] min-h-[24px] flex items-center justify-center rounded ${autoBandwidth ? 'bg-sky-500/30' : lowBandwidth ? 'bg-teal-500/30' : 'bg-white/10'}`} title={`Bandwidth: ${bandwidthLabel}`}>
+                    <button type="button" onClick={() => { if (autoBandwidth) { setAutoBandwidth(false); setLowBandwidth(false); } else { if (!lowBandwidth) setLowBandwidth(true); else { setLowBandwidth(false); setAutoBandwidth(true); } } }} className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${autoBandwidth ? 'bg-sky-500/40 text-sky-200' : lowBandwidth ? 'bg-teal-500/40 text-teal-200' : 'bg-white/8 hover:bg-white/15 text-white/80'}`} title={`Bandwidth: ${bandwidthLabel}`}>
                       <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                     </button>
-                    <button type="button" onClick={toggleCamera} className={`btn btn-icon p-1 shrink-0 min-w-[24px] min-h-[24px] flex items-center justify-center rounded ${cameraOff ? 'danger-active bg-rose-500/30' : 'bg-white/10'}`} title={cameraOff ? 'Camera on' : 'Camera off'}>
+                    <button type="button" onClick={toggleCamera} className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${cameraOff ? 'bg-rose-500/50 text-rose-200' : 'bg-white/8 hover:bg-white/15 text-white/80'}`} title={cameraOff ? 'Camera on' : 'Camera off'}>
                       {cameraOff ? <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2zM3 3l18 18" /></svg> : <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>}
                     </button>
-                    <button type="button" onClick={startScreenShare} className={`btn btn-icon p-1 shrink-0 min-w-[24px] min-h-[24px] flex items-center justify-center rounded ${isScreenSharing ? 'bg-indigo-500/80 text-white' : 'bg-white/10'}`} title="Screen Share">
+                    <button type="button" onClick={startScreenShare} className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${isScreenSharing ? 'bg-indigo-500 text-white' : 'bg-white/8 hover:bg-white/15 text-white/80'}`} title="Screen Share">
                       <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                     </button>
-                    <button id="video-stop-btn" type="button" onClick={handleStop} className="btn btn-danger px-2 py-1 text-[10px] shrink-0 min-w-[44px]" title="Stop">
+                    <button id="video-stop-btn" type="button" onClick={handleStop} className="shrink-0 px-2 py-1.5 text-[9px] font-semibold rounded-lg bg-rose-500/90 hover:bg-rose-500 text-white transition-colors" title="Stop">
                       Stop
                     </button>
                   </>
