@@ -782,7 +782,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
         <div className="flex-1 flex flex-col sm:flex-row min-h-0 overflow-hidden">
           {/* LEFT (desktop) / TOP (mobile): Video area - ensure panel is always visible */}
           <div className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4 min-h-[200px] sm:min-h-0 w-full sm:w-auto sm:min-w-[320px] sm:max-w-[360px] sm:flex-shrink-0 sm:flex-grow-0 overflow-visible">
-            <div className="relative flex flex-col gap-2 sm:gap-3 min-h-0 flex-initial sm:max-h-[320px]">
+            <div className="relative flex flex-col gap-2 sm:gap-3 min-h-0 flex-1 sm:max-h-[320px] overflow-hidden">
               {/* Remote video - big on mobile, compact square on desktop */}
               <div className="video-frame-torn w-full aspect-square max-h-[38vh] sm:max-h-[200px] sm:max-w-[320px] flex-shrink-0 relative mx-auto">
                 <div className="video-frame-torn-inner relative bg-black w-full h-full">
@@ -910,7 +910,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
               </div>
             </div>
             {/* Control bar - buttons in free space below local video panel */}
-            <div className="flex-1 min-h-[56px] flex flex-row items-center justify-center gap-1.5 flex-nowrap px-2 py-3 overflow-x-auto w-full border-t border-white/5 mt-1">
+            <div className="flex-shrink-0 min-h-[56px] flex flex-row items-center justify-center gap-1.5 flex-nowrap px-2 py-3 overflow-x-auto w-full border-t border-white/5 mt-2">
                 {(status === 'idle' || status === 'disconnected') && (
                   <button id="video-start-btn" type="button" disabled={!connected} onClick={handleStart} className="shrink-0 px-2 py-1.5 text-[9px] font-semibold rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white transition-colors" title="Start">
                     <svg className="w-2.5 h-2.5 inline mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
