@@ -308,6 +308,14 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
         if (p.nickname) peerNicksRef.current.set(p.socketId, p.nickname);
         if (p.country) peerCountriesRef.current.set(p.socketId, p.country);
       });
+      // Add peers immediately (stream: null) so tile exists; ontrack will add stream
+      setPeers((prev) => {
+        const existingIds = new Set(prev.map((p) => p.socketId));
+        const toAdd = peerList.filter((p) => !existingIds.has(p.socketId)).map((p) => ({
+          socketId: p.socketId, stream: null, nickname: p.nickname || 'Anonymous', country: p.country
+        }));
+        return toAdd.length ? [...prev, ...toAdd] : prev;
+      });
       if (localStreamRef.current) {
         peerList.forEach((p) => doOffer(p.socketId));
       } else {
@@ -328,6 +336,8 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
       if (data.nickname) peerNicksRef.current.set(data.socketId, data.nickname);
       if (data.country) peerCountriesRef.current.set(data.socketId, data.country);
       setMessages((m) => [...m, { id: `sys-${Date.now()}`, system: true, text: `${data.nickname || 'A stranger'} joined 👋` }]);
+      // Add peer immediately so tile exists; ontrack will add stream
+      setPeers((prev) => prev.some((p) => p.socketId === data.socketId) ? prev : [...prev, { socketId: data.socketId, stream: null, nickname: data.nickname || 'Anonymous', country: data.country }]);
       if (localStreamRef.current) {
         doOffer(data.socketId);
       } else {
@@ -702,13 +712,18 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
                   </div>
                 );
               }
-              // empty
+              // empty - show finding state (user left, looking for new participant)
               return (
                 <div key={`empty-${idx}`} className="video-tile">
-                  <div className="video-tile-wrapper flex flex-col items-center justify-center gap-2 opacity-30">
-                    <div className="video-tile-inner flex flex-1 flex-col items-center justify-center gap-2 w-full">
-                      <div className="w-10 h-10 rounded-xl border border-white/10 flex items-center justify-center">⏳</div>
-                      <p className="text-xs" style={{ color: 'rgba(232,234,246,0.4)' }}>Waiting for participant</p>
+                  <div className="video-tile-wrapper flex flex-col items-center justify-center gap-3">
+                    <div className="video-tile-inner flex flex-1 flex-col items-center justify-center gap-3 w-full">
+                      <div className="relative w-12 h-12">
+                        <div className="radar-ring absolute inset-0" />
+                        <div className="radar-ring absolute inset-2" style={{ animationDelay: '0.6s' }} />
+                        <div className="absolute inset-3 rounded-full bg-indigo-500/20 flex items-center justify-center">📡</div>
+                      </div>
+                      <p className="text-xs" style={{ color: 'rgba(232,234,246,0.45)' }}>Finding...</p>
+                      <div className="search-dots" style={{ transform: 'scale(0.75)' }}><span /><span /><span /></div>
                     </div>
                   </div>
                 </div>
@@ -716,22 +731,22 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
             })}
           </div>
 
-          {/* CONTROL BAR */}
-          <div className="control-bar flex-shrink-0">
+          {/* CONTROL BAR - small buttons, horizontal line only */}
+          <div className="flex-shrink-0 flex flex-row items-center justify-center gap-1.5 flex-nowrap px-2 py-2 overflow-x-auto">
             <button
               id="grp-video-mute-btn"
               type="button"
               onClick={toggleMute}
-              className={`btn btn-icon ${muted ? 'danger-active' : ''}`}
+              className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${muted ? 'bg-rose-500/50 text-rose-200' : 'bg-white/8 hover:bg-white/15 text-white/80'}`}
               title={muted ? 'Unmute' : 'Mute'}
             >
               {muted ? (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
                 </svg>
               ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
                 </svg>
               )}
@@ -740,15 +755,15 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
               id="grp-video-cam-btn"
               type="button"
               onClick={toggleCamera}
-              className={`btn btn-icon ${cameraOff ? 'danger-active' : ''}`}
+              className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${cameraOff ? 'bg-rose-500/50 text-rose-200' : 'bg-white/8 hover:bg-white/15 text-white/80'}`}
               title={cameraOff ? 'Camera on' : 'Camera off'}
             >
               {cameraOff ? (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2zM3 3l18 18" />
                 </svg>
               ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
               )}
@@ -756,21 +771,20 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
             <button
               type="button"
               onClick={startScreenShare}
-              className={`btn btn-icon ${isScreenSharing ? 'bg-indigo-500 text-white' : ''}`}
-              title="Screen Share (50 Coins)"
+              className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${isScreenSharing ? 'bg-indigo-500 text-white' : 'bg-white/8 hover:bg-white/15 text-white/80'}`}
+              title="Screen Share"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
             </button>
-            <div className="h-8 w-px bg-white/[0.08] mx-1" />
             {onFindNewPod && !isQueuing && (
-              <button id="grp-video-ctrl-skip" type="button" onClick={onFindNewPod} className="btn btn-amber px-5 py-2.5">
-                Skip Room
+              <button id="grp-video-ctrl-skip" type="button" onClick={onFindNewPod} className="shrink-0 px-2.5 py-1 text-[10px] font-semibold rounded-lg bg-amber-500/90 hover:bg-amber-500 text-white">
+                Skip
               </button>
             )}
-            <button id="grp-video-ctrl-leave" type="button" onClick={onLeave} className="btn btn-danger px-5 py-2.5">
-              {isQueuing ? 'Cancel' : 'Leave Room'}
+            <button id="grp-video-ctrl-leave" type="button" onClick={onLeave} className="shrink-0 px-2.5 py-1 text-[10px] font-semibold rounded-lg bg-rose-500/90 hover:bg-rose-500 text-white">
+              {isQueuing ? 'Cancel' : 'Leave'}
             </button>
           </div>
         </div>
@@ -918,11 +932,20 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
 function RemoteVideoTile({ stream, socketId }) {
   const ref = useRef(null);
   useEffect(() => {
-    if (!ref.current) return;
-    ref.current.srcObject = stream || null;
-    if (stream) {
-      ref.current.play?.().catch(() => {});
-    }
+    const el = ref.current;
+    if (!el || !stream) return;
+    el.srcObject = stream;
+    const play = () => el.play?.().catch(() => {});
+    play();
+    // Retry play (fixes video not showing on first join - mobile/slow connections)
+    const t1 = setTimeout(play, 100);
+    const t2 = setTimeout(play, 500);
+    stream.getTracks().forEach((t) => t.addEventListener('unmute', play));
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      stream.getTracks().forEach((t) => t.removeEventListener('unmute', play));
+    };
   }, [stream]);
   if (!stream) return null;
   return (

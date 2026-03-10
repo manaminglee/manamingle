@@ -46,7 +46,22 @@ export function AdminDashboard() {
         body: JSON.stringify({ adsEnabled: val }),
       });
       if (res.ok) {
-        setStats(prev => ({ ...prev, adsEnabled: val }));
+        const data = await res.json();
+        setStats(prev => ({ ...prev, adsEnabled: data.adsEnabled }));
+      }
+    } catch (e) { }
+  };
+
+  const toggleDevTools = async (val) => {
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
+        body: JSON.stringify({ allowDevTools: val }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStats(prev => ({ ...prev, allowDevTools: data.allowDevTools }));
       }
     } catch (e) { }
   };
@@ -306,17 +321,31 @@ export function AdminDashboard() {
           <div className="space-y-6">
             <div className="p-8 rounded-3xl bg-indigo-600/5 border border-indigo-500/10">
               <h3 className="text-xs font-bold uppercase tracking-widest text-indigo-400 mb-6 font-black">Controls</h3>
-              <div className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                <div>
-                  <div className="text-sm font-bold">In-Chat Ads</div>
-                  <div className="text-[10px] text-white/30">Global visibility</div>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+                  <div>
+                    <div className="text-sm font-bold">In-Chat Ads</div>
+                    <div className="text-[10px] text-white/30">Global visibility</div>
+                  </div>
+                  <button
+                    onClick={() => toggleAds(!stats?.adsEnabled)}
+                    className={`relative w-12 h-6 rounded-full transition-all ${stats?.adsEnabled ? 'bg-emerald-500' : 'bg-white/10'}`}
+                  >
+                    <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-all transform ${stats?.adsEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
+                  </button>
                 </div>
-                <button
-                  onClick={() => toggleAds(!stats?.adsEnabled)}
-                  className={`relative w-12 h-6 rounded-full transition-all ${stats?.adsEnabled ? 'bg-emerald-500' : 'bg-white/10'}`}
-                >
-                  <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-all transform ${stats?.adsEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
-                </button>
+                <div className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+                  <div>
+                    <div className="text-sm font-bold">Developer Tools</div>
+                    <div className="text-[10px] text-white/30">Allow F12, right-click inspect, etc.</div>
+                  </div>
+                  <button
+                    onClick={() => toggleDevTools(!stats?.allowDevTools)}
+                    className={`relative w-12 h-6 rounded-full transition-all ${stats?.allowDevTools ? 'bg-emerald-500' : 'bg-white/10'}`}
+                  >
+                    <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-all transform ${stats?.allowDevTools ? 'translate-x-6' : 'translate-x-0'}`} />
+                  </button>
+                </div>
               </div>
             </div>
 

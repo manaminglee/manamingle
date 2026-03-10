@@ -46,6 +46,7 @@ const PAIR_MAX = 2;
 // Runtime feature flags / settings
 const settings = {
   adsEnabled: false,
+  allowDevTools: false,
 };
 
 // interestKey -> roomId (for groups: "interest_mode")
@@ -175,9 +176,9 @@ app.use(rateLimit({
   standardHeaders: true,
 }));
 
-// Public settings (for client feature flags like ads)
+// Public settings (for client feature flags like ads, dev tools)
 app.get('/api/settings', (req, res) => {
-  res.json({ adsEnabled: settings.adsEnabled });
+  res.json({ adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools });
 });
 
 // Cloudflare Turnstile verification
@@ -219,12 +220,13 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-// Admin: toggle settings like ads
+// Admin: toggle settings like ads, allowDevTools
 app.post('/api/admin/settings', requireAdmin, (req, res) => {
-  const { adsEnabled } = req.body || {};
-  settings.adsEnabled = !!adsEnabled;
-  io.emit('settings_updated', { adsEnabled: settings.adsEnabled });
-  res.json({ adsEnabled: settings.adsEnabled });
+  const { adsEnabled, allowDevTools } = req.body || {};
+  if (typeof adsEnabled === 'boolean') settings.adsEnabled = adsEnabled;
+  if (typeof allowDevTools === 'boolean') settings.allowDevTools = allowDevTools;
+  io.emit('settings_updated', { adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools });
+  res.json({ adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools });
 });
 
 // Admin: high-level overview of current activity
@@ -251,6 +253,8 @@ app.get('/api/admin/overview', requireAdmin, (req, res) => {
   };
 
   res.json({
+    adsEnabled: settings.adsEnabled,
+    allowDevTools: settings.allowDevTools,
     users: users.size,
     rooms: rooms.size,
     queues: {
@@ -633,7 +637,7 @@ io.on('connection', (socket) => {
   });
 
   socket.emit('connected', { userId, country });
-  socket.emit('settings_updated', { adsEnabled: settings.adsEnabled });
+  socket.emit('settings_updated', { adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools });
   emitOnlineCount();
 
   socket.on('report-user', (data) => {
