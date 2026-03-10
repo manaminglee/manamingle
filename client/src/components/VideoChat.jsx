@@ -86,6 +86,9 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [active3dEmoji, setActive3dEmoji] = useState(null);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [cameraError, setCameraError] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [autoBandwidth, setAutoBandwidth] = useState(true);
   const [pipOffset, setPipOffset] = useState({ x: 0, y: 0 });
   const pipDragRef = useRef(null);
   const pcRef = useRef(null);
@@ -102,6 +105,14 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
   const isConnected = !!peer && !!roomId;
 
+  const connectionQuality = latency == null
+    ? 'unknown'
+    : latency < 120
+      ? 'good'
+      : latency < 260
+        ? 'ok'
+        : 'poor';
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -117,6 +128,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
         if (localVideoRef.current) localVideoRef.current.srcObject = s;
       } catch (err) {
         console.error('Camera/mic error:', err);
+        setCameraError('We could not access your camera or microphone. Please allow permissions and try again.');
       }
     })();
     return () => {
@@ -124,19 +136,80 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     };
   }, []);
 
-  // Apply quality constraints when lowBandwidth toggles
+  // Apply quality constraints when lowBandwidth / autoBandwidth toggles
   useEffect(() => {
     const stream = localStreamRef.current;
     if (!stream) return;
     const vt = stream.getVideoTracks()[0];
     if (!vt) return;
-    const c = lowBandwidth ? { width: 640, height: 480, frameRate: 15 } : { width: 1280, height: 720 };
+    const targetLow = lowBandwidth || (autoBandwidth && latency != null && latency > 260);
+    const c = targetLow ? { width: 640, height: 480, frameRate: 15 } : { width: 1280, height: 720 };
     vt.applyConstraints(c).catch(() => {});
-  }, [lowBandwidth]);
+  }, [lowBandwidth, autoBandwidth, latency]);
 
   useEffect(() => {
     if (localVideoRef.current && localStream) localVideoRef.current.srcObject = localStream;
   }, [localStream, status]);
+
+  const bandwidthLabel = autoBandwidth ? 'Auto' : (lowBandwidth ? 'Low' : 'High');
+
+  // Pause remote video when tab is hidden
+  useEffect(() => {
+    const handleVisibility = () => {
+      const hidden = document.visibilityState === 'hidden';
+      if (!peer?.stream) return;
+      peer.stream.getVideoTracks().forEach((t) => { t.enabled = !hidden; });
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [peer]);
+
+  // Global keyboard shortcuts (desktop)
+  useEffect(() => {
+    const handler = (e) => {
+      const target = e.target;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      if (e.key === 's' || e.key === 'S') {
+        if (status === 'idle' || status === 'disconnected') {
+          handleStart();
+        } else if (status === 'searching' || status === 'connected') {
+          handleSkip();
+        }
+      }
+      if (e.key === 'Escape') {
+        if (status === 'connected' || status === 'searching') {
+          handleStop();
+        } else {
+          handleBack();
+        }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [status, handleStart, handleSkip, handleStop, handleBack]);
+
+  // AI icebreaker when first connected
+  useEffect(() => {
+    if (!isConnected || !peer) return;
+    if (messages.length > 0) return;
+    const pool = AI_ICEBREAKERS[interest] || AI_ICEBREAKERS.general;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    if (!pick) return;
+    setMessages((prev) => (prev.length ? prev : [{
+      id: 'ai-icebreaker',
+      nickname: 'Mana Mingle AI',
+      fromSelf: false,
+      text: pick,
+      ts: Date.now(),
+    }]));
+  }, [isConnected, peer, interest, messages.length]);
+
+  // Auto hide toast after a few seconds
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   const clearRoom = useCallback(() => {
     peerConnectionsRef.current.forEach((pc) => pc.close());
@@ -548,9 +621,10 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
               <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
                 <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} compact />
               </div>
-              <div className="hidden sm:flex px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-black text-emerald-400 uppercase tracking-tighter gap-1 items-center shrink-0">
-                <div className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
-                {latency}ms
+              <div className="hidden sm:flex px-2 py-0.5 rounded-md border text-[9px] font-black uppercase tracking-tighter gap-1 items-center shrink-0
+                ${connectionQuality === 'good' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : connectionQuality === 'ok' ? 'bg-amber-500/10 border-amber-500/20 text-amber-300' : 'bg-rose-500/10 border-rose-500/30 text-rose-300'}">
+                <div className={`w-1 h-1 rounded-full ${connectionQuality === 'good' ? 'bg-emerald-400' : connectionQuality === 'ok' ? 'bg-amber-300' : 'bg-rose-300'} animate-pulse`} />
+                {latency ?? '—'}ms
               </div>
               <div className="online-pill shrink-0 max-w-[100px] sm:max-w-none overflow-hidden text-ellipsis">
                 <div className="live-dot shrink-0" style={{ width: 6, height: 6 }} />
@@ -583,7 +657,30 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
               {/* Remote video - big on mobile, compact square on desktop */}
               <div className="video-frame-torn w-full aspect-square max-h-[45vh] sm:max-h-[200px] sm:max-w-[320px] flex-shrink-0 relative mx-auto">
                 <div className="video-frame-torn-inner relative bg-black w-full h-full">
-                  {status === 'connected' && peer?.stream ? (
+                  {cameraError ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-4 text-center">
+                      <div className="peer-avatar text-3xl w-16 h-16 flex items-center justify-center rounded-full bg-rose-500/15 border border-rose-400/40">!</div>
+                      <p className="text-xs sm:text-sm" style={{ color: 'rgba(232,234,246,0.75)' }}>{cameraError}</p>
+                      <button
+                        type="button"
+                        className="btn btn-primary px-3 py-1.5 text-[11px]"
+                        onClick={async () => {
+                          try {
+                            const s2 = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                            localStreamRef.current = s2;
+                            setLocalStream(s2);
+                            if (localVideoRef.current) localVideoRef.current.srcObject = s2;
+                            setCameraError(null);
+                          } catch (err) {
+                            console.error('Retry camera error', err);
+                            setCameraError('Still cannot access camera. Check browser and OS permissions.');
+                          }
+                        }}
+                      >
+                        Retry camera
+                      </button>
+                    </div>
+                  ) : status === 'connected' && peer?.stream ? (
                     <>
                       <VideoEl stream={peer.stream} mirror muted={mutedStranger} className="absolute inset-0" />
                       <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-black/80 to-transparent" />
@@ -595,8 +692,30 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                         <button type="button" onClick={() => setMutedStranger((m) => !m)} className={`report-btn ${mutedStranger ? 'bg-amber-500/30' : ''}`} title={mutedStranger ? 'Unmute' : 'Mute stranger'}>
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">{mutedStranger ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /> : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />}</svg>
                         </button>
-                        <button type="button" onClick={() => { if (socket) socket.emit('block-user', { targetSocketId: peer?.socketId }); handleSkip(); alert('User blocked.'); }} className="report-btn" title="Block"> <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg></button>
-                        <button type="button" onClick={() => { if (socket) socket.emit('report-user', { reason: 'Inappropriate (Video)' }); handleSkip(); }} className="report-btn" title="Report & Skip"> <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg></button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (socket) socket.emit('block-user', { targetSocketId: peer?.socketId });
+                            handleSkip();
+                            setToast('User blocked. You will be connected to someone new.');
+                          }}
+                          className="report-btn"
+                          title="Block"
+                        >
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (socket) socket.emit('report-user', { reason: 'Inappropriate (Video)' });
+                            handleSkip();
+                            setToast('Thank you for reporting. We will review this user.');
+                          }}
+                          className="report-btn"
+                          title="Report & Skip"
+                        >
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
+                        </button>
                       </div>
                     </>
                   ) : status === 'connected' && !peer?.stream ? (
@@ -606,8 +725,9 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                       <div className="search-dots"><span /><span /><span /></div>
                     </div>
                   ) : status === 'idle' ? (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-5xl sm:text-6xl opacity-40">📹</span>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                      <div className="peer-avatar text-3xl w-16 h-16 flex items-center justify-center rounded-full bg-indigo-500/20 border border-indigo-400/40">📹</div>
+                      <p className="text-xs" style={{ color: 'rgba(232,234,246,0.6)' }}>Press Start to begin</p>
                     </div>
                   ) : status === 'searching' ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
@@ -620,15 +740,15 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                   ) : status === 'disconnected' ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
                       <span className="text-4xl opacity-50">👋</span>
-                      <p className="text-xs" style={{ color: 'rgba(232,234,246,0.5)' }}>Stranger left</p>
+                      <p className="text-xs" style={{ color: 'rgba(232,234,246,0.5)' }}>Stranger left. Press Start to find a new one.</p>
                     </div>
                   ) : null}
                   <div className="absolute bottom-2 right-2 text-[10px] font-medium text-white/25 pointer-events-none">Mana Mingle</div>
                 </div>
               </div>
-              {/* Local video: mobile=PIP bottom-left (draggable), desktop=separate square panel below */}
+              {/* Local video: mobile=PIP bottom-left (draggable), desktop=separate square panel below matching remote */}
               <div
-                className="local-video-pip absolute bottom-2 left-2 z-10 w-20 h-20 rounded-lg overflow-hidden border-2 border-white/20 shadow-lg bg-black sm:static sm:bottom-auto sm:left-auto sm:w-full sm:h-auto sm:rounded-none sm:border-0 sm:shadow-none video-frame-torn sm:aspect-square sm:max-h-[160px] sm:max-w-[320px] flex-shrink-0 touch-none mx-auto sm:mx-auto"
+                className="local-video-pip absolute bottom-2 left-2 z-10 w-20 h-20 rounded-lg overflow-hidden border-2 border-white/20 shadow-lg bg-black sm:static sm:bottom-auto sm:left-auto sm:w-full sm:h-auto sm:rounded-none sm:border-0 sm:shadow-none video-frame-torn sm:aspect-square sm:max-h-[200px] sm:max-w-[320px] flex-shrink-0 touch-none mx-auto sm:mx-auto"
                 style={{ transform: `translate(${pipOffset.x}px, ${pipOffset.y}px)` }}
                 ref={pipDragRef}
                 onPointerDown={(e) => {
@@ -636,14 +756,42 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                   const startX = e.clientX;
                   const startY = e.clientY;
                   const startOffset = { ...pipOffset };
+                  const container = pipDragRef.current?.parentElement;
                   const handleMove = (ev) => {
+                    if (!container) return;
                     const dx = ev.clientX - startX;
                     const dy = ev.clientY - startY;
-                    setPipOffset({ x: startOffset.x + dx, y: startOffset.y + dy });
+                    const nextX = startOffset.x + dx;
+                    const nextY = startOffset.y + dy;
+                    const bounds = container.getBoundingClientRect();
+                    const box = pipDragRef.current.getBoundingClientRect();
+                    // clamp so PIP stays inside container
+                    const maxX = bounds.width - box.width;
+                    const maxY = bounds.height - box.height;
+                    const clampedX = Math.min(Math.max(nextX, -box.left + bounds.left), maxX - (box.left - bounds.left));
+                    const clampedY = Math.min(Math.max(nextY, -box.top + bounds.top), maxY - (box.top - bounds.top));
+                    setPipOffset({ x: clampedX, y: clampedY });
                   };
                   const handleUp = () => {
                     window.removeEventListener('pointermove', handleMove);
                     window.removeEventListener('pointerup', handleUp);
+                    // snap to closest corner
+                    const cont = pipDragRef.current?.parentElement;
+                    const box = pipDragRef.current?.getBoundingClientRect();
+                    if (!cont || !box) return;
+                    const cRect = cont.getBoundingClientRect();
+                    const midX = box.left + box.width / 2;
+                    const midY = box.top + box.height / 2;
+                    const left = cRect.left;
+                    const right = cRect.right;
+                    const top = cRect.top;
+                    const bottom = cRect.bottom;
+                    const targetX = midX < (left + right) / 2 ? left + 8 : right - box.width - 8;
+                    const targetY = midY < (top + bottom) / 2 ? top + 8 : bottom - box.height - 8;
+                    setPipOffset({
+                      x: targetX - (box.left),
+                      y: targetY - (box.top),
+                    });
                   };
                   window.addEventListener('pointermove', handleMove);
                   window.addEventListener('pointerup', handleUp);
@@ -702,9 +850,21 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                   </button>
                   <button
                     type="button"
-                    onClick={() => setLowBandwidth((b) => !b)}
-                    className={`btn btn-icon px-2 py-1 ${lowBandwidth ? 'bg-teal-500/20' : ''}`}
-                    title={lowBandwidth ? 'High quality' : 'Low bandwidth'}
+                    onClick={() => {
+                      if (autoBandwidth) {
+                        setAutoBandwidth(false);
+                        setLowBandwidth(false);
+                      } else {
+                        // cycle: High -> Low -> Auto
+                        if (!lowBandwidth) setLowBandwidth(true);
+                        else {
+                          setLowBandwidth(false);
+                          setAutoBandwidth(true);
+                        }
+                      }
+                    }}
+                    className={`btn btn-icon px-2 py-1 ${autoBandwidth ? 'bg-sky-500/20' : lowBandwidth ? 'bg-teal-500/20' : ''}`}
+                    title={`Bandwidth: ${bandwidthLabel}`}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                   </button>
@@ -893,6 +1053,11 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
           </div>
         </div>
       </main>
+      {toast && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[120] px-4 py-2 rounded-full bg-black/80 border border-white/10 text-xs sm:text-sm text-white/90 shadow-lg">
+          {toast}
+        </div>
+      )}
     </div>
   );
 }
