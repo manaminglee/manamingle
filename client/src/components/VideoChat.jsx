@@ -517,7 +517,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   const formatTime = (ts) => ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#070811] text-white">
+    <div className="h-screen flex flex-col bg-[#070811] text-white overflow-hidden">
       {/* HEADER */}
       <header className="app-header">
         <div className="flex items-center gap-3">
