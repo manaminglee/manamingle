@@ -782,7 +782,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
         <div className="flex-1 flex flex-col sm:flex-row min-h-0 overflow-hidden">
           {/* LEFT (desktop) / TOP (mobile): Video area - ensure panel is always visible */}
           <div className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4 min-h-[200px] sm:min-h-0 w-full sm:w-auto sm:min-w-[320px] sm:max-w-[360px] sm:flex-shrink-0 sm:flex-grow-0 overflow-visible">
-            <div className="relative flex flex-col gap-2 sm:gap-3 min-h-0 flex-1 sm:max-h-[320px] overflow-hidden">
+            <div className="relative flex flex-col gap-2 sm:gap-3 min-h-0 flex-1 sm:max-h-[440px] overflow-visible">
               {/* Remote video - big on mobile, compact square on desktop */}
               <div className="video-frame-torn w-full aspect-square max-h-[38vh] sm:max-h-[200px] sm:max-w-[320px] flex-shrink-0 relative mx-auto">
                 <div className="video-frame-torn-inner relative bg-black w-full h-full">
@@ -892,13 +892,13 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                   <div className="absolute bottom-2 right-2 text-[10px] font-medium text-white/25 pointer-events-none">Mana Mingle</div>
                 </div>
               </div>
-              {/* Local video: mobile=PIP static bottom-left of remote, desktop=separate panel below */}
+              {/* Local video: mobile=PIP static bottom-left of remote, desktop=same ratio as remote panel */}
               <div
-                className="local-video-pip absolute bottom-3 left-3 z-10 w-28 h-28 sm:w-full sm:h-auto sm:static sm:bottom-auto sm:left-auto sm:rounded-none sm:border-0 sm:shadow-none video-frame-torn sm:aspect-square sm:max-h-[200px] sm:max-w-[320px] flex-shrink-0 rounded-lg overflow-hidden border border-white/15 shadow-md bg-black mx-auto sm:mx-auto"
+                className="local-video-pip absolute bottom-3 left-3 z-10 w-28 h-28 sm:w-full sm:static sm:bottom-auto sm:left-auto sm:rounded-none sm:border-0 sm:shadow-none video-frame-torn sm:aspect-square sm:max-h-[200px] sm:max-w-[320px] flex-shrink-0 rounded-lg overflow-hidden border border-white/15 shadow-md bg-black mx-auto sm:mx-auto"
                 ref={pipDragRef}
               >
                 <div className="video-frame-torn-inner relative w-full h-full min-h-[80px] sm:min-h-0">
-                  <video ref={localVideoRef} autoPlay muted playsInline className={`absolute inset-0 w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-30' : ''}`} />
+                  <video ref={localVideoRef} autoPlay muted playsInline className={`absolute inset-0 w-full h-full object-contain scale-x-[-1] ${cameraOff ? 'opacity-30' : ''}`} />
                   {cameraOff && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/60">
                       <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2zM3 3l18 18" /></svg>
@@ -909,8 +909,8 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                 </div>
               </div>
             </div>
-            {/* Control bar - buttons in free space below local video panel */}
-            <div className="flex-shrink-0 min-h-[56px] flex flex-row items-center justify-center gap-1.5 flex-nowrap px-2 py-3 overflow-x-auto w-full border-t border-white/5 mt-2">
+            {/* Control bar - buttons below local video panel with space */}
+            <div className="flex-shrink-0 min-h-[56px] flex flex-row items-center justify-center gap-1.5 flex-nowrap px-2 py-3 overflow-x-auto w-full border-t border-white/5 mt-6">
                 {(status === 'idle' || status === 'disconnected') && (
                   <button id="video-start-btn" type="button" disabled={!connected} onClick={handleStart} className="shrink-0 px-2 py-1.5 text-[9px] font-semibold rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white transition-colors" title="Start">
                     <svg className="w-2.5 h-2.5 inline mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
