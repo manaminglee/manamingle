@@ -90,10 +90,20 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   const [toast, setToast] = useState(null);
   const [autoBandwidth, setAutoBandwidth] = useState(true);
   const [pipOffset, setPipOffset] = useState({ x: 0, y: 0 });
+  const [videoDevices, setVideoDevices] = useState([]);
+  const [audioDevices, setAudioDevices] = useState([]);
+  const [selectedVideoDeviceId, setSelectedVideoDeviceId] = useState(
+    () => (typeof window !== 'undefined' ? window.localStorage.getItem('mm_videoDeviceId') : null)
+  );
+  const [selectedAudioDeviceId, setSelectedAudioDeviceId] = useState(
+    () => (typeof window !== 'undefined' ? window.localStorage.getItem('mm_audioDeviceId') : null)
+  );
+  const [remoteVolume, setRemoteVolume] = useState(1);
   const pipDragRef = useRef(null);
   const pcRef = useRef(null);
   const roomIdRef = useRef(null);
   const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
   const localStreamRef = useRef(null);
   const peerConnectionsRef = useRef(new Map());
   const pendingCandidatesRef = useRef(new Map());
@@ -122,7 +132,11 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     let s = null;
     (async () => {
       try {
-        s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const baseConstraints = {
+          video: selectedVideoDeviceId ? { deviceId: { exact: selectedVideoDeviceId } } : true,
+          audio: selectedAudioDeviceId ? { deviceId: { exact: selectedAudioDeviceId } } : true,
+        };
+        s = await navigator.mediaDevices.getUserMedia(baseConstraints);
         localStreamRef.current = s;
         setLocalStream(s);
         if (localVideoRef.current) localVideoRef.current.srcObject = s;
@@ -134,7 +148,36 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     return () => {
       if (s) s.getTracks().forEach((t) => t.stop());
     };
-  }, []);
+  }, [selectedVideoDeviceId, selectedAudioDeviceId]);
+
+  // Enumerate audio / video devices
+  useEffect(() => {
+    if (!navigator.mediaDevices?.enumerateDevices) return;
+
+    const loadDevices = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videos = devices.filter((d) => d.kind === 'videoinput');
+        const audios = devices.filter((d) => d.kind === 'audioinput');
+
+        setVideoDevices(videos);
+        setAudioDevices(audios);
+
+        if (!selectedVideoDeviceId && videos[0]?.deviceId) {
+          setSelectedVideoDeviceId(videos[0].deviceId);
+        }
+        if (!selectedAudioDeviceId && audios[0]?.deviceId) {
+          setSelectedAudioDeviceId(audios[0].deviceId);
+        }
+      } catch (e) {
+        console.error('enumerateDevices error', e);
+      }
+    };
+
+    loadDevices();
+    navigator.mediaDevices.addEventListener?.('devicechange', loadDevices);
+    return () => navigator.mediaDevices.removeEventListener?.('devicechange', loadDevices);
+  }, [selectedVideoDeviceId, selectedAudioDeviceId]);
 
   // Apply quality constraints when lowBandwidth / autoBandwidth toggles
   useEffect(() => {
@@ -150,6 +193,14 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   useEffect(() => {
     if (localVideoRef.current && localStream) localVideoRef.current.srcObject = localStream;
   }, [localStream, status]);
+
+  // Attach remote stream and volume
+  useEffect(() => {
+    if (remoteVideoRef.current && peer?.stream) {
+      remoteVideoRef.current.srcObject = peer.stream;
+      remoteVideoRef.current.volume = remoteVolume;
+    }
+  }, [peer?.stream, remoteVolume]);
 
   const bandwidthLabel = autoBandwidth ? 'Auto' : (lowBandwidth ? 'Low' : 'High');
 
@@ -586,6 +637,51 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     setCameraOff(next);
   };
 
+  const changeDevices = async (videoDeviceId, audioDeviceId) => {
+    try {
+      const constraints = {
+        video: videoDeviceId ? { deviceId: { exact: videoDeviceId } } : true,
+        audio: audioDeviceId ? { deviceId: { exact: audioDeviceId } } : true,
+      };
+      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+
+      localStreamRef.current = newStream;
+      setLocalStream(newStream);
+      if (localVideoRef.current) localVideoRef.current.srcObject = newStream;
+
+      peerConnectionsRef.current.forEach((pc) => {
+        const senders = pc.getSenders();
+        const newVideoTrack = newStream.getVideoTracks()[0];
+        const newAudioTrack = newStream.getAudioTracks()[0];
+
+        if (newVideoTrack) {
+          const vs = senders.find((s) => s.track && s.track.kind === 'video');
+          if (vs) vs.replaceTrack(newVideoTrack);
+        }
+        if (newAudioTrack) {
+          const as = senders.find((s) => s.track && s.track.kind === 'audio');
+          if (as) as.replaceTrack(newAudioTrack);
+        }
+      });
+
+      if (videoDeviceId) {
+        setSelectedVideoDeviceId(videoDeviceId);
+        window.localStorage.setItem('mm_videoDeviceId', videoDeviceId);
+      }
+      if (audioDeviceId) {
+        setSelectedAudioDeviceId(audioDeviceId);
+        window.localStorage.setItem('mm_audioDeviceId', audioDeviceId);
+      }
+    } catch (err) {
+      console.error('changeDevices error', err);
+      setCameraError('Could not switch camera or microphone. Please check permissions and try again.');
+    }
+  };
+
   const apiBase = import.meta.env.VITE_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
   const generateAiSpark = async () => {
     if (isAiGenerating) return;
@@ -711,7 +807,13 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                     </div>
                   ) : status === 'connected' && peer?.stream ? (
                     <>
-                      <VideoEl stream={peer.stream} mirror muted={mutedStranger} className="absolute inset-0" />
+                      <video
+                        ref={remoteVideoRef}
+                        autoPlay
+                        playsInline
+                        muted={mutedStranger}
+                        className="absolute inset-0 w-full h-full object-cover scale-x-[-1]"
+                      />
                       <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-black/80 to-transparent" />
                       <div className="absolute bottom-2 left-3 flex items-center gap-2">
                         <div className="live-dot" style={{ width: 6, height: 6 }} />
@@ -772,6 +874,17 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                       <p className="text-xs" style={{ color: 'rgba(232,234,246,0.5)' }}>Stranger left. Press Start to find a new one.</p>
                     </div>
                   ) : null}
+                  {status === 'connected' && peer?.stream && (
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={remoteVolume}
+                      onChange={(e) => setRemoteVolume(Number(e.target.value))}
+                      className="hidden sm:block absolute bottom-3 right-24 w-24 h-1 opacity-60 hover:opacity-100 transition"
+                    />
+                  )}
                   <div className="absolute bottom-2 right-2 text-[10px] font-medium text-white/25 pointer-events-none">Mana Mingle</div>
                 </div>
               </div>
