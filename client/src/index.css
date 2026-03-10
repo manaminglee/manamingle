@@ -344,23 +344,53 @@ body::after {
    PRELOAD / SPLASH ANIMATIONS
    ============================================================ */
 @keyframes preload-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes preload-logo-pulse {
-  0%, 100% { transform: scale(1); box-shadow: 0 0 20px rgba(99,102,241,0.3); }
-  50% { transform: scale(1.05); box-shadow: 0 0 40px rgba(99,102,241,0.5); }
+
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+  }
+
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 40px rgba(99, 102, 241, 0.5);
+  }
 }
 
 @keyframes preload-dot-bounce {
-  0%, 100% { transform: translateY(0); opacity: 0.5; }
-  50% { transform: translateY(-6px); opacity: 1; }
+
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+
+  50% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
 }
 
 @keyframes preload-grid-pulse {
-  0%, 100% { opacity: 0.03; }
-  50% { opacity: 0.08; }
+
+  0%,
+  100% {
+    opacity: 0.03;
+  }
+
+  50% {
+    opacity: 0.08;
+  }
 }
 
 .preload-logo {
@@ -383,19 +413,24 @@ body::after {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: rgba(99,102,241,0.8);
+  background: rgba(99, 102, 241, 0.8);
   animation: preload-dot-bounce 0.8s ease-in-out infinite;
 }
 
-.preload-dots span:nth-child(2) { animation-delay: 0.15s; }
-.preload-dots span:nth-child(3) { animation-delay: 0.3s; }
+.preload-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.preload-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
 
 .preload-grid {
   position: absolute;
   inset: -50%;
   background-image:
-    linear-gradient(rgba(99,102,241,0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(99,102,241,0.06) 1px, transparent 1px);
+    linear-gradient(rgba(99, 102, 241, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99, 102, 241, 0.06) 1px, transparent 1px);
   background-size: 48px 48px;
   animation: preload-grid-pulse 3s ease-in-out infinite;
 }
@@ -423,17 +458,20 @@ body::after {
 
 /* Skeleton loading */
 @keyframes skeleton-shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .skeleton {
-  background: linear-gradient(
-    90deg,
-    rgba(255,255,255,0.04) 25%,
-    rgba(255,255,255,0.08) 50%,
-    rgba(255,255,255,0.04) 75%
-  );
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0.04) 25%,
+      rgba(255, 255, 255, 0.08) 50%,
+      rgba(255, 255, 255, 0.04) 75%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s linear infinite;
   border-radius: 8px;
@@ -791,20 +829,20 @@ body::after {
     0 4px 24px rgba(0, 0, 0, 0.5),
     0 0 40px rgba(99, 102, 241, 0.06);
 }
+
 .video-frame-torn-inner {
   position: relative;
   width: 100%;
   height: 100%;
   overflow: hidden;
   /* Torn paper / rough inner edge */
-  clip-path: polygon(
-    4% 2%, 11% 5%, 18% 1%, 26% 4%, 34% 2%, 42% 5%, 50% 1%, 58% 4%, 66% 2%, 74% 5%, 82% 1%, 90% 4%, 97% 2%,
-    98% 8%, 96% 16%, 98% 24%, 96% 32%, 98% 40%, 96% 48%, 98% 56%, 96% 64%, 98% 72%, 96% 80%, 98% 90%,
-    93% 97%, 85% 95%, 77% 98%, 69% 95%, 61% 98%, 53% 95%, 45% 98%, 37% 95%, 29% 98%, 21% 95%, 13% 98%, 5% 96%,
-    2% 90%, 4% 82%, 2% 74%, 4% 66%, 2% 58%, 4% 50%, 2% 42%, 4% 34%, 2% 26%, 4% 18%, 2% 10%
-  );
+  clip-path: polygon(4% 2%, 11% 5%, 18% 1%, 26% 4%, 34% 2%, 42% 5%, 50% 1%, 58% 4%, 66% 2%, 74% 5%, 82% 1%, 90% 4%, 97% 2%,
+      98% 8%, 96% 16%, 98% 24%, 96% 32%, 98% 40%, 96% 48%, 98% 56%, 96% 64%, 98% 72%, 96% 80%, 98% 90%,
+      93% 97%, 85% 95%, 77% 98%, 69% 95%, 61% 98%, 53% 95%, 45% 98%, 37% 95%, 29% 98%, 21% 95%, 13% 98%, 5% 96%,
+      2% 90%, 4% 82%, 2% 74%, 4% 66%, 2% 58%, 4% 50%, 2% 42%, 4% 34%, 2% 26%, 4% 18%, 2% 10%);
   background: #000;
 }
+
 .video-frame-torn-inner video,
 .video-frame-torn-inner .video-placeholder {
   width: 100%;
@@ -820,6 +858,7 @@ body::after {
     background: transparent;
     box-shadow: none;
   }
+
   .local-video-pip .video-frame-torn-inner {
     clip-path: none;
     border-radius: inherit;
@@ -1084,8 +1123,12 @@ body::after {
   top: 0;
   z-index: 100;
 }
+
 @media (min-width: 640px) {
-  .app-header { padding: 0.875rem 1.25rem; gap: 0.75rem; }
+  .app-header {
+    padding: 0.875rem 1.25rem;
+    gap: 0.75rem;
+  }
 }
 
 .logo-mark {
@@ -1195,8 +1238,12 @@ body::after {
   backdrop-filter: blur(20px);
   border-top: 1px solid var(--c-border);
 }
+
 @media (min-width: 640px) {
-  .control-bar { padding: 0.875rem 1.25rem; gap: 0.75rem; }
+  .control-bar {
+    padding: 0.875rem 1.25rem;
+    gap: 0.75rem;
+  }
 }
 
 /* ============================================================
@@ -1334,6 +1381,7 @@ body::after {
   flex: 1;
   min-height: 0;
 }
+
 .video-grid-2x2 .video-tile {
   min-height: 0;
 }
@@ -1350,12 +1398,19 @@ body::after {
   background: rgba(7, 8, 17, 0.9);
   border-left: 1px solid var(--c-border);
 }
+
 /* Mobile: cap height so video stays large; messages scroll */
 @media (max-width: 639px) {
-  .chat-panel { max-height: 42vh; }
+  .chat-panel {
+    max-height: 42vh;
+  }
 }
+
 @media (min-width: 640px) {
-  .chat-panel { width: 260px; min-width: 220px; }
+  .chat-panel {
+    width: 260px;
+    min-width: 220px;
+  }
 }
 
 /* ============================================================
@@ -1434,14 +1489,30 @@ body::after {
     margin-right: auto;
   }
 }
+
 /* ============================================================
    PREMIUM FEATURES ANIMATIONS
    ============================================================ */
 @keyframes emoji-3d-pop {
-  0% { transform: scale(0.2) translateY(50px); opacity: 0; }
-  20% { transform: scale(1.2) translateY(-20px); opacity: 1; }
-  80% { transform: scale(1) translateY(0); opacity: 1; }
-  100% { transform: scale(0.8) translateY(-100px); opacity: 0; }
+  0% {
+    transform: scale(0.2) translateY(50px);
+    opacity: 0;
+  }
+
+  20% {
+    transform: scale(1.2) translateY(-20px);
+    opacity: 1;
+  }
+
+  80% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(0.8) translateY(-100px);
+    opacity: 0;
+  }
 }
 
 .animate-3d-emoji-pop {
@@ -1449,8 +1520,15 @@ body::after {
 }
 
 @keyframes slide-in-up {
-  from { transform: translateY(12px) scale(0.95); opacity: 0; }
-  to { transform: translateY(0) scale(1); opacity: 1; }
+  from {
+    transform: translateY(12px) scale(0.95);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
 }
 
 .animate-slide-in-up {
@@ -1459,11 +1537,1078 @@ body::after {
 
 /* Coin Pulse */
 @keyframes coin-shimmer {
-  0% { filter: brightness(1) drop-shadow(0 0 0px #f59e0b); }
-  50% { filter: brightness(1.5) drop-shadow(0 0 8px #f59e0b); }
-  100% { filter: brightness(1) drop-shadow(0 0 0px #f59e0b); }
+  0% {
+    filter: brightness(1) drop-shadow(0 0 0px #f59e0b);
+  }
+
+  50% {
+    filter: brightness(1.5) drop-shadow(0 0 8px #f59e0b);
+  }
+
+  100% {
+    filter: brightness(1) drop-shadow(0 0 0px #f59e0b);
+  }
 }
 
 .animate-coin-glow {
   animation: coin-shimmer 2s infinite ease-in-out;
+}
+
+/* ============================================================
+   FLAGS
+   ============================================================ */
+.flag {
+  background: url(/static/img/flags.svg) 0 0/1600% 1600% no-repeat;
+  display: inline-block;
+  vertical-align: sub;
+  width: 24px;
+  height: 24px;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .3));
+  transform: translateZ(0);
+  will-change: transform
+}
+
+.flags-AC {
+  background-position: 6.66% 0
+}
+
+.flags-AD {
+  background-position: 73.33% 46.66%
+}
+
+.flags-AE {
+  background-position: 0 6.66%
+}
+
+.flags-AF {
+  background-position: 6.66% 6.66%
+}
+
+.flags-AG {
+  background-position: 13.33% 0
+}
+
+.flags-AI {
+  background-position: 13.33% 6.66%
+}
+
+.flags-AL {
+  background-position: 0 13.33%
+}
+
+.flags-AM {
+  background-position: 6.66% 13.33%
+}
+
+.flags-AO {
+  background-position: 13.33% 13.33%
+}
+
+.flags-AQ {
+  background-position: 20% 0
+}
+
+.flags-AR {
+  background-position: 20% 6.66%
+}
+
+.flags-AS {
+  background-position: 20% 13.33%
+}
+
+.flags-AT {
+  background-position: 0 20%
+}
+
+.flags-AU {
+  background-position: 6.66% 20%
+}
+
+.flags-AW {
+  background-position: 13.33% 20%
+}
+
+.flags-AX {
+  background-position: 20% 20%
+}
+
+.flags-AZ {
+  background-position: 26.66% 0
+}
+
+.flags-BA {
+  background-position: 26.66% 6.66%
+}
+
+.flags-BB {
+  background-position: 26.66% 13.33%
+}
+
+.flags-BD {
+  background-position: 26.66% 20%
+}
+
+.flags-BE {
+  background-position: 0 26.66%
+}
+
+.flags-BF {
+  background-position: 6.66% 26.66%
+}
+
+.flags-BG {
+  background-position: 13.33% 26.66%
+}
+
+.flags-BH {
+  background-position: 20% 26.66%
+}
+
+.flags-BI {
+  background-position: 26.66% 26.66%
+}
+
+.flags-BJ {
+  background-position: 33.33% 0
+}
+
+.flags-BL {
+  background-position: 33.33% 6.66%
+}
+
+.flags-BM {
+  background-position: 33.33% 13.33%
+}
+
+.flags-BN {
+  background-position: 33.33% 20%
+}
+
+.flags-BO {
+  background-position: 33.33% 26.66%
+}
+
+.flags-BQ {
+  background-position: 0 33.33%
+}
+
+.flags-BR {
+  background-position: 6.66% 33.33%
+}
+
+.flags-BS {
+  background-position: 13.33% 33.33%
+}
+
+.flags-BT {
+  background-position: 20% 33.33%
+}
+
+.flags-BV {
+  background-position: 26.66% 33.33%
+}
+
+.flags-BW {
+  background-position: 33.33% 33.33%
+}
+
+.flags-BY {
+  background-position: 40% 0
+}
+
+.flags-BZ {
+  background-position: 40% 6.66%
+}
+
+.flags-CA {
+  background-position: 40% 13.33%
+}
+
+.flags-CC {
+  background-position: 40% 20%
+}
+
+.flags-CD {
+  background-position: 40% 26.66%
+}
+
+.flags-CF {
+  background-position: 40% 33.33%
+}
+
+.flags-CG {
+  background-position: 0 40%
+}
+
+.flags-CH {
+  background-position: 6.66% 40%
+}
+
+.flags-CI {
+  background-position: 13.33% 40%
+}
+
+.flags-CK {
+  background-position: 20% 40%
+}
+
+.flags-CL {
+  background-position: 26.66% 40%
+}
+
+.flags-CM {
+  background-position: 33.33% 40%
+}
+
+.flags-CN {
+  background-position: 40% 40%
+}
+
+.flags-CO {
+  background-position: 46.66% 0
+}
+
+.flags-CP {
+  background-position: 46.66% 6.66%
+}
+
+.flags-CR {
+  background-position: 46.66% 13.33%
+}
+
+.flags-CU {
+  background-position: 46.66% 20%
+}
+
+.flags-CV {
+  background-position: 46.66% 26.66%
+}
+
+.flags-CW {
+  background-position: 46.66% 33.33%
+}
+
+.flags-CX {
+  background-position: 46.66% 40%
+}
+
+.flags-CY {
+  background-position: 0 46.66%
+}
+
+.flags-CZ {
+  background-position: 6.66% 46.66%
+}
+
+.flags-DE {
+  background-position: 13.33% 46.66%
+}
+
+.flags-DG {
+  background-position: 20% 46.66%
+}
+
+.flags-DJ {
+  background-position: 26.66% 46.66%
+}
+
+.flags-DK {
+  background-position: 33.33% 46.66%
+}
+
+.flags-DM {
+  background-position: 40% 46.66%
+}
+
+.flags-DO {
+  background-position: 46.66% 46.66%
+}
+
+.flags-DZ {
+  background-position: 53.33% 0
+}
+
+.flags-EA {
+  background-position: 53.33% 6.66%
+}
+
+.flags-EC {
+  background-position: 53.33% 13.33%
+}
+
+.flags-EE {
+  background-position: 53.33% 20%
+}
+
+.flags-EG {
+  background-position: 53.33% 26.66%
+}
+
+.flags-EH {
+  background-position: 53.33% 33.33%
+}
+
+.flags-ER {
+  background-position: 53.33% 40%
+}
+
+.flags-ES {
+  background-position: 53.33% 46.66%
+}
+
+.flags-ET {
+  background-position: 0 53.33%
+}
+
+.flags-EU {
+  background-position: 6.66% 53.33%
+}
+
+.flags-FI {
+  background-position: 13.33% 53.33%
+}
+
+.flags-FJ {
+  background-position: 20% 53.33%
+}
+
+.flags-FK {
+  background-position: 26.66% 53.33%
+}
+
+.flags-FM {
+  background-position: 33.33% 53.33%
+}
+
+.flags-FO {
+  background-position: 40% 53.33%
+}
+
+.flags-FR {
+  background-position: 46.66% 53.33%
+}
+
+.flags-GA {
+  background-position: 53.33% 53.33%
+}
+
+.flags-GB {
+  background-position: 60% 0
+}
+
+.flags-GD {
+  background-position: 60% 6.66%
+}
+
+.flags-GE {
+  background-position: 60% 13.33%
+}
+
+.flags-GF {
+  background-position: 60% 20%
+}
+
+.flags-GG {
+  background-position: 60% 26.66%
+}
+
+.flags-GH {
+  background-position: 60% 33.33%
+}
+
+.flags-GI {
+  background-position: 60% 40%
+}
+
+.flags-GL {
+  background-position: 60% 46.66%
+}
+
+.flags-GM {
+  background-position: 60% 53.33%
+}
+
+.flags-GN {
+  background-position: 0 60%
+}
+
+.flags-GP {
+  background-position: 6.66% 60%
+}
+
+.flags-GQ {
+  background-position: 13.33% 60%
+}
+
+.flags-GR {
+  background-position: 20% 60%
+}
+
+.flags-GS {
+  background-position: 26.66% 60%
+}
+
+.flags-GT {
+  background-position: 33.33% 60%
+}
+
+.flags-GU {
+  background-position: 40% 60%
+}
+
+.flags-GW {
+  background-position: 46.66% 60%
+}
+
+.flags-GY {
+  background-position: 53.33% 60%
+}
+
+.flags-HK {
+  background-position: 60% 60%
+}
+
+.flags-HM {
+  background-position: 66.66% 0
+}
+
+.flags-HN {
+  background-position: 66.66% 6.66%
+}
+
+.flags-HR {
+  background-position: 66.66% 13.33%
+}
+
+.flags-HT {
+  background-position: 66.66% 20%
+}
+
+.flags-HU {
+  background-position: 66.66% 26.66%
+}
+
+.flags-IC {
+  background-position: 66.66% 33.33%
+}
+
+.flags-ID {
+  background-position: 66.66% 40%
+}
+
+.flags-IE {
+  background-position: 66.66% 46.66%
+}
+
+.flags-IL {
+  background-position: 66.66% 53.33%
+}
+
+.flags-IM {
+  background-position: 66.66% 60%
+}
+
+.flags-IN {
+  background-position: 0 66.66%
+}
+
+.flags-IO {
+  background-position: 6.66% 66.66%
+}
+
+.flags-IQ {
+  background-position: 13.33% 66.66%
+}
+
+.flags-IR {
+  background-position: 20% 66.66%
+}
+
+.flags-IS {
+  background-position: 26.66% 66.66%
+}
+
+.flags-IT {
+  background-position: 33.33% 66.66%
+}
+
+.flags-JE {
+  background-position: 40% 66.66%
+}
+
+.flags-JM {
+  background-position: 46.66% 66.66%
+}
+
+.flags-JO {
+  background-position: 53.33% 66.66%
+}
+
+.flags-JP {
+  background-position: 60% 66.66%
+}
+
+.flags-KE {
+  background-position: 66.66% 66.66%
+}
+
+.flags-KG {
+  background-position: 73.33% 0
+}
+
+.flags-KH {
+  background-position: 73.33% 6.66%
+}
+
+.flags-KI {
+  background-position: 73.33% 13.33%
+}
+
+.flags-KM {
+  background-position: 73.33% 20%
+}
+
+.flags-KN {
+  background-position: 73.33% 26.66%
+}
+
+.flags-KP {
+  background-position: 73.33% 33.33%
+}
+
+.flags-KR {
+  background-position: 73.33% 40%
+}
+
+.flags-KY {
+  background-position: 73.33% 53.33%
+}
+
+.flags-KZ {
+  background-position: 73.33% 60%
+}
+
+.flags-LA {
+  background-position: 73.33% 66.66%
+}
+
+.flags-LB {
+  background-position: 0 73.33%
+}
+
+.flags-LC {
+  background-position: 6.66% 73.33%
+}
+
+.flags-LI {
+  background-position: 13.33% 73.33%
+}
+
+.flags-LK {
+  background-position: 20% 73.33%
+}
+
+.flags-LR {
+  background-position: 26.66% 73.33%
+}
+
+.flags-LS {
+  background-position: 33.33% 73.33%
+}
+
+.flags-LT {
+  background-position: 40% 73.33%
+}
+
+.flags-LU {
+  background-position: 46.66% 73.33%
+}
+
+.flags-LV {
+  background-position: 53.33% 73.33%
+}
+
+.flags-LY {
+  background-position: 60% 73.33%
+}
+
+.flags-MA {
+  background-position: 66.66% 73.33%
+}
+
+.flags-MC {
+  background-position: 73.33% 73.33%
+}
+
+.flags-MD {
+  background-position: 80% 0
+}
+
+.flags-ME {
+  background-position: 80% 6.66%
+}
+
+.flags-MG {
+  background-position: 80% 13.33%
+}
+
+.flags-MH {
+  background-position: 80% 20%
+}
+
+.flags-MK {
+  background-position: 80% 26.66%
+}
+
+.flags-ML {
+  background-position: 80% 33.33%
+}
+
+.flags-MM {
+  background-position: 80% 40%
+}
+
+.flags-MN {
+  background-position: 80% 46.66%
+}
+
+.flags-MO {
+  background-position: 80% 53.33%
+}
+
+.flags-MP {
+  background-position: 80% 60%
+}
+
+.flags-MQ {
+  background-position: 80% 66.66%
+}
+
+.flags-MR {
+  background-position: 80% 73.33%
+}
+
+.flags-MS {
+  background-position: 0 80%
+}
+
+.flags-MT {
+  background-position: 6.66% 80%
+}
+
+.flags-MU {
+  background-position: 13.33% 80%
+}
+
+.flags-MV {
+  background-position: 20% 80%
+}
+
+.flags-MW {
+  background-position: 26.66% 80%
+}
+
+.flags-MX {
+  background-position: 33.33% 80%
+}
+
+.flags-MY {
+  background-position: 40% 80%
+}
+
+.flags-MZ {
+  background-position: 46.66% 80%
+}
+
+.flags-NA {
+  background-position: 53.33% 80%
+}
+
+.flags-NC {
+  background-position: 60% 80%
+}
+
+.flags-NE {
+  background-position: 66.66% 80%
+}
+
+.flags-NF {
+  background-position: 73.33% 80%
+}
+
+.flags-NG {
+  background-position: 80% 80%
+}
+
+.flags-NI {
+  background-position: 86.66% 0
+}
+
+.flags-NL {
+  background-position: 86.66% 6.66%
+}
+
+.flags-NO {
+  background-position: 86.66% 13.33%
+}
+
+.flags-NP {
+  background-position: 86.66% 20%
+}
+
+.flags-NR {
+  background-position: 86.66% 26.66%
+}
+
+.flags-NU {
+  background-position: 86.66% 33.33%
+}
+
+.flags-NZ {
+  background-position: 86.66% 40%
+}
+
+.flags-OM {
+  background-position: 86.66% 46.66%
+}
+
+.flags-PA {
+  background-position: 86.66% 53.33%
+}
+
+.flags-PE {
+  background-position: 86.66% 60%
+}
+
+.flags-PF {
+  background-position: 86.66% 66.66%
+}
+
+.flags-PG {
+  background-position: 86.66% 73.33%
+}
+
+.flags-PH {
+  background-position: 86.66% 80%
+}
+
+.flags-PK {
+  background-position: 0 86.66%
+}
+
+.flags-PL {
+  background-position: 6.66% 86.66%
+}
+
+.flags-PM {
+  background-position: 13.33% 86.66%
+}
+
+.flags-PN {
+  background-position: 20% 86.66%
+}
+
+.flags-PR {
+  background-position: 26.66% 86.66%
+}
+
+.flags-PS {
+  background-position: 33.33% 86.66%
+}
+
+.flags-PT {
+  background-position: 40% 86.66%
+}
+
+.flags-PW {
+  background-position: 46.66% 86.66%
+}
+
+.flags-PY {
+  background-position: 53.33% 86.66%
+}
+
+.flags-QA {
+  background-position: 60% 86.66%
+}
+
+.flags-RE {
+  background-position: 66.66% 86.66%
+}
+
+.flags-RO {
+  background-position: 73.33% 86.66%
+}
+
+.flags-RS {
+  background-position: 80% 86.66%
+}
+
+.flags-RU {
+  background-position: 86.66% 86.66%
+}
+
+.flags-RW {
+  background-position: 93.33% 0
+}
+
+.flags-SA {
+  background-position: 93.33% 6.66%
+}
+
+.flags-SB {
+  background-position: 93.33% 13.33%
+}
+
+.flags-SC {
+  background-position: 93.33% 20%
+}
+
+.flags-SD {
+  background-position: 93.33% 26.66%
+}
+
+.flags-SE {
+  background-position: 93.33% 33.33%
+}
+
+.flags-SG {
+  background-position: 93.33% 40%
+}
+
+.flags-SH {
+  background-position: 93.33% 46.66%
+}
+
+.flags-SI {
+  background-position: 93.33% 53.33%
+}
+
+.flags-SJ {
+  background-position: 93.33% 60%
+}
+
+.flags-SK {
+  background-position: 93.33% 66.66%
+}
+
+.flags-SL {
+  background-position: 93.33% 73.33%
+}
+
+.flags-SM {
+  background-position: 93.33% 80%
+}
+
+.flags-SN {
+  background-position: 93.33% 86.66%
+}
+
+.flags-SO {
+  background-position: 0 93.33%
+}
+
+.flags-SR {
+  background-position: 6.66% 93.33%
+}
+
+.flags-SS {
+  background-position: 13.33% 93.33%
+}
+
+.flags-ST {
+  background-position: 20% 93.33%
+}
+
+.flags-SV {
+  background-position: 26.66% 93.33%
+}
+
+.flags-SX {
+  background-position: 33.33% 93.33%
+}
+
+.flags-SY {
+  background-position: 40% 93.33%
+}
+
+.flags-SZ {
+  background-position: 46.66% 93.33%
+}
+
+.flags-TA {
+  background-position: 53.33% 93.33%
+}
+
+.flags-TC {
+  background-position: 60% 93.33%
+}
+
+.flags-TD {
+  background-position: 66.66% 93.33%
+}
+
+.flags-TF {
+  background-position: 73.33% 93.33%
+}
+
+.flags-TG {
+  background-position: 80% 93.33%
+}
+
+.flags-TH {
+  background-position: 86.66% 93.33%
+}
+
+.flags-TJ {
+  background-position: 93.33% 93.33%
+}
+
+.flags-TK {
+  background-position: 100% 0
+}
+
+.flags-TL {
+  background-position: 100% 6.66%
+}
+
+.flags-TM {
+  background-position: 100% 13.33%
+}
+
+.flags-TN {
+  background-position: 100% 20%
+}
+
+.flags-TO {
+  background-position: 100% 26.66%
+}
+
+.flags-TR {
+  background-position: 100% 33.33%
+}
+
+.flags-TT {
+  background-position: 100% 40%
+}
+
+.flags-TW {
+  background-position: 100% 46.66%
+}
+
+.flags-TZ {
+  background-position: 100% 53.33%
+}
+
+.flags-UA {
+  background-position: 100% 60%
+}
+
+.flags-UG {
+  background-position: 100% 66.66%
+}
+
+.flags-UM {
+  background-position: 100% 73.33%
+}
+
+.flags-US {
+  background-position: 100% 80%
+}
+
+.flags-UY {
+  background-position: 100% 86.66%
+}
+
+.flags-UZ {
+  background-position: 100% 93.33%
+}
+
+.flags-VA {
+  background-position: 0 100%
+}
+
+.flags-VC {
+  background-position: 6.66% 100%
+}
+
+.flags-VE {
+  background-position: 13.33% 100%
+}
+
+.flags-VG {
+  background-position: 20% 100%
+}
+
+.flags-VI {
+  background-position: 26.66% 100%
+}
+
+.flags-VN {
+  background-position: 33.33% 100%
+}
+
+.flags-VU {
+  background-position: 40% 100%
+}
+
+.flags-WF {
+  background-position: 46.66% 100%
+}
+
+.flags-WS {
+  background-position: 53.33% 100%
+}
+
+.flags-XK {
+  background-position: 60% 100%
+}
+
+.flags-YE {
+  background-position: 66.66% 100%
+}
+
+.flags-YT {
+  background-position: 73.33% 100%
+}
+
+.flags-ZA {
+  background-position: 80% 100%
+}
+
+.flags-ZM {
+  background-position: 86.66% 100%
+}
+
+.flags-ZW {
+  background-position: 93.33% 100%
+}
+
+.flags-ZZ {
+  background-position: 100% 100%
+}
+
+.flags-FF {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: radial-gradient(circle at center, #6a5acd 0%, #6495ed 50%, #1e90ff 100%);
+  display: inline-block;
+  vertical-align: sub;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
+  position: relative;
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+.flags-FF::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40%;
+  height: 40%;
+  background: #ffffff;
+  clip-path: polygon(50% 0%, 75% 50%, 50% 100%, 25% 50%);
 }

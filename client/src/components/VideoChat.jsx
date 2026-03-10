@@ -67,6 +67,8 @@ const EMOJIS_3D = [
   { char: '👑', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f451/512.webp' },
 ];
 
+const API_BASE = import.meta.env.VITE_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+
 export function VideoChat({ socket, connected, country, onlineCount, interest = 'general', nickname = 'Anonymous', adsEnabled = false, onBack, onJoined, onFindNewPartner, coinState }) {
   const { balance, streak, canClaim, nextClaim, claimCoins } = coinState;
   const { iceServers } = useIceServers();
@@ -187,7 +189,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     if (!vt) return;
     const targetLow = lowBandwidth || (autoBandwidth && latency != null && latency > 260);
     const c = targetLow ? { width: 640, height: 480, frameRate: 15 } : { width: 1280, height: 720 };
-    vt.applyConstraints(c).catch(() => {});
+    vt.applyConstraints(c).catch(() => { });
   }, [lowBandwidth, autoBandwidth, latency]);
 
   useEffect(() => {
@@ -468,7 +470,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     const target = untranslated[untranslated.length - 1];
     const translateMsg = async () => {
       try {
-        const res = await fetch(`${apiBase}/api/ai/translate`, {
+        const res = await fetch(`${API_BASE}/api/ai/translate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: target.text, to: 'English' })
@@ -480,7 +482,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       } catch (e) { }
     };
     translateMsg();
-  }, [messages, isTranslatorActive, apiBase]);
+  }, [messages, isTranslatorActive]);
 
   const startScreenShare = async () => {
     if (balance < 50) return alert('Need 50 coins to start Screen Share!');
@@ -682,12 +684,11 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     }
   };
 
-  const apiBase = import.meta.env.VITE_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
   const generateAiSpark = async () => {
     if (isAiGenerating) return;
     setIsAiGenerating(true);
     try {
-      const res = await fetch(`${apiBase}/api/ai/spark`, {
+      const res = await fetch(`${API_BASE}/api/ai/spark`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ interest })
@@ -740,13 +741,12 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                 <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} compact />
               </div>
               <div
-                className={`hidden sm:flex px-2 py-0.5 rounded-md border text-[9px] font-black uppercase tracking-tighter gap-1 items-center shrink-0 ${
-                  connectionQuality === 'good'
-                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                    : connectionQuality === 'ok'
-                      ? 'bg-amber-500/10 border-amber-500/20 text-amber-300'
-                      : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
-                }`}
+                className={`hidden sm:flex px-2 py-0.5 rounded-md border text-[9px] font-black uppercase tracking-tighter gap-1 items-center shrink-0 ${connectionQuality === 'good'
+                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                  : connectionQuality === 'ok'
+                    ? 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+                    : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                  }`}
               >
                 <div className={`w-1 h-1 rounded-full ${connectionQuality === 'good' ? 'bg-emerald-400' : connectionQuality === 'ok' ? 'bg-amber-300' : 'bg-rose-300'} animate-pulse`} />
                 {latency ?? '—'}ms
