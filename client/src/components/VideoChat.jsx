@@ -621,8 +621,15 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
               <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
                 <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} compact />
               </div>
-              <div className="hidden sm:flex px-2 py-0.5 rounded-md border text-[9px] font-black uppercase tracking-tighter gap-1 items-center shrink-0
-                ${connectionQuality === 'good' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : connectionQuality === 'ok' ? 'bg-amber-500/10 border-amber-500/20 text-amber-300' : 'bg-rose-500/10 border-rose-500/30 text-rose-300'}">
+              <div
+                className={`hidden sm:flex px-2 py-0.5 rounded-md border text-[9px] font-black uppercase tracking-tighter gap-1 items-center shrink-0 ${
+                  connectionQuality === 'good'
+                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                    : connectionQuality === 'ok'
+                      ? 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+                      : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                }`}
+              >
                 <div className={`w-1 h-1 rounded-full ${connectionQuality === 'good' ? 'bg-emerald-400' : connectionQuality === 'ok' ? 'bg-amber-300' : 'bg-rose-300'} animate-pulse`} />
                 {latency ?? '—'}ms
               </div>
