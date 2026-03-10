@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 
+const API_BASE = import.meta.env.VITE_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+
 /**
  * Mana Mingle Admin Dashboard
  */
@@ -14,7 +16,7 @@ export function AdminDashboard() {
 
   const fetchStats = async (adminKey) => {
     try {
-      const res = await fetch('/api/admin/overview', {
+      const res = await fetch(`${API_BASE}/api/admin/overview`, {
         headers: { 'x-admin-key': adminKey },
       });
       if (res.ok) {
@@ -40,7 +42,7 @@ export function AdminDashboard() {
 
   const toggleAds = async (val) => {
     try {
-      const res = await fetch('/api/admin/settings', {
+      const res = await fetch(`${API_BASE}/api/admin/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
         body: JSON.stringify({ adsEnabled: val }),
@@ -54,7 +56,7 @@ export function AdminDashboard() {
 
   const toggleDevTools = async (val) => {
     try {
-      const res = await fetch('/api/admin/settings', {
+      const res = await fetch(`${API_BASE}/api/admin/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
         body: JSON.stringify({ allowDevTools: val }),
@@ -71,7 +73,7 @@ export function AdminDashboard() {
     const target = ipArg || ipInput.trim();
     if (!target) return;
     try {
-      await fetch('/api/admin/block', {
+      await fetch(`${API_BASE}/api/admin/block`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
         body: JSON.stringify({ ip: target }),
@@ -83,7 +85,7 @@ export function AdminDashboard() {
 
   const handleUnblockIp = async (ip) => {
     try {
-      await fetch('/api/admin/unblock', {
+      await fetch(`${API_BASE}/api/admin/unblock`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
         body: JSON.stringify({ ip }),
@@ -94,7 +96,7 @@ export function AdminDashboard() {
 
   const handleUpdateCoins = async (ip, amount, set = false) => {
     try {
-      await fetch('/api/admin/coins/update', {
+      await fetch(`${API_BASE}/api/admin/coins/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
         body: JSON.stringify({ ip, amount, set }),
@@ -105,7 +107,7 @@ export function AdminDashboard() {
 
   const handleResolveReport = async (reportId) => {
     try {
-      await fetch('/api/admin/resolve-report', {
+      await fetch(`${API_BASE}/api/admin/resolve-report`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
         body: JSON.stringify({ reportId }),
@@ -118,7 +120,7 @@ export function AdminDashboard() {
     e.preventDefault();
     if (!announcement.trim()) return;
     try {
-      await fetch('/api/admin/announcement', {
+      await fetch(`${API_BASE}/api/admin/announcement`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
         body: JSON.stringify({ message: announcement }),
@@ -130,7 +132,7 @@ export function AdminDashboard() {
 
   const handleKillswitch = async () => {
     try {
-      const res = await fetch('/api/admin/killswitch', {
+      const res = await fetch(`${API_BASE}/api/admin/killswitch`, {
         method: 'POST',
         headers: { 'x-admin-key': key }
       });
