@@ -575,12 +575,12 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
           </div>
         )}
         <div className="flex-1 flex flex-col sm:flex-row min-h-0 overflow-hidden">
-          {/* LEFT: Video panels with torn-paper frames (both perfect squares) */}
-          <div className="flex-1 flex flex-col gap-3 p-3 sm:p-4 min-h-0 min-w-0 sm:max-w-[55%]">
-            <div className="flex-1 flex flex-col gap-3 min-h-0 relative">
-              {/* Remote video panel (top) - square 1:1 */}
-              <div className="video-frame-torn w-full aspect-square">
-                <div className="video-frame-torn-inner relative bg-black">
+          {/* LEFT (desktop) / TOP (mobile): Video area - smaller on desktop, big remote + PIP on mobile */}
+          <div className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4 min-h-0 min-w-0 sm:max-w-[380px] sm:flex-shrink-0 order-1">
+            <div className="relative flex flex-col gap-2 sm:gap-3 min-h-0 sm:max-h-[320px]">
+              {/* Remote video - big on mobile, smaller on desktop */}
+              <div className="video-frame-torn w-full aspect-square max-h-[40vh] sm:max-h-[140px] flex-shrink-0 relative">
+                <div className="video-frame-torn-inner relative bg-black w-full h-full">
                   {status === 'connected' && peer?.stream ? (
                     <>
                       <VideoEl stream={peer.stream} mirror muted={mutedStranger} className="absolute inset-0" />
@@ -594,7 +594,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">{mutedStranger ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /> : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />}</svg>
                         </button>
                         <button type="button" onClick={() => { if (socket) socket.emit('block-user', { targetSocketId: peer?.socketId }); handleSkip(); alert('User blocked.'); }} className="report-btn" title="Block"> <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg></button>
-                        <button type="button" onClick={() => { if (socket) socket.emit('report-user', { reason: 'Inappropriate' }); alert('Reported.'); }} className="report-btn" title="Report"> <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg></button>
+                        <button type="button" onClick={() => { if (socket) socket.emit('report-user', { reason: 'Inappropriate (Video)' }); handleSkip(); }} className="report-btn" title="Report & Skip"> <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg></button>
                       </div>
                     </>
                   ) : status === 'connected' && !peer?.stream ? (
@@ -621,18 +621,20 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                       <p className="text-xs" style={{ color: 'rgba(232,234,246,0.5)' }}>Stranger left</p>
                     </div>
                   ) : null}
+                  <div className="absolute bottom-2 right-2 text-[10px] font-medium text-white/25 pointer-events-none">Mana Mingle</div>
                 </div>
               </div>
-              {/* Local video panel (bottom) - square 1:1 (same shape as remote) */}
-              <div className="video-frame-torn w-full aspect-square">
-                <div className="video-frame-torn-inner relative">
+              {/* Local video: mobile=PIP bottom-left, desktop=separate panel below */}
+              <div className="local-video-pip absolute bottom-2 left-2 z-10 w-20 h-20 rounded-lg overflow-hidden border-2 border-white/20 shadow-lg bg-black sm:static sm:bottom-auto sm:left-auto sm:w-full sm:h-auto sm:rounded-none sm:border-0 sm:shadow-none video-frame-torn sm:aspect-square sm:max-h-[120px] flex-shrink-0">
+                <div className="video-frame-torn-inner relative w-full h-full min-h-[80px] sm:min-h-0">
                   <video ref={localVideoRef} autoPlay muted playsInline className={`absolute inset-0 w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-30' : ''}`} />
                   {cameraOff && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-                      <svg className="w-8 h-8 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2zM3 3l18 18" /></svg>
+                      <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2zM3 3l18 18" /></svg>
                     </div>
                   )}
-                  <div className="absolute bottom-1 left-2 text-[10px] font-semibold text-white/80 tracking-wide">You</div>
+                  <div className="absolute bottom-0 left-0 right-0 text-[8px] sm:text-[10px] font-semibold text-white/90 sm:text-white/80 bg-black/50 sm:bg-transparent text-center py-0.5 sm:text-left sm:bottom-1 sm:left-2 sm:right-auto">You</div>
+                  <div className="hidden sm:block absolute bottom-2 right-2 text-[10px] font-medium text-white/25 pointer-events-none">Mana Mingle</div>
                 </div>
               </div>
             </div>

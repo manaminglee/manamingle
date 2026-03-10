@@ -813,6 +813,19 @@ body::after {
   display: block;
 }
 
+/* Local PIP on mobile: no torn frame, just rounded box */
+@media (max-width: 639px) {
+  .local-video-pip.video-frame-torn {
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .local-video-pip .video-frame-torn-inner {
+    clip-path: none;
+    border-radius: inherit;
+  }
+}
+
 /* Video chat: rules + messages scroll area */
 #video-chat-messages {
   scroll-behavior: smooth;
