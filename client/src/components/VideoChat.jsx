@@ -86,6 +86,8 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [active3dEmoji, setActive3dEmoji] = useState(null);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [pipOffset, setPipOffset] = useState({ x: 0, y: 0 });
+  const pipDragRef = useRef(null);
   const pcRef = useRef(null);
   const roomIdRef = useRef(null);
   const localVideoRef = useRef(null);
@@ -575,11 +577,11 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
           </div>
         )}
         <div className="flex-1 flex flex-col sm:flex-row min-h-0 overflow-hidden">
-          {/* LEFT (desktop) / TOP (mobile): Video area - slightly bigger panels */}
-          <div className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4 min-h-0 min-w-0 sm:max-w-[440px] sm:flex-shrink-0">
-            <div className="relative flex flex-col gap-2 sm:gap-3 min-h-0 sm:max-h-[380px]">
-              {/* Remote video - big on mobile, medium on desktop */}
-              <div className="video-frame-torn w-full aspect-square max-h-[45vh] sm:max-h-[200px] flex-shrink-0 relative">
+          {/* LEFT (desktop) / TOP (mobile): Video area - compact square panels */}
+          <div className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4 min-h-0 min-w-0 sm:max-w-[360px] sm:flex-shrink-0">
+            <div className="relative flex flex-col gap-2 sm:gap-3 min-h-0 sm:max-h-[320px]">
+              {/* Remote video - big on mobile, compact square on desktop */}
+              <div className="video-frame-torn w-full aspect-square max-h-[45vh] sm:max-h-[200px] sm:max-w-[320px] flex-shrink-0 relative mx-auto">
                 <div className="video-frame-torn-inner relative bg-black w-full h-full">
                   {status === 'connected' && peer?.stream ? (
                     <>
@@ -624,8 +626,29 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                   <div className="absolute bottom-2 right-2 text-[10px] font-medium text-white/25 pointer-events-none">Mana Mingle</div>
                 </div>
               </div>
-              {/* Local video: mobile=PIP bottom-left, desktop=separate panel below */}
-              <div className="local-video-pip absolute bottom-2 left-2 z-10 w-20 h-20 rounded-lg overflow-hidden border-2 border-white/20 shadow-lg bg-black sm:static sm:bottom-auto sm:left-auto sm:w-full sm:h-auto sm:rounded-none sm:border-0 sm:shadow-none video-frame-torn sm:aspect-square sm:max-h-[160px] flex-shrink-0">
+              {/* Local video: mobile=PIP bottom-left (draggable), desktop=separate square panel below */}
+              <div
+                className="local-video-pip absolute bottom-2 left-2 z-10 w-20 h-20 rounded-lg overflow-hidden border-2 border-white/20 shadow-lg bg-black sm:static sm:bottom-auto sm:left-auto sm:w-full sm:h-auto sm:rounded-none sm:border-0 sm:shadow-none video-frame-torn sm:aspect-square sm:max-h-[160px] sm:max-w-[320px] flex-shrink-0 touch-none mx-auto sm:mx-auto"
+                style={{ transform: `translate(${pipOffset.x}px, ${pipOffset.y}px)` }}
+                ref={pipDragRef}
+                onPointerDown={(e) => {
+                  if (window.innerWidth >= 640) return; // only draggable on mobile
+                  const startX = e.clientX;
+                  const startY = e.clientY;
+                  const startOffset = { ...pipOffset };
+                  const handleMove = (ev) => {
+                    const dx = ev.clientX - startX;
+                    const dy = ev.clientY - startY;
+                    setPipOffset({ x: startOffset.x + dx, y: startOffset.y + dy });
+                  };
+                  const handleUp = () => {
+                    window.removeEventListener('pointermove', handleMove);
+                    window.removeEventListener('pointerup', handleUp);
+                  };
+                  window.addEventListener('pointermove', handleMove);
+                  window.addEventListener('pointerup', handleUp);
+                }}
+              >
                 <div className="video-frame-torn-inner relative w-full h-full min-h-[80px] sm:min-h-0">
                   <video ref={localVideoRef} autoPlay muted playsInline className={`absolute inset-0 w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-30' : ''}`} />
                   {cameraOff && (
@@ -640,14 +663,14 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
             </div>
 
             {/* Control bar under videos */}
-            <div className="control-bar flex-shrink-0 rounded-xl border border-indigo-500/10 bg-[#0a0b14]/90">
+            <div className="control-bar flex-shrink-0 rounded-xl border border-indigo-500/10 bg-[#0a0b14]/90 flex items-center justify-center gap-2 sm:gap-3 flex-nowrap px-2 py-2">
               {(status === 'idle' || status === 'disconnected') && (
                 <button
                   id="video-start-btn"
                   type="button"
                   disabled={!connected}
                   onClick={handleStart}
-                  className="btn btn-primary px-4 py-2 text-xs sm:text-sm"
+                  className="btn btn-primary px-3 py-1.5 text-[11px]"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
                   Start
@@ -660,20 +683,56 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                     type="button"
                     disabled={!connected}
                     onClick={handleSkip}
-                    className="btn btn-amber px-4 py-2 text-xs sm:text-sm"
+                    className="btn btn-amber px-3 py-1.5 text-[11px]"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
                     Skip
                   </button>
-                  <button type="button" onClick={toggleMute} className={`btn btn-icon ${muted ? 'danger-active' : ''}`} title={muted ? 'Unmute' : 'Mute'}>{muted ? <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>}</button>
-                  <button type="button" onClick={() => setLowBandwidth((b) => !b)} className={`btn btn-icon ${lowBandwidth ? 'bg-teal-500/20' : ''}`} title={lowBandwidth ? 'High quality' : 'Low bandwidth'}><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg></button>
-                  <button type="button" onClick={toggleCamera} className={`btn btn-icon ${cameraOff ? 'danger-active' : ''}`} title={cameraOff ? 'Camera on' : 'Camera off'}>{cameraOff ? <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2zM3 3l18 18" /></svg> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>}</button>
-                  <button type="button" onClick={startScreenShare} className={`btn btn-icon ${isScreenSharing ? 'bg-indigo-500 text-white' : ''}`} title="Screen Share"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg></button>
+                  <button
+                    type="button"
+                    onClick={toggleMute}
+                    className={`btn btn-icon px-2 py-1 ${muted ? 'danger-active' : ''}`}
+                    title={muted ? 'Unmute' : 'Mute'}
+                  >
+                    {muted ? (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLowBandwidth((b) => !b)}
+                    className={`btn btn-icon px-2 py-1 ${lowBandwidth ? 'bg-teal-500/20' : ''}`}
+                    title={lowBandwidth ? 'High quality' : 'Low bandwidth'}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={toggleCamera}
+                    className={`btn btn-icon px-2 py-1 ${cameraOff ? 'danger-active' : ''}`}
+                    title={cameraOff ? 'Camera on' : 'Camera off'}
+                  >
+                    {cameraOff ? (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2zM3 3l18 18" /></svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={startScreenShare}
+                    className={`btn btn-icon px-2 py-1 ${isScreenSharing ? 'bg-indigo-500 text-white' : ''}`}
+                    title="Screen Share"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                  </button>
                   <button
                     id="video-stop-btn"
                     type="button"
                     onClick={handleStop}
-                    className="btn btn-danger px-4 py-2 text-xs sm:text-sm"
+                    className="btn btn-danger px-3 py-1.5 text-[11px]"
                   >
                     Stop
                   </button>
