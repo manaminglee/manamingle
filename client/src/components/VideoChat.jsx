@@ -79,7 +79,6 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   const [cameraOff, setCameraOff] = useState(false);
   const [mutedStranger, setMutedStranger] = useState(false);
   const [lowBandwidth, setLowBandwidth] = useState(false);
-  const [showChat, setShowChat] = useState(true);
   const [localStream, setLocalStream] = useState(null);
   const latency = useLatency();
   const [isAiGenerating, setIsAiGenerating] = useState(false);
@@ -565,16 +564,6 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
               </button>
             </>
           )}
-          <button
-            id="toggle-chat-btn"
-            type="button"
-            onClick={() => setShowChat(!showChat)}
-            className={`w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl transition shrink-0 ${showChat ? 'bg-indigo-500 text-white' : 'bg-white/5 text-realm-muted hover:bg-white/10'}`}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-            </svg>
-          </button>
         </div>
       </header>
 
@@ -589,8 +578,8 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
           {/* LEFT: Video panels with torn-paper frames */}
           <div className="flex-1 flex flex-col gap-3 p-3 sm:p-4 min-h-0 min-w-0 sm:max-w-[55%]">
             <div className="flex-1 flex flex-col gap-3 min-h-0 relative">
-              {/* Remote video panel (top) - or placeholder when idle */}
-              <div className="video-frame-torn flex-1 min-h-0 min-w-0 flex flex-col">
+              {/* Remote video panel (top) - square 1:1 */}
+              <div className="video-frame-torn flex-1 min-h-0 min-w-0 flex flex-col basis-0 aspect-square w-full max-w-full">
                 <div className="video-frame-torn-inner flex-1 relative bg-black">
                   {status === 'connected' && peer?.stream ? (
                     <>
@@ -634,9 +623,9 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                   ) : null}
                 </div>
               </div>
-              {/* Local video panel (bottom) */}
-              <div className="video-frame-torn flex-shrink-0" style={{ minHeight: 140, maxHeight: 200 }}>
-                <div className="video-frame-torn-inner w-full h-full min-h-[120px] relative">
+              {/* Local video panel (bottom) - square */}
+              <div className="video-frame-torn flex-shrink-0 w-full aspect-square max-w-[200px] sm:max-w-[220px] mx-auto">
+                <div className="video-frame-torn-inner w-full h-full relative">
                   <video ref={localVideoRef} autoPlay muted playsInline className={`absolute inset-0 w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-30' : ''}`} />
                   {cameraOff && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/60">
@@ -672,37 +661,87 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
             </div>
           </div>
 
-          {/* RIGHT: Welcome/Rules + Chat - Umingle-style */}
+          {/* RIGHT: Rules + Chat (single unified area with auto-scroll) */}
           <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-[#0d0f1c]/60 border-l border-indigo-500/10">
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
-              {/* Welcome & Rules section - shown when idle or searching */}
-              {(status === 'idle' || status === 'searching') && (
-                <div className="p-6 sm:p-8 flex-shrink-0">
-                  <h2 className="text-xl sm:text-2xl font-bold text-white mb-5 tracking-tight">Welcome to Mana Mingle.</h2>
-                  <ul className="space-y-3.5 text-sm" style={{ color: 'rgba(232,234,246,0.85)' }}>
-                    <li className="flex items-start gap-3">
-                      <span className="flex-shrink-0 w-7 h-7 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-[10px] font-black text-rose-400">18+</span>
-                      <span>You must be 18+</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <span className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">✓</span>
-                      <span>No nudity, hate speech, or harassment</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <span className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">✓</span>
-                      <span>Your webcam must show you, live</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <span className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">✓</span>
-                      <span>Do not ask for gender. This is not a dating site</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <span className="flex-shrink-0 w-7 h-7 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">!</span>
-                      <span>Violators will be banned</span>
-                    </li>
-                  </ul>
-                </div>
-              )}
+              {/* Rules + Messages in one scrollable area */}
+              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 sm:p-6 space-y-4" id="video-chat-messages">
+                <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Welcome to Mana Mingle.</h2>
+                <ul className="space-y-3 text-sm" style={{ color: 'rgba(232,234,246,0.85)' }}>
+                  <li className="flex items-start gap-3">
+                    <span className="flex-shrink-0 w-7 h-7 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-[10px] font-black text-rose-400">18+</span>
+                    <span>You must be 18+</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">✓</span>
+                    <span>No nudity, hate speech, or harassment</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">✓</span>
+                    <span>Your webcam must show you, live</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">✓</span>
+                    <span>Do not ask for gender. This is not a dating site</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="flex-shrink-0 w-7 h-7 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">!</span>
+                    <span>Violators will be banned</span>
+                  </li>
+                </ul>
+                {messages.length > 0 && (
+                  <>
+                    <div className="border-t border-white/10 pt-4 mt-4">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Chat</span>
+                    </div>
+                    {messages.map((m, i) => {
+                      const isMe = m.nickname === 'Anonymous' || m.fromSelf;
+                      return (
+                        <div key={m.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                          <div className={`msg-bubble ${isMe ? 'me' : 'them'}`}>
+                            {m.media ? (
+                              <div className="max-w-[200px] rounded-lg overflow-hidden border border-white/10">
+                                {m.type === 'video' ? (
+                                  <video src={m.content} controls className="w-full" autoPlay loop muted />
+                                ) : (
+                                  <img src={m.content} className="w-full h-auto" alt="media" />
+                                )}
+                              </div>
+                            ) : (
+                              <>
+                                {isTranslatorActive && !isMe ? (
+                                  <div className="flex flex-col gap-1">
+                                    {m.translated ? (
+                                      <>
+                                        <span className="text-[10px] opacity-40 uppercase font-bold tracking-widest leading-none mb-1">NVIDIA AI Translate</span>
+                                        <span className="opacity-60 text-[11px] italic line-through mb-0.5">{m.text}</span>
+                                        <span className="text-white font-medium">✨ {m.translated}</span>
+                                      </>
+                                    ) : (
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-[10px] opacity-40 uppercase font-bold tracking-widest animate-pulse">Translating...</span>
+                                        <span className="opacity-80">{m.text}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : m.text}
+                              </>
+                            )}
+                          </div>
+                          <span className="msg-time px-1 text-[10px]">{formatTime(m.ts)}</span>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+                {messages.length === 0 && !isConnected && (
+                  <div className="sys-msg">Chat will appear here once connected</div>
+                )}
+                {messages.length === 0 && isConnected && (
+                  <div className="sys-msg">Start chatting!</div>
+                )}
+                <div ref={chatEndRef} />
+              </div>
 
               {active3dEmoji && (
                 <div className="absolute inset-0 pointer-events-none z-[100] flex items-center justify-center overflow-hidden">
@@ -718,127 +757,54 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                 </div>
               )}
 
-              {/* Messages preview when connected (above input) */}
-              {isConnected && messages.length > 0 && (
-                <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2 max-h-40">
-                  {messages.slice(-8).map((m, i) => {
-                    const isMe = m.nickname === 'Anonymous' || m.fromSelf;
-                    return (
-                      <div key={m.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                        <div className={`msg-bubble text-xs max-w-[85%] ${isMe ? 'me' : 'them'}`}>{m.media ? '📎' : m.text}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Start + Chat input - Umingle-style */}
-              <div className="flex-shrink-0 p-4 sm:p-6 space-y-4">
+              {/* Start + Chat input - mobile responsive */}
+              <div className="flex-shrink-0 p-3 sm:p-6 space-y-3">
                 {status === 'idle' && (
-                  <button id="video-start-btn-alt" type="button" disabled={!connected} onClick={handleStart} className="btn btn-primary w-full px-8 py-4 text-base font-bold rounded-2xl shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/35 transition-all">
+                  <button id="video-start-btn-alt" type="button" disabled={!connected} onClick={handleStart} className="btn btn-primary w-full px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base font-bold rounded-2xl shadow-lg shadow-indigo-500/25">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
                     Start
                   </button>
                 )}
-                {/* Chat input row - Umingle style */}
-                <div className="flex gap-2 items-center">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-2 items-stretch sm:items-center">
                   {isConnected && (
-                    <div className="flex gap-1 shrink-0">
-                      <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/40 hover:text-emerald-400 transition-colors" title="Media">📂</button>
+                    <div className="flex gap-1 shrink-0 self-start sm:self-center order-last sm:order-first">
+                      <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/40 hover:text-emerald-400" title="Media">📂</button>
                       <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*" onChange={handleMediaUpload} />
                       <div className="relative">
-                        <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/40 hover:text-amber-400 transition-colors" title="3D Emoji">✨</button>
+                        <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/40 hover:text-amber-400" title="3D Emoji">✨</button>
                         {showEmojiPicker && (
                           <div className="absolute bottom-full right-0 mb-2 p-3 bg-[#151829] border border-indigo-500/20 rounded-xl shadow-xl w-[160px] grid grid-cols-4 gap-1.5 z-[50]">
                             {EMOJIS_3D.map(e => (
-                              <button key={e.char} onClick={() => send3dEmoji(e)} className="w-8 h-8 flex items-center justify-center bg-white/5 hover:bg-indigo-500/20 rounded-lg text-lg transition-all">{e.char}</button>
+                              <button key={e.char} onClick={() => send3dEmoji(e)} className="w-8 h-8 flex items-center justify-center bg-white/5 hover:bg-indigo-500/20 rounded-lg text-lg">{e.char}</button>
                             ))}
                           </div>
                         )}
                       </div>
-                      <button type="button" onClick={generateAiSpark} disabled={isAiGenerating} className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/40 hover:text-indigo-400 transition-colors" title="AI Spark">
+                      <button type="button" onClick={generateAiSpark} disabled={isAiGenerating} className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/40 hover:text-indigo-400" title="AI Spark">
                         <svg className={`w-4 h-4 ${isAiGenerating ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                       </button>
                     </div>
                   )}
-                  <input
-                    id="video-chat-input"
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && sendMsg()}
-                    placeholder={isAiGenerating ? 'AI thinking...' : (isConnected ? 'Message...' : 'Connect first')}
-                    disabled={!isConnected || isAiGenerating}
-                    className="chat-input flex-1 min-w-0 py-3 px-4 text-sm rounded-xl border border-indigo-500/20 bg-white/5 focus:border-indigo-500/40 focus:ring-2 focus:ring-indigo-500/20"
-                  />
-                  <button id="video-chat-send-btn" type="button" onClick={sendMsg} disabled={!isConnected || !input.trim()} className="btn btn-primary w-12 h-12 p-0 rounded-xl flex-shrink-0">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-                  </button>
+                  <div className="flex gap-2 min-w-0 flex-1">
+                    <input
+                      id="video-chat-input"
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && sendMsg()}
+                      placeholder={isAiGenerating ? 'AI thinking...' : (isConnected ? 'Message...' : 'Connect first')}
+                      disabled={!isConnected || isAiGenerating}
+                      className="chat-input flex-1 min-w-0 py-2.5 sm:py-3 px-3 sm:px-4 text-sm rounded-xl border border-indigo-500/20 bg-white/5 focus:border-indigo-500/40 focus:ring-2 focus:ring-indigo-500/20 w-full"
+                    />
+                    <button id="video-chat-send-btn" type="button" onClick={sendMsg} disabled={!isConnected || !input.trim()} className="btn btn-primary w-10 h-10 sm:w-12 sm:h-12 p-0 rounded-xl flex-shrink-0">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                    </button>
+                  </div>
                 </div>
                 <p className="text-[10px] text-white/30 text-center">Esc to go back</p>
               </div>
             </div>
           </div>
-
-          {/* CHAT SIDEBAR - collapsible when showChat */}
-          {showChat && (
-            <div className="chat-panel animate-slide-in-right">
-              <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
-                <span className="text-sm font-semibold text-white/80">Chat</span>
-                <span className="text-xs" style={{ color: 'rgba(232,234,246,0.35)' }}>{isConnected ? 'Live' : 'Waiting'}</span>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0" id="video-chat-messages">
-                {messages.length === 0 && isConnected && (
-                  <div className="sys-msg">Start chatting while you video!</div>
-                )}
-                {!isConnected && (
-                  <div className="sys-msg">Chat will appear here once connected</div>
-                )}
-                {messages.map((m, i) => {
-                  const isMe = m.nickname === 'Anonymous' || m.fromSelf;
-                  return (
-                    <div key={m.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                      <div className={`msg-bubble ${isMe ? 'me' : 'them'}`}>
-                        {m.media ? (
-                          <div className="max-w-[150px] rounded-lg overflow-hidden border border-white/10">
-                            {m.type === 'video' ? (
-                              <video src={m.content} controls className="w-full" autoPlay loop muted />
-                            ) : (
-                              <img src={m.content} className="w-full h-auto" alt="media" />
-                            )}
-                          </div>
-                        ) : (
-                          <>
-                            {isTranslatorActive && !isMe ? (
-                              <div className="flex flex-col gap-1">
-                                {m.translated ? (
-                                  <>
-                                    <span className="text-[10px] opacity-40 uppercase font-bold tracking-widest leading-none mb-1">NVIDIA AI Translate</span>
-                                    <span className="opacity-60 text-[11px] italic line-through mb-0.5">{m.text}</span>
-                                    <span className="text-white font-medium">✨ {m.translated}</span>
-                                  </>
-                                ) : (
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[10px] opacity-40 uppercase font-bold tracking-widest animate-pulse">Translating...</span>
-                                    <span className="opacity-80">{m.text}</span>
-                                  </div>
-                                )}
-                              </div>
-                            ) : m.text}
-                          </>
-                        )}
-                      </div>
-                      <span className="msg-time px-1">{formatTime(m.ts)}</span>
-                    </div>
-                  );
-                })}
-                <div ref={chatEndRef} />
-              </div>
-
-              {/* Chat sidebar: messages only - input is in right panel */}
-            </div>
-          )}
         </div>
       </main>
     </div>

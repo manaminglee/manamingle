@@ -813,6 +813,11 @@ body::after {
   display: block;
 }
 
+/* Video chat: rules + messages scroll area */
+#video-chat-messages {
+  scroll-behavior: smooth;
+}
+
 /* ============================================================
    VIDEO TILE (Group + 1:1 video)
    ============================================================ */
