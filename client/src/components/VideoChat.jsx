@@ -575,12 +575,12 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
           </div>
         )}
         <div className="flex-1 flex flex-col sm:flex-row min-h-0 overflow-hidden">
-          {/* LEFT: Video panels with torn-paper frames */}
+          {/* LEFT: Video panels with torn-paper frames (both perfect squares) */}
           <div className="flex-1 flex flex-col gap-3 p-3 sm:p-4 min-h-0 min-w-0 sm:max-w-[55%]">
             <div className="flex-1 flex flex-col gap-3 min-h-0 relative">
               {/* Remote video panel (top) - square 1:1 */}
-              <div className="video-frame-torn flex-1 min-h-0 min-w-0 flex flex-col basis-0 aspect-square w-full max-w-full">
-                <div className="video-frame-torn-inner flex-1 relative bg-black">
+              <div className="video-frame-torn w-full aspect-square">
+                <div className="video-frame-torn-inner relative bg-black">
                   {status === 'connected' && peer?.stream ? (
                     <>
                       <VideoEl stream={peer.stream} mirror muted={mutedStranger} className="absolute inset-0" />
@@ -623,9 +623,9 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                   ) : null}
                 </div>
               </div>
-              {/* Local video panel (bottom) - square */}
-              <div className="video-frame-torn flex-shrink-0 w-full aspect-square max-w-[200px] sm:max-w-[220px] mx-auto">
-                <div className="video-frame-torn-inner w-full h-full relative">
+              {/* Local video panel (bottom) - square 1:1 (same shape as remote) */}
+              <div className="video-frame-torn w-full aspect-square">
+                <div className="video-frame-torn-inner relative">
                   <video ref={localVideoRef} autoPlay muted playsInline className={`absolute inset-0 w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-30' : ''}`} />
                   {cameraOff && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/60">
@@ -649,7 +649,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                 <>
                   <button id="video-skip-btn" type="button" disabled={!connected} onClick={handleSkip} className="btn btn-amber px-5 py-2.5 text-sm">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
-                    {status === 'searching' ? 'Cancel' : 'Skip'}
+                    Skip
                   </button>
                   <button type="button" onClick={toggleMute} className={`btn btn-icon ${muted ? 'danger-active' : ''}`} title={muted ? 'Unmute' : 'Mute'}>{muted ? <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>}</button>
                   <button type="button" onClick={() => setLowBandwidth((b) => !b)} className={`btn btn-icon ${lowBandwidth ? 'bg-teal-500/20' : ''}`} title={lowBandwidth ? 'High quality' : 'Low bandwidth'}><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg></button>
