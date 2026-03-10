@@ -575,11 +575,11 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
           </div>
         )}
         <div className="flex-1 flex flex-col sm:flex-row min-h-0 overflow-hidden">
-          {/* LEFT (desktop) / TOP (mobile): Video area - smaller on desktop, big remote + PIP on mobile */}
-          <div className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4 min-h-0 min-w-0 sm:max-w-[380px] sm:flex-shrink-0">
-            <div className="relative flex flex-col gap-2 sm:gap-3 min-h-0 sm:max-h-[320px]">
-              {/* Remote video - big on mobile, smaller on desktop */}
-              <div className="video-frame-torn w-full aspect-square max-h-[40vh] sm:max-h-[140px] flex-shrink-0 relative">
+          {/* LEFT (desktop) / TOP (mobile): Video area - slightly bigger panels */}
+          <div className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4 min-h-0 min-w-0 sm:max-w-[440px] sm:flex-shrink-0">
+            <div className="relative flex flex-col gap-2 sm:gap-3 min-h-0 sm:max-h-[380px]">
+              {/* Remote video - big on mobile, medium on desktop */}
+              <div className="video-frame-torn w-full aspect-square max-h-[45vh] sm:max-h-[200px] flex-shrink-0 relative">
                 <div className="video-frame-torn-inner relative bg-black w-full h-full">
                   {status === 'connected' && peer?.stream ? (
                     <>
@@ -625,7 +625,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                 </div>
               </div>
               {/* Local video: mobile=PIP bottom-left, desktop=separate panel below */}
-              <div className="local-video-pip absolute bottom-2 left-2 z-10 w-20 h-20 rounded-lg overflow-hidden border-2 border-white/20 shadow-lg bg-black sm:static sm:bottom-auto sm:left-auto sm:w-full sm:h-auto sm:rounded-none sm:border-0 sm:shadow-none video-frame-torn sm:aspect-square sm:max-h-[120px] flex-shrink-0">
+              <div className="local-video-pip absolute bottom-2 left-2 z-10 w-20 h-20 rounded-lg overflow-hidden border-2 border-white/20 shadow-lg bg-black sm:static sm:bottom-auto sm:left-auto sm:w-full sm:h-auto sm:rounded-none sm:border-0 sm:shadow-none video-frame-torn sm:aspect-square sm:max-h-[160px] flex-shrink-0">
                 <div className="video-frame-torn-inner relative w-full h-full min-h-[80px] sm:min-h-0">
                   <video ref={localVideoRef} autoPlay muted playsInline className={`absolute inset-0 w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-30' : ''}`} />
                   {cameraOff && (
@@ -641,15 +641,27 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
             {/* Control bar under videos */}
             <div className="control-bar flex-shrink-0 rounded-xl border border-indigo-500/10 bg-[#0a0b14]/90">
-              {status === 'idle' && (
-                <button id="video-start-btn" type="button" disabled={!connected} onClick={handleStart} className="btn btn-primary px-6 py-2.5 text-sm">
+              {(status === 'idle' || status === 'disconnected') && (
+                <button
+                  id="video-start-btn"
+                  type="button"
+                  disabled={!connected}
+                  onClick={handleStart}
+                  className="btn btn-primary px-4 py-2 text-xs sm:text-sm"
+                >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
                   Start
                 </button>
               )}
-              {status !== 'idle' && (
+              {(status === 'searching' || status === 'connected') && (
                 <>
-                  <button id="video-skip-btn" type="button" disabled={!connected} onClick={handleSkip} className="btn btn-amber px-5 py-2.5 text-sm">
+                  <button
+                    id="video-skip-btn"
+                    type="button"
+                    disabled={!connected}
+                    onClick={handleSkip}
+                    className="btn btn-amber px-4 py-2 text-xs sm:text-sm"
+                  >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
                     Skip
                   </button>
@@ -657,7 +669,14 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                   <button type="button" onClick={() => setLowBandwidth((b) => !b)} className={`btn btn-icon ${lowBandwidth ? 'bg-teal-500/20' : ''}`} title={lowBandwidth ? 'High quality' : 'Low bandwidth'}><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg></button>
                   <button type="button" onClick={toggleCamera} className={`btn btn-icon ${cameraOff ? 'danger-active' : ''}`} title={cameraOff ? 'Camera on' : 'Camera off'}>{cameraOff ? <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2zM3 3l18 18" /></svg> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>}</button>
                   <button type="button" onClick={startScreenShare} className={`btn btn-icon ${isScreenSharing ? 'bg-indigo-500 text-white' : ''}`} title="Screen Share"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg></button>
-                  <button id="video-stop-btn" type="button" onClick={handleStop} className="btn btn-danger px-5 py-2.5 text-sm">Stop</button>
+                  <button
+                    id="video-stop-btn"
+                    type="button"
+                    onClick={handleStop}
+                    className="btn btn-danger px-4 py-2 text-xs sm:text-sm"
+                  >
+                    Stop
+                  </button>
                 </>
               )}
             </div>
@@ -762,7 +781,13 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
               {/* Start + Chat input - mobile responsive */}
               <div className="flex-shrink-0 p-3 sm:p-6 space-y-3">
                 {status === 'idle' && (
-                  <button id="video-start-btn-alt" type="button" disabled={!connected} onClick={handleStart} className="btn btn-primary w-full px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base font-bold rounded-2xl shadow-lg shadow-indigo-500/25">
+                  <button
+                    id="video-start-btn-alt"
+                    type="button"
+                    disabled={!connected}
+                    onClick={handleStart}
+                    className="btn btn-primary w-full px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-bold rounded-2xl shadow-lg shadow-indigo-500/25"
+                  >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
                     Start
                   </button>
