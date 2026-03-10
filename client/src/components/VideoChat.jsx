@@ -586,23 +586,121 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
           </div>
         )}
         <div className="flex-1 flex flex-col sm:flex-row min-h-0 overflow-hidden">
-          {/* VIDEO AREA: two panels (remote top, local bottom) + chat right */}
-          <div className="flex-1 flex flex-col min-h-0 min-w-0 flex-shrink-0">
-            <div className="flex-1 flex flex-col gap-2 p-2 sm:p-3 bg-[#05060f] min-h-0 relative">
+          {/* LEFT: Video panels with torn-paper frames */}
+          <div className="flex-1 flex flex-col gap-3 p-3 sm:p-4 min-h-0 min-w-0 sm:max-w-[55%]">
+            <div className="flex-1 flex flex-col gap-3 min-h-0 relative">
+              {/* Remote video panel (top) - or placeholder when idle */}
+              <div className="video-frame-torn flex-1 min-h-0 min-w-0 flex flex-col">
+                <div className="video-frame-torn-inner flex-1 relative bg-black">
+                  {status === 'connected' && peer?.stream ? (
+                    <>
+                      <VideoEl stream={peer.stream} mirror muted={mutedStranger} className="absolute inset-0" />
+                      <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-black/80 to-transparent" />
+                      <div className="absolute bottom-2 left-3 flex items-center gap-2">
+                        <div className="live-dot" style={{ width: 6, height: 6 }} />
+                        <span className="text-xs sm:text-sm font-medium text-white/95">{countryToFlag(peer?.country)} Stranger</span>
+                      </div>
+                      <div className="absolute top-2 right-2 flex gap-1.5">
+                        <button type="button" onClick={() => setMutedStranger((m) => !m)} className={`report-btn ${mutedStranger ? 'bg-amber-500/30' : ''}`} title={mutedStranger ? 'Unmute' : 'Mute stranger'}>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">{mutedStranger ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /> : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />}</svg>
+                        </button>
+                        <button type="button" onClick={() => { if (socket) socket.emit('block-user', { targetSocketId: peer?.socketId }); handleSkip(); alert('User blocked.'); }} className="report-btn" title="Block"> <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg></button>
+                        <button type="button" onClick={() => { if (socket) socket.emit('report-user', { reason: 'Inappropriate' }); alert('Reported.'); }} className="report-btn" title="Report"> <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg></button>
+                      </div>
+                    </>
+                  ) : status === 'connected' && !peer?.stream ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                      <div className="peer-avatar text-2xl w-14 h-14 flex items-center justify-center">👤</div>
+                      <p className="text-xs sm:text-sm" style={{ color: 'rgba(232,234,246,0.5)' }}>Connecting...</p>
+                      <div className="search-dots"><span /><span /><span /></div>
+                    </div>
+                  ) : status === 'idle' ? (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-5xl sm:text-6xl opacity-40">📹</span>
+                    </div>
+                  ) : status === 'searching' ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                      <div className="relative w-16 h-16">
+                        <div className="radar-ring absolute inset-0" />
+                        <div className="absolute inset-3 rounded-full bg-indigo-500/20 flex items-center justify-center text-xl">📡</div>
+                      </div>
+                      <p className="text-xs" style={{ color: 'rgba(232,234,246,0.6)' }}>Finding stranger...</p>
+                    </div>
+                  ) : status === 'disconnected' ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                      <span className="text-4xl opacity-50">👋</span>
+                      <p className="text-xs" style={{ color: 'rgba(232,234,246,0.5)' }}>Stranger left</p>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+              {/* Local video panel (bottom) */}
+              <div className="video-frame-torn flex-shrink-0" style={{ minHeight: 140, maxHeight: 200 }}>
+                <div className="video-frame-torn-inner w-full h-full min-h-[120px] relative">
+                  <video ref={localVideoRef} autoPlay muted playsInline className={`absolute inset-0 w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-30' : ''}`} />
+                  {cameraOff && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                      <svg className="w-8 h-8 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2zM3 3l18 18" /></svg>
+                    </div>
+                  )}
+                  <div className="absolute bottom-1 left-2 text-[10px] font-semibold text-white/80 tracking-wide">You</div>
+                </div>
+              </div>
+            </div>
 
-              {/* IDLE state */}
+            {/* Control bar under videos */}
+            <div className="control-bar flex-shrink-0 rounded-xl border border-indigo-500/10 bg-[#0a0b14]/90">
               {status === 'idle' && (
-                <div className="flex-1 flex flex-col items-center justify-center gap-4 sm:gap-6 text-center p-4 sm:p-8">
-                  <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-2xl sm:rounded-3xl bg-indigo-500/10 border border-indigo-500/15 flex items-center justify-center text-4xl sm:text-5xl">
-                    📹
-                  </div>
-                  <div>
-                    <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">Ready for Video Chat</h2>
-                    <p className="text-sm" style={{ color: 'rgba(232,234,246,0.5)' }}>Your camera is ready. Hit Start to meet a stranger.</p>
-                  </div>
-                  <div className="w-40 h-28 sm:w-48 sm:h-36 rounded-xl sm:rounded-2xl overflow-hidden border border-white/10 bg-black flex-shrink-0">
-                    <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" />
-                  </div>
+                <button id="video-start-btn" type="button" disabled={!connected} onClick={handleStart} className="btn btn-primary px-6 py-2.5 text-sm">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
+                  Start
+                </button>
+              )}
+              {status !== 'idle' && (
+                <>
+                  <button id="video-skip-btn" type="button" disabled={!connected} onClick={handleSkip} className="btn btn-amber px-5 py-2.5 text-sm">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
+                    {status === 'searching' ? 'Cancel' : 'Skip'}
+                  </button>
+                  <button type="button" onClick={toggleMute} className={`btn btn-icon ${muted ? 'danger-active' : ''}`} title={muted ? 'Unmute' : 'Mute'}>{muted ? <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>}</button>
+                  <button type="button" onClick={() => setLowBandwidth((b) => !b)} className={`btn btn-icon ${lowBandwidth ? 'bg-teal-500/20' : ''}`} title={lowBandwidth ? 'High quality' : 'Low bandwidth'}><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg></button>
+                  <button type="button" onClick={toggleCamera} className={`btn btn-icon ${cameraOff ? 'danger-active' : ''}`} title={cameraOff ? 'Camera on' : 'Camera off'}>{cameraOff ? <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2zM3 3l18 18" /></svg> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>}</button>
+                  <button type="button" onClick={startScreenShare} className={`btn btn-icon ${isScreenSharing ? 'bg-indigo-500 text-white' : ''}`} title="Screen Share"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg></button>
+                  <button id="video-stop-btn" type="button" onClick={handleStop} className="btn btn-danger px-5 py-2.5 text-sm">Stop</button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* RIGHT: Welcome/Rules + Chat - Umingle-style */}
+          <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-[#0d0f1c]/60 border-l border-indigo-500/10">
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
+              {/* Welcome & Rules section - shown when idle or searching */}
+              {(status === 'idle' || status === 'searching') && (
+                <div className="p-6 sm:p-8 flex-shrink-0">
+                  <h2 className="text-xl sm:text-2xl font-bold text-white mb-5 tracking-tight">Welcome to Mana Mingle.</h2>
+                  <ul className="space-y-3.5 text-sm" style={{ color: 'rgba(232,234,246,0.85)' }}>
+                    <li className="flex items-start gap-3">
+                      <span className="flex-shrink-0 w-7 h-7 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-[10px] font-black text-rose-400">18+</span>
+                      <span>You must be 18+</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <span className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">✓</span>
+                      <span>No nudity, hate speech, or harassment</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <span className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">✓</span>
+                      <span>Your webcam must show you, live</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <span className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">✓</span>
+                      <span>Do not ask for gender. This is not a dating site</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <span className="flex-shrink-0 w-7 h-7 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">!</span>
+                      <span>Violators will be banned</span>
+                    </li>
+                  </ul>
                 </div>
               )}
 
@@ -620,212 +718,69 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                 </div>
               )}
 
-              {/* SEARCHING state */}
-              {status === 'searching' && (
-                <div className="flex-1 flex flex-col items-center justify-center gap-4 sm:gap-6 text-center p-4 sm:p-8">
-                  <div className="relative w-28 h-28">
-                    <div className="radar-ring absolute inset-0" />
-                    <div className="radar-ring absolute inset-3" style={{ animationDelay: '0.6s' }} />
-                    <div className="radar-ring absolute inset-6" style={{ animationDelay: '1.2s' }} />
-                    <div className="absolute inset-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-2xl">📡</div>
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-white mb-2">Finding your stranger...</h2>
-                    <p className="text-sm" style={{ color: 'rgba(232,234,246,0.45)' }}>Matching based on interests · Anonymous</p>
-                  </div>
-                  <div className="search-dots"><span /><span /><span /></div>
-                </div>
-              )}
-
-              {/* DISCONNECTED state */}
-              {status === 'disconnected' && (
-                <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-4 sm:p-8">
-                  <div className="w-20 h-20 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-3xl">👋</div>
-                  <div>
-                    <h2 className="text-xl font-bold text-amber-400 mb-2">Stranger disconnected</h2>
-                    <p className="text-sm" style={{ color: 'rgba(232,234,246,0.45)' }}>Click Skip to find a new person</p>
-                  </div>
-                </div>
-              )}
-
-              {/* CONNECTED — two panels: remote (top), local (bottom), same ratio */}
-              {status === 'connected' && (
-                <div className="flex-1 flex flex-col gap-2 min-h-0">
-                  {/* Remote video panel (top) */}
-                  <div className="flex-1 min-h-0 min-w-0 relative rounded-xl overflow-hidden bg-black/80 border border-white/10" style={{ flex: '1 1 50%' }}>
-                    {peer?.stream ? (
-                      <>
-                        <VideoEl stream={peer.stream} mirror muted={mutedStranger} className="absolute inset-0" />
-                        <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black/70 to-transparent" />
-                        <div className="absolute bottom-2 left-3 flex items-center gap-2">
-                          <div className="live-dot" style={{ width: 6, height: 6 }} />
-                          <span className="text-xs sm:text-sm font-medium text-white/90">
-                            {countryToFlag(peer?.country)} Stranger
-                          </span>
-                        </div>
-                        <div className="absolute top-2 right-2 flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setMutedStranger((m) => !m)}
-                            className={`report-btn ${mutedStranger ? 'bg-amber-500/30' : ''}`}
-                            title={mutedStranger ? 'Unmute stranger' : 'Mute stranger'}
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              {mutedStranger ? (
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                              ) : (
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                              )}
-                            </svg>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (socket) socket.emit('block-user', { targetSocketId: peer?.socketId });
-                              handleSkip();
-                              alert('User blocked. You won\'t be matched with them again.');
-                            }}
-                            className="report-btn"
-                            title="Block user"
-                          >
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                            </svg>
-                          </button>
-                          <button
-                            id="video-report-btn"
-                            type="button"
-                            onClick={() => {
-                              if (socket) socket.emit('report-user', { reason: 'Inappropriate Behavior (Video)' });
-                              alert('User reported. Our Trust & Safety team has been notified.');
-                            }}
-                            className="report-btn"
-                            title="Report only"
-                          >
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
-                            </svg>
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center flex-col gap-2">
-                        <div className="peer-avatar text-xl sm:text-2xl w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center">👤</div>
-                        <p className="text-xs sm:text-sm" style={{ color: 'rgba(232,234,246,0.5)' }}>Connecting video...</p>
-                        <div className="search-dots"><span /><span /><span /></div>
+              {/* Messages preview when connected (above input) */}
+              {isConnected && messages.length > 0 && (
+                <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2 max-h-40">
+                  {messages.slice(-8).map((m, i) => {
+                    const isMe = m.nickname === 'Anonymous' || m.fromSelf;
+                    return (
+                      <div key={m.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                        <div className={`msg-bubble text-xs max-w-[85%] ${isMe ? 'me' : 'them'}`}>{m.media ? '📎' : m.text}</div>
                       </div>
-                    )}
-                  </div>
-                  {/* Local video panel (bottom) */}
-                  <div className="flex-1 min-h-0 min-w-0 relative rounded-xl overflow-hidden border border-white/20 bg-black" style={{ flex: '1 1 50%' }}>
-                    <video
-                      ref={localVideoRef}
-                      autoPlay
-                      muted
-                      playsInline
-                      className={`w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-30' : ''}`}
-                    />
-                    {cameraOff && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-                        <svg className="w-6 h-6 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2zM3 3l18 18" />
-                        </svg>
-                      </div>
-                    )}
-                    <div className="absolute bottom-1 left-2 text-xs text-white/60 font-medium">You</div>
-                  </div>
+                    );
+                  })}
                 </div>
               )}
-            </div>
 
-            {/* CONTROL BAR */}
-            <div className="control-bar">
-              {/* Start */}
-              {status === 'idle' && (
-                <button id="video-start-btn" type="button" disabled={!connected} onClick={handleStart} className="btn btn-primary px-8 py-3">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                  </svg>
-                  Start Searching
-                </button>
-              )}
-
-              {status !== 'idle' && (
-                <>
-                  <button id="video-skip-btn" type="button" disabled={!connected} onClick={handleSkip} className="btn btn-amber px-6 py-3">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                    </svg>
-                    {status === 'searching' ? 'Cancel' : 'Skip'}
+              {/* Start + Chat input - Umingle-style */}
+              <div className="flex-shrink-0 p-4 sm:p-6 space-y-4">
+                {status === 'idle' && (
+                  <button id="video-start-btn-alt" type="button" disabled={!connected} onClick={handleStart} className="btn btn-primary w-full px-8 py-4 text-base font-bold rounded-2xl shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/35 transition-all">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
+                    Start
                   </button>
-
-                  <button
-                    id="video-mute-btn"
-                    type="button"
-                    onClick={toggleMute}
-                    className={`btn btn-icon ${muted ? 'danger-active' : ''}`}
-                    title={muted ? 'Unmute' : 'Mute'}
-                  >
-                    {muted ? (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                      </svg>
-                    )}
+                )}
+                {/* Chat input row - Umingle style */}
+                <div className="flex gap-2 items-center">
+                  {isConnected && (
+                    <div className="flex gap-1 shrink-0">
+                      <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/40 hover:text-emerald-400 transition-colors" title="Media">📂</button>
+                      <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*" onChange={handleMediaUpload} />
+                      <div className="relative">
+                        <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/40 hover:text-amber-400 transition-colors" title="3D Emoji">✨</button>
+                        {showEmojiPicker && (
+                          <div className="absolute bottom-full right-0 mb-2 p-3 bg-[#151829] border border-indigo-500/20 rounded-xl shadow-xl w-[160px] grid grid-cols-4 gap-1.5 z-[50]">
+                            {EMOJIS_3D.map(e => (
+                              <button key={e.char} onClick={() => send3dEmoji(e)} className="w-8 h-8 flex items-center justify-center bg-white/5 hover:bg-indigo-500/20 rounded-lg text-lg transition-all">{e.char}</button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <button type="button" onClick={generateAiSpark} disabled={isAiGenerating} className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/40 hover:text-indigo-400 transition-colors" title="AI Spark">
+                        <svg className={`w-4 h-4 ${isAiGenerating ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                      </button>
+                    </div>
+                  )}
+                  <input
+                    id="video-chat-input"
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && sendMsg()}
+                    placeholder={isAiGenerating ? 'AI thinking...' : (isConnected ? 'Message...' : 'Connect first')}
+                    disabled={!isConnected || isAiGenerating}
+                    className="chat-input flex-1 min-w-0 py-3 px-4 text-sm rounded-xl border border-indigo-500/20 bg-white/5 focus:border-indigo-500/40 focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                  <button id="video-chat-send-btn" type="button" onClick={sendMsg} disabled={!isConnected || !input.trim()} className="btn btn-primary w-12 h-12 p-0 rounded-xl flex-shrink-0">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
                   </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setLowBandwidth((b) => !b)}
-                    className={`btn btn-icon ${lowBandwidth ? 'bg-teal-500/20' : ''}`}
-                    title={lowBandwidth ? 'High quality' : 'Low bandwidth (data saver)'}
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                  </button>
-                  <button
-                    id="video-cam-btn"
-                    type="button"
-                    onClick={toggleCamera}
-                    className={`btn btn-icon ${cameraOff ? 'danger-active' : ''}`}
-                    title={cameraOff ? 'Camera on' : 'Camera off'}
-                  >
-                    {cameraOff ? (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2zM3 3l18 18" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={startScreenShare}
-                    className={`btn btn-icon ${isScreenSharing ? 'bg-indigo-500 text-white' : ''}`}
-                    title="Screen Share (50 Coins)"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                  </button>
-
-                  <button id="video-stop-btn" type="button" onClick={handleStop} className="btn btn-danger px-6 py-3">
-                    Stop
-                  </button>
-                </>
-              )}
+                </div>
+                <p className="text-[10px] text-white/30 text-center">Esc to go back</p>
+              </div>
             </div>
           </div>
 
-          {/* CHAT SIDEBAR */}
+          {/* CHAT SIDEBAR - collapsible when showChat */}
           {showChat && (
             <div className="chat-panel animate-slide-in-right">
               <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
@@ -881,77 +836,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                 <div ref={chatEndRef} />
               </div>
 
-              <div className="p-3 border-t border-white/[0.06] flex gap-1.5 sm:gap-2 min-w-0 items-center">
-                <input
-                  id="video-chat-input"
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && sendMsg()}
-                  placeholder={isAiGenerating ? 'AI thinking...' : (isConnected ? 'Message...' : 'Connect first')}
-                  disabled={!isConnected || isAiGenerating}
-                  className="chat-input flex-1 min-w-0 py-2.5 px-4 text-sm"
-                />
-                {isConnected && (
-                  <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="p-2 rounded-lg bg-white/5 border border-white/5 text-white/30 hover:text-emerald-400 transition-colors"
-                      title="Media (10-15 Coins)"
-                    >
-                      📂
-                    </button>
-                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*" onChange={handleMediaUpload} />
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                        className="p-2 rounded-lg bg-white/5 border border-white/5 text-white/30 hover:text-amber-400 transition-colors"
-                        title="3D Emojis (5 Coins)"
-                      >
-                        ✨
-                      </button>
-                      {showEmojiPicker && (
-                        <div className="absolute bottom-full right-0 mb-2 p-3 bg-[#151829] border border-white/10 rounded-2xl shadow-2xl w-[180px] grid grid-cols-4 gap-2 animate-slide-in-up z-[50]">
-                          <div className="col-span-4 text-[10px] font-black uppercase tracking-widest text-white/30 mb-1 px-1">3D Emojis (5🪙)</div>
-                          {EMOJIS_3D.map(e => (
-                            <button
-                              key={e.char}
-                              onClick={() => send3dEmoji(e)}
-                              className="w-8 h-8 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-lg text-lg transition-all"
-                            >
-                              {e.char}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={generateAiSpark}
-                      disabled={isAiGenerating}
-                      className="p-2 rounded-lg bg-white/5 border border-white/5 text-white/30 hover:text-indigo-400 transition-colors"
-                      title="AI Spark"
-                    >
-                      <svg className={`w-4 h-4 ${isAiGenerating ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
-                <button
-                  id="video-chat-send-btn"
-                  type="button"
-                  onClick={sendMsg}
-                  disabled={!isConnected || !input.trim()}
-                  className="btn btn-primary w-10 h-10 p-0 rounded-xl flex-shrink-0"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                  </svg>
-                </button>
-              </div>
+              {/* Chat sidebar: messages only - input is in right panel */}
             </div>
           )}
         </div>
