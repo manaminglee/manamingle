@@ -395,6 +395,16 @@ app.get('/api/turn', (req, res) => {
 });
 
 // COIN SYSTEM API
+const COIN_CLAIM_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+
+app.post('/api/user/credit-age', (req, res) => {
+  const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
+  if (!coinUsers.has(ip)) {
+    coinUsers.set(ip, { coins: 30, lastClaim: 0, streak: 1, lastClaimDate: null });
+  }
+  res.json({ success: true });
+});
+
 app.get('/api/user/coins', (req, res) => {
   const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
   if (!coinUsers.has(ip)) {
@@ -402,8 +412,7 @@ app.get('/api/user/coins', (req, res) => {
   }
   const user = coinUsers.get(ip);
   const now = Date.now();
-  const waitTime = 4 * 60 * 60 * 1000;
-  const nextClaim = user.lastClaim + waitTime;
+  const nextClaim = user.lastClaim + COIN_CLAIM_INTERVAL_MS;
 
   res.json({
     coins: user.coins,
@@ -417,7 +426,7 @@ app.post('/api/user/claim', (req, res) => {
   const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
   const user = coinUsers.get(ip) || { coins: 0, lastClaim: 0, streak: 0, lastClaimDate: null };
   const now = Date.now();
-  const waitTime = 4 * 60 * 60 * 1000;
+  const waitTime = COIN_CLAIM_INTERVAL_MS;
 
   if (now < user.lastClaim + waitTime) {
     return res.status(400).json({ error: 'Too early to claim' });

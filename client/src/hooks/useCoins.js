@@ -1,5 +1,15 @@
 import { useState, useEffect } from 'react';
 
+const CLAIM_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+
+export function formatTimeUntilClaim(ms) {
+    if (!ms || ms <= 0) return 'Available to collect';
+    const m = Math.floor(ms / 60000);
+    const s = Math.floor((ms % 60000) / 1000);
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+}
+
 export function useCoins() {
     const [balance, setBalance] = useState(0);
     const [streak, setStreak] = useState(1);
@@ -9,13 +19,14 @@ export function useCoins() {
 
     const fetchStatus = async () => {
         try {
-            const res = await fetch('/api/user/coins');
+            const apiBase = import.meta.env.VITE_SOCKET_URL || '';
+            const res = await fetch(`${apiBase}/api/user/coins`);
             if (res.ok) {
                 const data = await res.json();
                 setBalance(data.coins);
                 setStreak(data.streak);
                 setCanClaim(data.canClaim);
-                setNextClaim(data.nextClaim);
+                setNextClaim(data.nextClaim ?? 0);
             }
         } catch (e) {
             console.error('Failed to fetch coins:', e);
@@ -26,13 +37,14 @@ export function useCoins() {
 
     const claimCoins = async () => {
         try {
-            const res = await fetch('/api/user/claim', { method: 'POST' });
+            const apiBase = import.meta.env.VITE_SOCKET_URL || '';
+            const res = await fetch(`${apiBase}/api/user/claim`, { method: 'POST' });
             if (res.ok) {
                 const data = await res.json();
                 setBalance(data.coins);
                 setStreak(data.streak);
                 setCanClaim(false);
-                setNextClaim(4 * 60 * 60 * 1000); // 4 hours
+                setNextClaim(CLAIM_INTERVAL_MS);
                 return true;
             }
         } catch (e) {
@@ -43,9 +55,20 @@ export function useCoins() {
 
     useEffect(() => {
         fetchStatus();
-        const interval = setInterval(fetchStatus, 30000); // Poll every 30s
+        const interval = setInterval(fetchStatus, 30000);
         return () => clearInterval(interval);
     }, []);
+
+    // Countdown every second when !canClaim
+    useEffect(() => {
+        if (canClaim || nextClaim <= 0) return;
+        const t = setInterval(() => setNextClaim((p) => Math.max(0, p - 1000)), 1000);
+        return () => clearInterval(t);
+    }, [canClaim, nextClaim]);
+
+    useEffect(() => {
+        if (!canClaim && nextClaim <= 0) setCanClaim(true);
+    }, [nextClaim]);
 
     return { balance, streak, nextClaim, canClaim, claimCoins, refresh: fetchStatus, setBalance };
 }

@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { countryToFlag } from '../utils/countryFlag';
 import { useIceServers } from '../hooks/useIceServers';
+import { CoinBadge } from './CoinBadge';
 
 const GROUP_MAX = 4;
 const ICEBREAKERS = [
@@ -81,7 +82,7 @@ const EMOJIS_3D = [
 ];
 
 export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nickname, myCountry, socket, isQueuing, onLeave, onFindNewPod, onJoined, coinState }) {
-  const { balance, streak, canClaim, claimCoins } = coinState;
+  const { balance, streak, canClaim, nextClaim, claimCoins } = coinState;
   const { iceServers } = useIceServers();
   const roomIdRef = useRef(null);
   const roomId = roomIdProp ?? roomIdRef.current;
@@ -527,21 +528,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
           </div>
         </div>
         <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end min-w-0">
-          <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 shrink-0">
-            <span className="text-xs sm:text-sm">🪙</span>
-            <span className="text-[10px] sm:text-[11px] font-bold text-indigo-300">{balance}</span>
-            <div className="hidden sm:block w-px h-3 bg-white/10 mx-0.5" />
-            <span className="hidden sm:inline text-[10px] font-medium text-white/40">🔥 {streak}d</span>
-          </div>
-          {canClaim && (
-            <button
-              onClick={claimCoins}
-              className="flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 bg-gradient-to-r from-amber-400 to-orange-500 text-black text-[9px] sm:text-[10px] font-black uppercase tracking-tighter rounded-full shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 transition-all animate-coin-glow shrink-0"
-            >
-              <span className="hidden sm:inline">Claim 30 Coins</span>
-              <span className="sm:hidden">+30 🪙</span>
-            </button>
-          )}
+          <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} compact />
 
           <div className="online-pill shrink-0 text-[11px] sm:text-sm">
             <svg className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

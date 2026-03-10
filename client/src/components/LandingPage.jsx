@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSocket } from '../hooks/useSocket';
 import { useLatency } from '../hooks/useLatency';
+import { CoinBadge } from './CoinBadge';
 
 const INTERESTS = [
   { id: 'telugu', label: 'Telugu', desc: 'Connect with Telugu speakers' },
@@ -39,7 +40,7 @@ const MODALS = {
 };
 
 export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJoining = false }) {
-  const { balance, streak, canClaim, claimCoins } = coinState || {};
+  const { balance, streak, canClaim, nextClaim, claimCoins } = coinState || {};
   const [interests, setInterests] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const latency = useLatency();
@@ -150,23 +151,7 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
           {connected ? (
             <>
               {balance !== undefined && (
-                <div className="flex items-center gap-2">
-                  {canClaim && (
-                    <button
-                      onClick={claimCoins}
-                      className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-amber-400 to-orange-500 text-black text-[10px] font-black uppercase tracking-tighter rounded-full shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 transition-all animate-coin-glow"
-                    >
-                      <span className="hidden sm:inline">Claim 30 Coins</span>
-                      <span className="sm:hidden">+30 🪙</span>
-                    </button>
-                  )}
-                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20">
-                    <span className="text-sm">🪙</span>
-                    <span className="text-[11px] font-bold text-indigo-300">{balance}</span>
-                    <div className="w-px h-3 bg-white/10 mx-0.5" />
-                    <span className="text-[10px] font-medium text-white/40">🔥 {streak}d</span>
-                  </div>
-                </div>
+                <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} />
               )}
               <div className="hidden md:flex px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black text-emerald-400 uppercase tracking-widest gap-1.5 items-center">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

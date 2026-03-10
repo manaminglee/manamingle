@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { countryToFlag } from '../utils/countryFlag';
 import { useLatency } from '../hooks/useLatency';
 import { useIceServers } from '../hooks/useIceServers';
+import { CoinBadge } from './CoinBadge';
 
 const AI_ICEBREAKERS = {
   general: [
@@ -67,7 +68,7 @@ const EMOJIS_3D = [
 ];
 
 export function VideoChat({ socket, connected, country, onlineCount, interest = 'general', nickname = 'Anonymous', adsEnabled = false, onBack, onJoined, onFindNewPartner, coinState }) {
-  const { balance, streak, canClaim, claimCoins } = coinState;
+  const { balance, streak, canClaim, nextClaim, claimCoins } = coinState;
   const { iceServers } = useIceServers();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -544,21 +545,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
           {connected && (
             <>
               <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
-                <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 shrink-0">
-                  <span className="text-xs sm:text-sm">🪙</span>
-                  <span className="text-[10px] sm:text-[11px] font-bold text-indigo-300">{balance}</span>
-                  <div className="hidden sm:block w-px h-3 bg-white/10 mx-0.5" />
-                  <span className="hidden sm:inline text-[10px] font-medium text-white/40">🔥 {streak}d</span>
-                </div>
-                {canClaim && (
-                  <button
-                    onClick={claimCoins}
-                    className="flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 bg-gradient-to-r from-amber-400 to-orange-500 text-black text-[9px] sm:text-[10px] font-black uppercase tracking-tighter rounded-full shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 transition-all animate-coin-glow shrink-0"
-                  >
-                    <span className="hidden sm:inline">Claim 30 Coins</span>
-                    <span className="sm:hidden">+30 🪙</span>
-                  </button>
-                )}
+                <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} compact />
               </div>
               <div className="hidden sm:flex px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-black text-emerald-400 uppercase tracking-tighter gap-1 items-center shrink-0">
                 <div className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />

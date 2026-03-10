@@ -4,6 +4,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { countryToFlag } from '../utils/countryFlag';
+import { CoinBadge } from './CoinBadge';
 
 const GROUP_MAX = 4;
 const ICEBREAKERS = [
@@ -30,7 +31,7 @@ const EMOJIS_3D = [
 ];
 
 export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nickname, myCountry, socket, isQueuing, onLeave, onFindNewPod, onJoined, coinState }) {
-  const { balance, streak, canClaim, claimCoins } = coinState;
+  const { balance, streak, canClaim, nextClaim, claimCoins } = coinState;
   const roomIdRef = useRef(null);
   const roomId = roomIdProp ?? roomIdRef.current;
   const [displayInterest, setDisplayInterest] = useState(interestProp || 'general');
@@ -252,21 +253,7 @@ export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nick
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20">
-            <span className="text-sm">🪙</span>
-            <span className="text-[11px] font-bold text-indigo-300">{balance}</span>
-            <div className="w-px h-3 bg-white/10 mx-0.5" />
-            <span className="text-[10px] font-medium text-white/40">🔥 {streak}d</span>
-          </div>
-          {canClaim && (
-            <button
-              onClick={claimCoins}
-              className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-amber-400 to-orange-500 text-black text-[10px] font-black uppercase tracking-tighter rounded-full shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95 transition-all animate-coin-glow"
-            >
-              <span className="hidden sm:inline">Claim 30 Coins</span>
-              <span className="sm:hidden">+30 🪙</span>
-            </button>
-          )}
+          <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} />
 
           <div className="participant-badge">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

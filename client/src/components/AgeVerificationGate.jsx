@@ -21,6 +21,7 @@ export function AgeVerificationGate({ onVerified }) {
     if (!turnstileSiteKey) {
       sessionStorage.setItem('wc_age', '1');
       sessionStorage.setItem('wc_bot', '1');
+      await fetch(`${apiBase}/api/user/credit-age`, { method: 'POST' }).catch(() => {});
       onVerified?.();
       return;
     }
@@ -36,6 +37,7 @@ export function AgeVerificationGate({ onVerified }) {
       if (data.success) {
         sessionStorage.setItem('wc_age', '1');
         sessionStorage.setItem('wc_bot', '1');
+        await fetch(`${apiBase}/api/user/credit-age`, { method: 'POST' }).catch(() => {});
         onVerified?.();
       } else {
         setError('Verification failed. Please try again.');
