@@ -459,7 +459,11 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   const send3dEmoji = (emoji) => {
     if (balance < 5) return alert('Need 5 coins for 3D Emoji!');
     if (socket && roomIdRef.current) {
-      socket.emit('send-3d-emoji', { roomId: roomIdRef.current, emoji });
+      const r = roomIdRef.current;
+      // Optimistically play locally
+      setActive3dEmoji({ emoji, nickname, socketId: socket.id });
+      setTimeout(() => setActive3dEmoji(null), 3000);
+      socket.emit('send-3d-emoji', { roomId: r, emoji });
       setShowEmojiPicker(false);
     }
   };
@@ -491,7 +495,24 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   const processUpload = (file) => {
     const reader = new FileReader();
     reader.onload = (ev) => {
-      socket.emit('send-media', { roomId: roomIdRef.current, type: file.type.startsWith('video') ? 'video' : 'image', content: ev.target.result });
+      const r = roomIdRef.current;
+      if (!socket || !r) return;
+      const type = file.type.startsWith('video') ? 'video' : 'image';
+      const content = ev.target.result;
+      // Optimistically show in our chat immediately
+      setMessages(prev => [
+        ...prev.slice(-100),
+        {
+          id: `local-med-${Date.now()}`,
+          type,
+          content,
+          nickname,
+          ts: Date.now(),
+          socketId: socket.id,
+          media: true,
+        },
+      ]);
+      socket.emit('send-media', { roomId: r, type, content });
     };
     reader.readAsDataURL(file);
   };
@@ -499,10 +520,12 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   useEffect(() => {
     if (socket) {
       socket.on('3d-emoji', (data) => {
+        if (data.roomId && data.roomId !== roomIdRef.current) return;
         setActive3dEmoji(data);
         setTimeout(() => setActive3dEmoji(null), 3000);
       });
       socket.on('media-message', (data) => {
+        if (data.roomId && data.roomId !== roomIdRef.current) return;
         setMessages(prev => [...prev.slice(-100), { ...data, media: true }]);
       });
       return () => {

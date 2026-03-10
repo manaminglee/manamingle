@@ -846,7 +846,7 @@ io.on('connection', (socket) => {
     if (!u || !cUser || cUser.coins < 5) return socket.emit('error', { message: 'Need 5 coins for 3D Emoji' });
     cUser.coins -= 5;
     coinUsers.set(ip, cUser);
-    io.to(roomId).emit('3d-emoji', { emoji, nickname: u.nickname, socketId: socket.id });
+    io.to(roomId).emit('3d-emoji', { roomId, emoji, nickname: u.nickname, socketId: socket.id });
     socket.emit('coins-updated', { coins: cUser.coins });
   });
 
@@ -858,7 +858,7 @@ io.on('connection', (socket) => {
     if (!u || !cUser || cUser.coins < cost) return socket.emit('error', { message: `Need ${cost} coins for Media` });
     cUser.coins -= cost;
     coinUsers.set(ip, cUser);
-    io.to(roomId).emit('media-message', { id: generateId('med'), type, content, nickname: u.nickname, ts: Date.now(), socketId: socket.id });
+    io.to(roomId).emit('media-message', { id: generateId('med'), roomId, type, content, nickname: u.nickname, ts: Date.now(), socketId: socket.id });
     socket.emit('coins-updated', { coins: cUser.coins });
   });
 
