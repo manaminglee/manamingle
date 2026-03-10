@@ -206,10 +206,10 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 animate-fade-in-up delay-300 mb-6">
           <button
             id="hero-start-btn"
-            onClick={scrollToStart}
+            onClick={() => onJoin(getInterest(), 'Anonymous', 'video')}
             className="btn btn-primary px-6 py-3 text-base rounded-xl w-full sm:w-auto shadow-xl shadow-indigo-600/20 group hover:scale-[1.02] active:scale-[0.98] transition-all"
           >
-            Start Chatting <span className="ml-2 group-hover:translate-x-1 transition-transform inline-block">→</span>
+            Start Video Chat <span className="ml-2 group-hover:translate-x-1 transition-transform inline-block">→</span>
           </button>
           <button
             id="hero-howit-btn"
@@ -324,7 +324,10 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
           </div>
 
           {/* VIDEO CHAT */}
-          <div className="mode-card group animate-fade-in-up delay-200">
+          <div 
+            className="mode-card group animate-fade-in-up delay-200 cursor-pointer"
+            onClick={() => onJoin(getInterest(), 'Anonymous', 'video')}
+          >
             <div className="icon-wrap" style={{ background: 'rgba(20,184,166,0.15)', borderColor: 'rgba(20,184,166,0.25)' }}>
               📹
             </div>

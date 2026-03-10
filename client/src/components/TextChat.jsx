@@ -52,7 +52,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
   const [roomId, setRoomId] = useState(null);
   const [peer, setPeer] = useState(null);
   // status: idle | searching | connected | disconnected
-  const [status, setStatus] = useState('idle');
+  const [status, setStatus] = useState('searching');
   const latency = useLatency();
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [isTranslatorActive, setIsTranslatorActive] = useState(false);
@@ -126,6 +126,11 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
     socket.on('user-left', onUserLeft);
     socket.on('waiting-for-partner', onWaiting);
     socket.on('system-announcement', onSystemMsg);
+
+    // Auto-emit find-partner on mount if we're in searching state
+    if (socket && status === 'searching' && !roomIdRef.current) {
+      socket.emit('find-partner', { mode: 'text', interest: interest || 'general', nickname: 'Anonymous' });
+    }
 
     return () => {
       socket.off('partner-found', onPartnerFound);

@@ -369,6 +369,11 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
     socket.on('webrtc-signal', onSignal);
     socket.on('system-announcement', onSystemMsg);
 
+    // Auto-join group on mount if we're queuing
+    if (socket && isQueuing && !hasJoinedRef.current) {
+      socket.emit('join-group-by-interest', { interest: displayInterest || interestProp || 'general', nickname: 'Anonymous', mode: 'group_video' });
+    }
+
     return () => {
       socket.off('group-joined', onGroupJoined);
       socket.off('existing-peers', onExistingPeers);

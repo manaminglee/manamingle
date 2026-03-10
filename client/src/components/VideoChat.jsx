@@ -76,7 +76,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   const [input, setInput] = useState('');
   const [roomId, setRoomId] = useState(null);
   const [peer, setPeer] = useState(null);
-  const [status, setStatus] = useState('idle'); // idle | searching | connected | disconnected
+  const [status, setStatus] = useState('searching'); // Start in searching mode by default when mounted from landing
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
   const [mutedStranger, setMutedStranger] = useState(false);
@@ -448,6 +448,11 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     socket.on('waiting-for-partner', onWaiting);
     socket.on('webrtc-signal', onSignal);
     socket.on('system-announcement', onSystemMsg);
+
+    // Auto-emit find-partner on mount if we're in searching state
+    if (socket && status === 'searching' && !roomIdRef.current) {
+      socket.emit('find-partner', { mode: 'video', interest: interest || 'general', nickname: 'Anonymous' });
+    }
 
     return () => {
       socket.off('partner-found', onPartnerFound);

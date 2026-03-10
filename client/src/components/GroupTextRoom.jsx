@@ -142,6 +142,11 @@ export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nick
     socket.on('user-left', onUserLeft);
     socket.on('system-announcement', onSystemMsg);
 
+    // Auto-join group on mount if we're queuing
+    if (socket && isQueuing && !hasJoinedRef.current) {
+      socket.emit('join-group-by-interest', { interest: displayInterest || interestProp || 'general', nickname: 'Anonymous', mode: 'group_text' });
+    }
+
     return () => {
       socket.off('group-joined', onGroupJoined);
       socket.off('existing-peers', onExistingPeers);

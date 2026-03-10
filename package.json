@@ -21,6 +21,7 @@
     "express-rate-limit": "^7.0.0",
     "geoip-lite": "^1.4.10",
     "helmet": "^8.1.0",
+    "playwright": "^1.58.2",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3"
   },

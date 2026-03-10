@@ -21,6 +21,10 @@ export function useSocket() {
         transports: ['websocket', 'polling'],
         withCredentials: true,
       });
+
+      // Set socket immediately so components can use it even before 'connect' event
+      setSocket(s);
+
       s.on('connect', () => { setConnected(true); setIsBlocked(false); });
       s.on('disconnect', () => setConnected(false));
       s.on('connected', (data) => setCountry(data?.country || null));
@@ -35,7 +39,6 @@ export function useSocket() {
           setAdsEnabled(!!data.adsEnabled);
         }
       });
-      setSocket(s);
     })();
     return () => {
       if (s) s.disconnect();

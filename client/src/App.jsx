@@ -72,11 +72,10 @@ export default function App() {
     // Push state so back button works
     window.history.pushState({ mode: m }, '');
 
-    if (m === MODES.TEXT || m === MODES.VIDEO) {
-      socket.emit('find-partner', { mode: m, interest: intst, nickname: 'Anonymous' });
-    } else {
-      socket.emit('join-group-by-interest', { interest: intst, nickname: 'Anonymous', mode: m });
-    }
+    // Note: We no longer emit find-partner here. 
+    // The individual components (VideoChat/TextChat) will emit it on mount 
+    // to avoid race conditions where events arrive before listeners are ready.
+    
     setTimeout(() => setIsJoining(false), 500);
   };
 
