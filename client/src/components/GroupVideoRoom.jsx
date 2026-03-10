@@ -141,6 +141,13 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
     return () => { if (s) s.getTracks().forEach((t) => t.stop()); };
   }, []);
 
+  // Sync local stream to video element when ref mounts (handles race)
+  useEffect(() => {
+    if (localStreamReady && localStreamRef.current && localVideoRef.current) {
+      localVideoRef.current.srcObject = localStreamRef.current;
+    }
+  }, [localStreamReady]);
+
   const toggleMute = () => {
     if (!localStreamRef.current) return;
     const next = !muted;
@@ -886,8 +893,21 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
 function RemoteVideoTile({ stream, socketId }) {
   const ref = useRef(null);
   useEffect(() => {
-    if (!ref.current || !stream) return;
-    ref.current.srcObject = stream;
+    if (!ref.current) return;
+    ref.current.srcObject = stream || null;
+    if (stream) {
+      // Ensure video plays when stream arrives (Safari/iOS)
+      ref.current.play?.().catch(() => {});
+    }
   }, [stream]);
-  return <video ref={ref} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />;
+  return (
+    <video
+      ref={ref}
+      autoPlay
+      playsInline
+      muted={false}
+      className="absolute inset-0 w-full h-full object-cover"
+      style={{ backgroundColor: '#0c0e1a' }}
+    />
+  );
 }

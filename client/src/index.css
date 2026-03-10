@@ -822,12 +822,12 @@ body::after {
    ============================================================ */
 .video-frame-torn {
   position: relative;
-  padding: 14px;
+  padding: 6px;
   background: linear-gradient(145deg, #0a0a12 0%, #12152a 50%, #0d0f1c 100%);
   box-shadow:
-    inset 0 0 0 1px rgba(99, 102, 241, 0.15),
-    0 4px 24px rgba(0, 0, 0, 0.5),
-    0 0 40px rgba(99, 102, 241, 0.06);
+    inset 0 0 0 0.5px rgba(99, 102, 241, 0.12),
+    0 2px 12px rgba(0, 0, 0, 0.4),
+    0 0 24px rgba(99, 102, 241, 0.04);
 }
 
 .video-frame-torn-inner {
@@ -878,7 +878,7 @@ body::after {
   border-radius: 16px;
   overflow: hidden;
   background: rgba(12, 14, 26, 0.9);
-  border: 1px solid rgba(99, 102, 241, 0.12);
+  border: 0.5px solid rgba(99, 102, 241, 0.1);
   transition: border-color 0.25s, box-shadow 0.25s;
 }
 
@@ -1002,7 +1002,7 @@ body::after {
   border-radius: 12px;
   padding: 0.65rem 1rem;
   color: var(--c-text);
-  font-size: 0.875rem;
+  font-size: 16px; /* 16px prevents iOS zoom on focus */
   outline: none;
   transition: border-color 0.18s, box-shadow 0.18s;
   font-family: inherit;
@@ -1383,7 +1383,8 @@ body::after {
 }
 
 .video-grid-2x2 .video-tile {
-  min-height: 0;
+  min-height: 140px;
+  aspect-ratio: 16 / 10;
 }
 
 /* ============================================================

@@ -91,7 +91,6 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   const [cameraError, setCameraError] = useState(null);
   const [toast, setToast] = useState(null);
   const [autoBandwidth, setAutoBandwidth] = useState(true);
-  const [pipOffset, setPipOffset] = useState({ x: 0, y: 0 });
   const [videoDevices, setVideoDevices] = useState([]);
   const [audioDevices, setAudioDevices] = useState([]);
   const [selectedVideoDeviceId, setSelectedVideoDeviceId] = useState(
@@ -781,9 +780,9 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
           </div>
         )}
         <div className="flex-1 flex flex-col sm:flex-row min-h-0 overflow-hidden">
-          {/* LEFT (desktop) / TOP (mobile): Video area - compact square panels */}
-          <div className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4 min-h-0 min-w-0 sm:max-w-[360px] sm:flex-shrink-0">
-            <div className="relative flex flex-col gap-2 sm:gap-3 min-h-0 sm:max-h-[320px]">
+          {/* LEFT (desktop) / TOP (mobile): Video area - ensure panel is always visible */}
+          <div className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4 min-h-[200px] sm:min-h-0 w-full sm:w-auto sm:min-w-[320px] sm:max-w-[360px] sm:flex-shrink-0 sm:flex-grow-0 overflow-visible">
+            <div className="relative flex flex-col gap-2 sm:gap-3 min-h-0 flex-1 sm:flex-initial sm:max-h-[320px]">
               {/* Remote video - big on mobile, compact square on desktop */}
               <div className="video-frame-torn w-full aspect-square max-h-[45vh] sm:max-h-[200px] sm:max-w-[320px] flex-shrink-0 relative mx-auto">
                 <div className="video-frame-torn-inner relative bg-black w-full h-full">
@@ -893,56 +892,10 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                   <div className="absolute bottom-2 right-2 text-[10px] font-medium text-white/25 pointer-events-none">Mana Mingle</div>
                 </div>
               </div>
-              {/* Local video: mobile=PIP bottom-left (draggable), desktop=separate square panel below matching remote */}
+              {/* Local video: mobile=PIP static bottom-left of remote, desktop=separate panel below */}
               <div
-                className="local-video-pip absolute bottom-2 left-2 z-10 w-20 h-20 rounded-lg overflow-hidden border-2 border-white/20 shadow-lg bg-black sm:static sm:bottom-auto sm:left-auto sm:w-full sm:h-auto sm:rounded-none sm:border-0 sm:shadow-none video-frame-torn sm:aspect-square sm:max-h-[200px] sm:max-w-[320px] flex-shrink-0 touch-none mx-auto sm:mx-auto"
-                style={{ transform: `translate(${pipOffset.x}px, ${pipOffset.y}px)` }}
+                className="local-video-pip absolute bottom-3 left-3 z-10 w-28 h-28 sm:w-full sm:h-auto sm:static sm:bottom-auto sm:left-auto sm:rounded-none sm:border-0 sm:shadow-none video-frame-torn sm:aspect-square sm:max-h-[200px] sm:max-w-[320px] flex-shrink-0 rounded-lg overflow-hidden border border-white/15 shadow-md bg-black mx-auto sm:mx-auto"
                 ref={pipDragRef}
-                onPointerDown={(e) => {
-                  if (window.innerWidth >= 640) return; // only draggable on mobile
-                  const startX = e.clientX;
-                  const startY = e.clientY;
-                  const startOffset = { ...pipOffset };
-                  const container = pipDragRef.current?.parentElement;
-                  const handleMove = (ev) => {
-                    if (!container) return;
-                    const dx = ev.clientX - startX;
-                    const dy = ev.clientY - startY;
-                    const nextX = startOffset.x + dx;
-                    const nextY = startOffset.y + dy;
-                    const bounds = container.getBoundingClientRect();
-                    const box = pipDragRef.current.getBoundingClientRect();
-                    // clamp so PIP stays inside container
-                    const maxX = bounds.width - box.width;
-                    const maxY = bounds.height - box.height;
-                    const clampedX = Math.min(Math.max(nextX, -box.left + bounds.left), maxX - (box.left - bounds.left));
-                    const clampedY = Math.min(Math.max(nextY, -box.top + bounds.top), maxY - (box.top - bounds.top));
-                    setPipOffset({ x: clampedX, y: clampedY });
-                  };
-                  const handleUp = () => {
-                    window.removeEventListener('pointermove', handleMove);
-                    window.removeEventListener('pointerup', handleUp);
-                    // snap to closest corner
-                    const cont = pipDragRef.current?.parentElement;
-                    const box = pipDragRef.current?.getBoundingClientRect();
-                    if (!cont || !box) return;
-                    const cRect = cont.getBoundingClientRect();
-                    const midX = box.left + box.width / 2;
-                    const midY = box.top + box.height / 2;
-                    const left = cRect.left;
-                    const right = cRect.right;
-                    const top = cRect.top;
-                    const bottom = cRect.bottom;
-                    const targetX = midX < (left + right) / 2 ? left + 8 : right - box.width - 8;
-                    const targetY = midY < (top + bottom) / 2 ? top + 8 : bottom - box.height - 8;
-                    setPipOffset({
-                      x: targetX - (box.left),
-                      y: targetY - (box.top),
-                    });
-                  };
-                  window.addEventListener('pointermove', handleMove);
-                  window.addEventListener('pointerup', handleUp);
-                }}
               >
                 <div className="video-frame-torn-inner relative w-full h-full min-h-[80px] sm:min-h-0">
                   <video ref={localVideoRef} autoPlay muted playsInline className={`absolute inset-0 w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-30' : ''}`} />
@@ -956,7 +909,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                 </div>
               </div>
               {/* Control bar - transparent overlay at bottom of video area (on local video) */}
-              <div className="absolute bottom-0 left-0 right-0 z-20 flex flex-row items-center justify-center gap-1 flex-nowrap px-2 py-1.5 bg-black/50 backdrop-blur-sm border-t border-white/10 overflow-x-auto">
+              <div className="absolute bottom-0 left-0 right-0 z-20 flex flex-row items-center justify-center gap-1 flex-nowrap px-2 py-1.5 bg-black/50 backdrop-blur-sm border-t border-t-[0.5px] border-white/10 overflow-x-auto">
                 {(status === 'idle' || status === 'disconnected') && (
                   <button id="video-start-btn" type="button" disabled={!connected} onClick={handleStart} className="btn btn-primary px-2 py-1 text-[10px] shrink-0 min-w-[48px]" title="Start">
                     <svg className="w-3 h-3 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
@@ -991,7 +944,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
           </div>
 
           {/* RIGHT: Rules + Chat (single unified area with auto-scroll) */}
-          <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-[#0d0f1c]/60 border-l border-indigo-500/10">
+          <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-[#0d0f1c]/60 border-l-[0.5px] border-indigo-500/10">
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
               {/* Rules + Messages in one scrollable area */}
               <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 sm:p-6 space-y-4" id="video-chat-messages">
