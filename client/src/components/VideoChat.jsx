@@ -415,7 +415,6 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     if (untranslated.length === 0) return;
 
     const target = untranslated[untranslated.length - 1];
-    const apiBase = import.meta.env.VITE_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
     const translateMsg = async () => {
       try {
         const res = await fetch(`${apiBase}/api/ai/translate`, {
@@ -430,7 +429,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       } catch (e) { }
     };
     translateMsg();
-  }, [messages, isTranslatorActive]);
+  }, [messages, isTranslatorActive, apiBase]);
 
   const startScreenShare = async () => {
     if (balance < 50) return alert('Need 50 coins to start Screen Share!');
