@@ -180,10 +180,19 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
     pc.ontrack = (e) => {
       const nick = peerNicksRef.current.get(remoteId) || 'Stranger';
       const ctry = peerCountriesRef.current.get(remoteId);
-      const stream = e.streams?.[0] || (e.track ? new MediaStream([e.track]) : null);
-      if (!stream) return;
+      const track = e.track;
+      if (!track) return;
+
       setPeers((prev) => {
         const filtered = prev.filter((p) => p.socketId !== remoteId);
+        const existing = prev.find((p) => p.socketId === remoteId);
+        let stream = existing?.stream;
+
+        // Always merge tracks: video and audio can arrive in separate ontrack events
+        if (!stream) stream = new MediaStream();
+        const hasTrack = stream.getTracks().some((t) => t.id === track.id);
+        if (!hasTrack) stream.addTrack(track);
+
         return [...filtered, { socketId: remoteId, stream, nickname: nick, country: ctry }];
       });
     };
@@ -606,86 +615,102 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
             {tiles.map((tile, idx) => {
               if (tile.type === 'local') {
                 return (
-                  <div key="local" className={`video-tile mirror ${cameraOff ? '' : ''}`} style={{ minHeight: 140 }}>
-                    <video
-                      ref={localVideoRef}
-                      autoPlay
-                      muted
-                      playsInline
-                      className={`w-full h-full object-cover ${cameraOff ? 'opacity-20' : ''}`}
-                    />
-                    {!localStreamReady && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[#0c0e1a]">
-                        <div className="relative w-12 h-12">
-                          <div className="radar-ring absolute inset-0" />
-                          <div className="absolute inset-2 rounded-full bg-indigo-500/20 flex items-center justify-center text-lg">📹</div>
+                  <div key="local" className="video-tile">
+                    <div className="video-tile-wrapper">
+                      <div className="video-tile-inner">
+                        <video
+                          ref={localVideoRef}
+                          autoPlay
+                          muted
+                          playsInline
+                          className={`absolute inset-0 w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-20' : ''}`}
+                        />
+                        {!localStreamReady && (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[#0c0e1a]">
+                            <div className="relative w-12 h-12">
+                              <div className="radar-ring absolute inset-0" />
+                              <div className="absolute inset-2 rounded-full bg-indigo-500/20 flex items-center justify-center text-lg">📹</div>
+                            </div>
+                            <p className="text-xs" style={{ color: 'rgba(232,234,246,0.5)' }}>Starting camera...</p>
+                          </div>
+                        )}
+                        {cameraOff && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                            <svg className="w-8 h-8 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2zM3 3l18 18" />
+                            </svg>
+                          </div>
+                        )}
+                        <div className="tile-label">
+                          {countryToFlag(myCountry) && <span>{countryToFlag(myCountry)}</span>}
+                          <span>You</span>
+                          {muted && <span className="text-red-400 text-xs ml-1">🔇</span>}
                         </div>
-                        <p className="text-xs" style={{ color: 'rgba(232,234,246,0.5)' }}>Starting camera...</p>
                       </div>
-                    )}
-                    {cameraOff && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-                        <svg className="w-8 h-8 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2zM3 3l18 18" />
-                        </svg>
-                      </div>
-                    )}
-                    <div className="tile-label">
-                      {countryToFlag(myCountry) && <span>{countryToFlag(myCountry)}</span>}
-                      <span>You</span>
-                      {muted && <span className="text-red-400 text-xs ml-1">🔇</span>}
                     </div>
                   </div>
                 );
               }
               if (tile.type === 'searching') {
                 return (
-                  <div key="searching" className="video-tile flex flex-col items-center justify-center gap-3" style={{ minHeight: 140 }}>
-                    <div className="relative w-12 h-12">
-                      <div className="radar-ring absolute inset-0" />
-                      <div className="radar-ring absolute inset-2" style={{ animationDelay: '0.6s' }} />
-                      <div className="absolute inset-3 rounded-full bg-indigo-500/20 flex items-center justify-center">📡</div>
+                  <div key="searching" className="video-tile">
+                    <div className="video-tile-wrapper flex flex-col items-center justify-center gap-3">
+                      <div className="video-tile-inner flex flex-1 flex-col items-center justify-center gap-3 w-full">
+                        <div className="relative w-12 h-12">
+                          <div className="radar-ring absolute inset-0" />
+                          <div className="radar-ring absolute inset-2" style={{ animationDelay: '0.6s' }} />
+                          <div className="absolute inset-3 rounded-full bg-indigo-500/20 flex items-center justify-center">📡</div>
+                        </div>
+                        <p className="text-xs" style={{ color: 'rgba(232,234,246,0.45)' }}>Finding room...</p>
+                        <div className="search-dots" style={{ transform: 'scale(0.75)' }}><span /><span /><span /></div>
+                      </div>
                     </div>
-                    <p className="text-xs" style={{ color: 'rgba(232,234,246,0.45)' }}>Finding room...</p>
-                    <div className="search-dots" style={{ transform: 'scale(0.75)' }}><span /><span /><span /></div>
                   </div>
                 );
               }
               if (tile.type === 'peer') {
                 const { peer } = tile;
                 return (
-                  <div key={peer.socketId} className="video-tile" style={{ minHeight: 140 }}>
-                    {peer.stream ? (
-                      <RemoteVideoTile stream={peer.stream} socketId={peer.socketId} />
-                    ) : (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                        <div className="peer-avatar text-xl" style={{ width: 48, height: 48, fontSize: '1.25rem' }}>👤</div>
-                        <div className="search-dots" style={{ transform: 'scale(0.7)' }}><span /><span /><span /></div>
+                  <div key={peer.socketId} className="video-tile">
+                    <div className="video-tile-wrapper">
+                      <div className="video-tile-inner relative">
+                        {peer.stream ? (
+                          <RemoteVideoTile stream={peer.stream} socketId={peer.socketId} />
+                        ) : (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                            <div className="peer-avatar text-xl" style={{ width: 48, height: 48, fontSize: '1.25rem' }}>👤</div>
+                            <div className="search-dots" style={{ transform: 'scale(0.7)' }}><span /><span /><span /></div>
+                          </div>
+                        )}
+                        <div className="tile-label">
+                          {countryToFlag(peer.country) && <span>{countryToFlag(peer.country)}</span>}
+                          <span>{peer.nickname || 'Anonymous'}</span>
+                        </div>
+                        {peer.stream && <div className="absolute top-2 right-2 live-dot" />}
+                        <button
+                          type="button"
+                          onClick={() => alert('Report submitted. Our team will review this session.')}
+                          className="report-btn"
+                          title="Report"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+                          </svg>
+                        </button>
                       </div>
-                    )}
-                    <div className="tile-label">
-                      {countryToFlag(peer.country) && <span>{countryToFlag(peer.country)}</span>}
-                      <span>{peer.nickname || 'Stranger'}</span>
                     </div>
-                    <div className="absolute top-2 right-2 live-dot" />
-                    <button
-                      type="button"
-                      onClick={() => alert('Report submitted. Our team will review this session.')}
-                      className="report-btn"
-                      title="Report"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
-                      </svg>
-                    </button>
                   </div>
                 );
               }
               // empty
               return (
-                <div key={`empty-${idx}`} className="video-tile flex flex-col items-center justify-center gap-2 opacity-30" style={{ minHeight: 140 }}>
-                  <div className="w-10 h-10 rounded-xl border border-white/10 flex items-center justify-center">⏳</div>
-                  <p className="text-xs" style={{ color: 'rgba(232,234,246,0.4)' }}>Waiting for participant</p>
+                <div key={`empty-${idx}`} className="video-tile">
+                  <div className="video-tile-wrapper flex flex-col items-center justify-center gap-2 opacity-30">
+                    <div className="video-tile-inner flex flex-1 flex-col items-center justify-center gap-2 w-full">
+                      <div className="w-10 h-10 rounded-xl border border-white/10 flex items-center justify-center">⏳</div>
+                      <p className="text-xs" style={{ color: 'rgba(232,234,246,0.4)' }}>Waiting for participant</p>
+                    </div>
+                  </div>
                 </div>
               );
             })}
@@ -896,10 +921,10 @@ function RemoteVideoTile({ stream, socketId }) {
     if (!ref.current) return;
     ref.current.srcObject = stream || null;
     if (stream) {
-      // Ensure video plays when stream arrives (Safari/iOS)
       ref.current.play?.().catch(() => {});
     }
   }, [stream]);
+  if (!stream) return null;
   return (
     <video
       ref={ref}
