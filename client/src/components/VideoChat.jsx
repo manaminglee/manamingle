@@ -783,8 +783,8 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
           {/* LEFT (desktop) / TOP (mobile): Video area - ensure panel is always visible */}
           <div className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4 min-h-[200px] sm:min-h-0 w-full sm:w-auto sm:min-w-[320px] sm:max-w-[360px] sm:flex-shrink-0 sm:flex-grow-0 overflow-visible">
             <div className="relative flex flex-col gap-2 sm:gap-3 min-h-0 flex-1 sm:max-h-[440px] overflow-visible">
-              {/* Remote video - big on mobile, compact square on desktop */}
-              <div className="video-frame-torn w-full aspect-square max-h-[38vh] sm:max-h-[200px] sm:max-w-[320px] flex-shrink-0 relative mx-auto">
+              {/* Remote video - 1st panel */}
+              <div className="video-frame-torn w-full aspect-square max-h-[38vh] sm:max-h-[200px] sm:max-w-[320px] flex-[1_1_0] min-h-0 relative mx-auto">
                 <div className="video-frame-torn-inner relative bg-black w-full h-full">
                   {cameraError ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-4 text-center">
@@ -892,9 +892,9 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                   <div className="absolute bottom-2 right-2 text-[10px] font-medium text-white/25 pointer-events-none">Mana Mingle</div>
                 </div>
               </div>
-              {/* Local video: mobile=PIP static bottom-left of remote, desktop=same ratio as remote panel */}
+              {/* Local video: mobile=PIP, desktop=2nd panel same size as 1st */}
               <div
-                className="local-video-pip absolute bottom-3 left-3 z-10 w-28 h-28 sm:w-full sm:static sm:bottom-auto sm:left-auto sm:rounded-none sm:border-0 sm:shadow-none video-frame-torn sm:aspect-square sm:max-h-[200px] sm:max-w-[320px] flex-shrink-0 rounded-lg overflow-hidden border border-white/15 shadow-md bg-black mx-auto sm:mx-auto"
+                className="local-video-pip absolute bottom-3 left-3 z-10 w-28 h-28 sm:w-full sm:static sm:bottom-auto sm:left-auto sm:rounded-none sm:border-0 sm:shadow-none video-frame-torn sm:aspect-square sm:max-h-[200px] sm:max-w-[320px] sm:flex-[1_1_0] sm:min-h-0 flex-shrink-0 rounded-lg overflow-hidden border border-white/15 shadow-md bg-black mx-auto sm:mx-auto"
                 ref={pipDragRef}
               >
                 <div className="video-frame-torn-inner relative w-full h-full min-h-[80px] sm:min-h-0">
