@@ -863,6 +863,12 @@ body::after {
     clip-path: none;
     border-radius: inherit;
   }
+
+  /* Fix remote video black screen on mobile (iOS Safari) */
+  .video-frame-torn-inner video {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
 }
 
 /* Video chat: rules + messages scroll area */
@@ -1387,9 +1393,19 @@ body::after {
   min-width: 0;
   position: relative;
   display: flex;
+  background: transparent;
+  border: none;
+  overflow: visible;
 }
 
-/* Group video: use video-frame-torn style (same as 1:1 video chat) */
+.video-grid-2x2 .video-tile:hover .video-tile-wrapper {
+  box-shadow:
+    inset 0 0 0 0.5px rgba(99, 102, 241, 0.2),
+    0 2px 12px rgba(0, 0, 0, 0.4),
+    0 0 28px rgba(99, 102, 241, 0.08);
+}
+
+/* Group video: decorative torn-paper style (same as 1:1 video chat) */
 .video-grid-2x2 .video-tile-wrapper {
   position: relative;
   flex: 1;
@@ -1397,7 +1413,10 @@ body::after {
   min-height: 0;
   padding: 6px;
   background: linear-gradient(145deg, #0a0a12 0%, #12152a 50%, #0d0f1c 100%);
-  box-shadow: inset 0 0 0 0.5px rgba(99, 102, 241, 0.12), 0 2px 12px rgba(0, 0, 0, 0.4), 0 0 24px rgba(99, 102, 241, 0.04);
+  box-shadow:
+    inset 0 0 0 0.5px rgba(99, 102, 241, 0.12),
+    0 2px 12px rgba(0, 0, 0, 0.4),
+    0 0 24px rgba(99, 102, 241, 0.04);
   border-radius: 16px;
   overflow: hidden;
 }
@@ -1408,7 +1427,11 @@ body::after {
   height: 100%;
   overflow: hidden;
   background: #000;
-  border-radius: 10px;
+  /* Torn paper / rough inner edge - same as video-frame-torn-inner */
+  clip-path: polygon(4% 2%, 11% 5%, 18% 1%, 26% 4%, 34% 2%, 42% 5%, 50% 1%, 58% 4%, 66% 2%, 74% 5%, 82% 1%, 90% 4%, 97% 2%,
+    98% 8%, 96% 16%, 98% 24%, 96% 32%, 98% 40%, 96% 48%, 98% 56%, 96% 64%, 98% 72%, 96% 80%, 98% 90%,
+    93% 97%, 85% 95%, 77% 98%, 69% 95%, 61% 98%, 53% 95%, 45% 98%, 37% 95%, 29% 98%, 21% 95%, 13% 98%, 5% 96%,
+    2% 90%, 4% 82%, 2% 74%, 4% 66%, 2% 58%, 4% 50%, 2% 42%, 4% 34%, 2% 26%, 4% 18%, 2% 10%);
 }
 
 /* ============================================================

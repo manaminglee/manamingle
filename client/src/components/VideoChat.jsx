@@ -195,12 +195,13 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     if (localVideoRef.current && localStream) localVideoRef.current.srcObject = localStream;
   }, [localStream, status]);
 
-  // Attach remote stream and volume
+  // Attach remote stream, volume, and ensure play on mobile (fixes black screen)
   useEffect(() => {
-    if (remoteVideoRef.current && peer?.stream) {
-      remoteVideoRef.current.srcObject = peer.stream;
-      remoteVideoRef.current.volume = remoteVolume;
-    }
+    const el = remoteVideoRef.current;
+    if (!el || !peer?.stream) return;
+    el.srcObject = peer.stream;
+    el.volume = remoteVolume;
+    el.play?.().catch(() => {});
   }, [peer?.stream, remoteVolume]);
 
   const bandwidthLabel = autoBandwidth ? 'Auto' : (lowBandwidth ? 'Low' : 'High');
@@ -783,8 +784,8 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
           {/* LEFT (desktop) / TOP (mobile): Video area - ensure panel is always visible */}
           <div className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4 min-h-[200px] sm:min-h-0 w-full sm:w-auto sm:min-w-[320px] sm:max-w-[360px] sm:flex-shrink-0 sm:flex-grow-0 overflow-visible">
             <div className="relative flex flex-col gap-2 sm:gap-3 min-h-0 flex-1 sm:max-h-[440px] overflow-visible">
-              {/* Remote video - 1st panel */}
-              <div className="video-frame-torn w-full aspect-square max-h-[38vh] sm:max-h-[200px] sm:max-w-[320px] flex-[1_1_0] min-h-0 relative mx-auto">
+              {/* Remote video - 1st panel; mobile: big, desktop: compact */}
+              <div className="video-frame-torn w-full aspect-square min-h-[45vh] max-h-[60vh] sm:min-h-0 sm:max-h-[200px] sm:max-w-[320px] flex-[1_1_0] relative mx-auto">
                 <div className="video-frame-torn-inner relative bg-black w-full h-full">
                   {cameraError ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-4 text-center">
@@ -894,7 +895,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
               </div>
               {/* Local video: mobile=PIP, desktop=2nd panel same size as 1st */}
               <div
-                className="local-video-pip absolute bottom-3 left-3 z-10 w-28 h-28 sm:w-full sm:static sm:bottom-auto sm:left-auto sm:rounded-none sm:border-0 sm:shadow-none video-frame-torn sm:aspect-square sm:max-h-[200px] sm:max-w-[320px] sm:flex-[1_1_0] sm:min-h-0 flex-shrink-0 rounded-lg overflow-hidden border border-white/15 shadow-md bg-black mx-auto sm:mx-auto"
+                className="local-video-pip absolute bottom-3 left-3 z-10 w-36 h-36 sm:w-full sm:static sm:bottom-auto sm:left-auto sm:rounded-none sm:border-0 sm:shadow-none video-frame-torn sm:aspect-square sm:max-h-[200px] sm:max-w-[320px] sm:flex-[1_1_0] sm:min-h-0 flex-shrink-0 rounded-lg overflow-hidden border border-white/15 shadow-md bg-black mx-auto sm:mx-auto"
                 ref={pipDragRef}
               >
                 <div className="video-frame-torn-inner relative w-full h-full min-h-[80px] sm:min-h-0">
