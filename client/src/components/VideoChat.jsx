@@ -908,8 +908,9 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                   <div className="hidden sm:block absolute bottom-2 right-2 text-[10px] font-medium text-white/25 pointer-events-none">Mana Mingle</div>
                 </div>
               </div>
-              {/* Control bar - transparent overlay at bottom of video area (on local video) */}
-              <div className="absolute bottom-0 left-0 right-0 z-20 flex flex-row items-center justify-center gap-1 flex-nowrap px-2 py-1.5 bg-black/50 backdrop-blur-sm border-t border-t-[0.5px] border-white/10 overflow-x-auto">
+            </div>
+            {/* Control bar - in dedicated space below video panels */}
+            <div className="flex-shrink-0 flex flex-row items-center justify-center gap-1 flex-nowrap px-2 py-2 mt-1 rounded-xl bg-[#0a0b14]/90 border border-indigo-500/10 overflow-x-auto w-full">
                 {(status === 'idle' || status === 'disconnected') && (
                   <button id="video-start-btn" type="button" disabled={!connected} onClick={handleStart} className="btn btn-primary px-2 py-1 text-[10px] shrink-0 min-w-[48px]" title="Start">
                     <svg className="w-3 h-3 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
@@ -940,7 +941,6 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                   </>
                 )}
               </div>
-            </div>
           </div>
 
           {/* RIGHT: Rules + Chat (single unified area with auto-scroll) */}
