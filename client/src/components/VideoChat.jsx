@@ -206,6 +206,46 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
   const bandwidthLabel = autoBandwidth ? 'Auto' : (lowBandwidth ? 'Low' : 'High');
 
+  const clearRoom = useCallback(() => {
+    peerConnectionsRef.current.forEach((pc) => pc.close());
+    peerConnectionsRef.current.clear();
+    pendingCandidatesRef.current.clear();
+    pendingOfferRef.current = null;
+    pendingAnswerRef.current = null;
+    peerInfoRef.current.clear();
+    setPeer(null);
+    setRoomId(null);
+    setMessages([]);
+    roomIdRef.current = null;
+  }, []);
+
+  const handleStart = () => {
+    if (!socket || !connected) return;
+    clearRoom();
+    setStatus('searching');
+    socket.emit('find-partner', { mode: 'video', interest: interest || 'general', nickname: 'Anonymous' });
+  };
+
+  const handleSkip = () => {
+    if (roomIdRef.current && socket) socket.emit('leave-room', { roomId: roomIdRef.current });
+    else socket?.emit('cancel-find-partner');
+    clearRoom();
+    setStatus('searching');
+    setTimeout(() => {
+      socket?.emit('find-partner', { mode: 'video', interest: interest || 'general', nickname: 'Anonymous' });
+      onFindNewPartner?.();
+    }, 50);
+  };
+
+  const handleStop = () => {
+    if (roomIdRef.current && socket) socket.emit('leave-room', { roomId: roomIdRef.current });
+    socket?.emit('cancel-find-partner');
+    clearRoom();
+    setStatus('idle');
+  };
+
+  const handleBack = () => { handleStop(); onBack?.(); };
+
   // Pause remote video when tab is hidden
   useEffect(() => {
     const handleVisibility = () => {
@@ -263,19 +303,6 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     const t = setTimeout(() => setToast(null), 3000);
     return () => clearTimeout(t);
   }, [toast]);
-
-  const clearRoom = useCallback(() => {
-    peerConnectionsRef.current.forEach((pc) => pc.close());
-    peerConnectionsRef.current.clear();
-    pendingCandidatesRef.current.clear();
-    pendingOfferRef.current = null;
-    pendingAnswerRef.current = null;
-    peerInfoRef.current.clear();
-    setPeer(null);
-    setRoomId(null);
-    setMessages([]);
-    roomIdRef.current = null;
-  }, []);
 
   const createPeerConnection = useCallback((remoteId) => {
     if (peerConnectionsRef.current.has(remoteId)) return peerConnectionsRef.current.get(remoteId);
@@ -594,33 +621,6 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
   // Cleanup on unmount
   useEffect(() => () => { clearRoom(); }, [clearRoom]);
-
-  const handleStart = () => {
-    if (!socket || !connected) return;
-    clearRoom();
-    setStatus('searching');
-    socket.emit('find-partner', { mode: 'video', interest: interest || 'general', nickname: 'Anonymous' });
-  };
-
-  const handleSkip = () => {
-    if (roomIdRef.current && socket) socket.emit('leave-room', { roomId: roomIdRef.current });
-    else socket?.emit('cancel-find-partner');
-    clearRoom();
-    setStatus('searching');
-    setTimeout(() => {
-      socket?.emit('find-partner', { mode: 'video', interest: interest || 'general', nickname: 'Anonymous' });
-      onFindNewPartner?.();
-    }, 50);
-  };
-
-  const handleStop = () => {
-    if (roomIdRef.current && socket) socket.emit('leave-room', { roomId: roomIdRef.current });
-    socket?.emit('cancel-find-partner');
-    clearRoom();
-    setStatus('idle');
-  };
-
-  const handleBack = () => { handleStop(); onBack?.(); };
 
   const sendMsg = () => {
     const t = input.trim();
