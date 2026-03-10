@@ -576,7 +576,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
         )}
         <div className="flex-1 flex flex-col sm:flex-row min-h-0 overflow-hidden">
           {/* LEFT (desktop) / TOP (mobile): Video area - smaller on desktop, big remote + PIP on mobile */}
-          <div className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4 min-h-0 min-w-0 sm:max-w-[380px] sm:flex-shrink-0 order-1">
+          <div className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4 min-h-0 min-w-0 sm:max-w-[380px] sm:flex-shrink-0">
             <div className="relative flex flex-col gap-2 sm:gap-3 min-h-0 sm:max-h-[320px]">
               {/* Remote video - big on mobile, smaller on desktop */}
               <div className="video-frame-torn w-full aspect-square max-h-[40vh] sm:max-h-[140px] flex-shrink-0 relative">
