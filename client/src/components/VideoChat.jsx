@@ -600,6 +600,9 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     const onUserLeft = () => {
       setPeer((p) => (p ? { ...p, stream: null } : null));
       setStatus('disconnected');
+      setTimeout(() => {
+        handleStart(); // Immediately find another person
+      }, 500);
     };
 
     const onWaiting = () => setStatus('searching');
@@ -895,8 +898,9 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
   return (
     <div className="h-screen flex flex-col bg-[#070811] text-white overflow-hidden relative font-sans">
-      {/* AI SAFETY LAYER */}
-      <div className="absolute top-[72px] left-1/2 -translate-x-1/2 z-[100] pointer-events-none px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center gap-2 animate-pulse transition-opacity duration-1000">
+      {/* AI SAFETY LAYER - Moved up above everything */}
+      <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[200] pointer-events-none px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center gap-2 animate-pulse transition-opacity duration-1000 backdrop-blur-md">
+        <div className="text-sm animate-bounce origin-bottom">🕵️</div>
         <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">AI Safety Monitor Active</span>
       </div>
@@ -1116,14 +1120,23 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                 </>
               ) : status === 'searching' ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-[#0c0e1a]">
-                  <div className="relative w-32 h-32">
-                    <div className="radar-ring absolute inset-0 border-indigo-500/30" />
-                    <div className="radar-ring absolute inset-8 border-indigo-500/20" style={{ animationDelay: '0.6s' }} />
-                    <div className="absolute inset-10 rounded-full bg-indigo-500/10 flex items-center justify-center text-4xl animate-pulse">📡</div>
+                  <div className="relative w-40 h-40 flex items-center justify-center">
+                    {/* Earth Animation */}
+                    <div className="absolute inset-0 rounded-full bg-blue-900/40 border border-blue-500/30 overflow-hidden shadow-[0_0_40px_rgba(59,130,246,0.2)]">
+                      <div className="absolute inset-0 bg-[url('https://upload.wikimedia.org/wikipedia/commons/c/c3/World_map_blue_dotted.svg')] bg-cover bg-center opacity-40 animate-[spin_20s_linear_infinite]" />
+                    </div>
+                    {/* Search Lines radiating outward */}
+                    <div className="absolute w-[200%] h-[1px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent rotate-45 animate-spin shadow-[0_0_10px_rgba(99,102,241,0.8)]" style={{ animationDuration: '3s' }} />
+                    <div className="absolute w-[200%] h-[1px] bg-gradient-to-r from-transparent via-emerald-500 to-transparent -rotate-45 animate-spin shadow-[0_0_10px_rgba(16,185,129,0.8)]" style={{ animationDuration: '4s', animationDirection: 'reverse' }} />
+                    <div className="absolute z-10 w-4 h-4 rounded-full bg-emerald-400 shadow-[0_0_20px_rgba(52,211,153,1)] animate-pulse" />
                   </div>
-                  <div className="text-center">
-                    <p className="text-sm font-black text-white/90 uppercase tracking-[0.3em] mb-2">Finding Match</p>
-                    <div className="search-dots scale-125"><span /><span /><span /></div>
+                  <div className="text-center z-10 mt-4">
+                    <p className="text-sm font-black text-white/90 uppercase tracking-[0.3em] mb-2 drop-shadow-lg">Finding Match</p>
+                    <div className="flex gap-1 justify-center">
+                      <span className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                      <span className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                      <span className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -1157,23 +1170,23 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
             </div>
 
             {/* FLOATING CONTROL BAR (Moved outside local video for mobile support) */}
-            <div className="absolute bottom-6 sm:bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-4 py-2 rounded-2xl bg-black/60 border border-white/10 backdrop-blur-xl shadow-2xl min-w-[280px] justify-center pointer-events-auto">
+            <div className="absolute bottom-6 sm:bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 border border-white/10 backdrop-blur-xl shadow-2xl justify-center pointer-events-auto scale-90 sm:scale-100">
                 {(status === 'idle' || status === 'disconnected') ? (
-                  <button onClick={handleStart} className="btn btn-primary h-12 px-8 font-black uppercase text-sm tracking-widest animate-pulse">Start Vibe</button>
+                  <button onClick={handleStart} className="btn btn-primary h-10 px-6 font-black uppercase text-xs tracking-widest animate-pulse">Start Vibe</button>
                 ) : (
                   <>
-                    <button id="video-skip-btn" onClick={handleSkip} className="h-10 px-6 rounded-xl bg-amber-500 text-white font-black uppercase text-xs tracking-widest shadow-lg shadow-amber-500/20 active:scale-95 transition-all">Next Stranger</button>
-                    <div className="w-[1px] h-6 bg-white/10 mx-1" />
-                    <button onClick={toggleCamera} title="Cam" className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${cameraOff ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}>
+                    <button id="video-skip-btn" onClick={() => { handleSkip(); handleStart(); }} className="h-8 px-4 rounded-full bg-amber-500/90 text-white font-black uppercase text-[10px] tracking-widest shadow-lg shadow-amber-500/10 active:scale-95 transition-all outline-none">Next Stranger</button>
+                    <div className="w-[1px] h-4 bg-white/10 mx-1" />
+                    <button onClick={toggleCamera} title="Cam" className={`w-8 h-8 flex items-center justify-center rounded-full transition-all outline-none ${cameraOff ? 'bg-rose-500/80 text-white' : 'bg-transparent border border-white/20 text-white/80 hover:bg-white/10'}`}>
                       {cameraOff ? '📹' : '📸'}
                     </button>
-                    <button onClick={() => setCameraBlur(!cameraBlur)} title="Blur" className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${cameraBlur ? 'bg-indigo-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}>
+                    <button onClick={() => setCameraBlur(!cameraBlur)} title="Blur" className={`w-8 h-8 flex items-center justify-center rounded-full transition-all outline-none ${cameraBlur ? 'bg-indigo-500/80 text-white' : 'bg-transparent border border-white/20 text-white/80 hover:bg-white/10'}`}>
                       🫥
                     </button>
-                    <button onClick={() => setShowChat(!showChat)} title="Chat" className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${showChat ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}>
+                    <button onClick={() => setShowChat(!showChat)} title="Chat" className={`w-8 h-8 flex items-center justify-center rounded-full transition-all outline-none ${showChat ? 'bg-emerald-500/80 text-white' : 'bg-transparent border border-white/20 text-white/80 hover:bg-white/10'}`}>
                       💬
                     </button>
-                    <button onClick={handleStop} title="Stop" className="w-10 h-10 flex items-center justify-center rounded-xl bg-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white transition-all">
+                    <button onClick={() => { handleStop(); setStatus('idle'); setTimeout(handleStart, 100); }} title="Stop" className="w-8 h-8 flex items-center justify-center rounded-full bg-rose-500/20 text-rose-400 hover:bg-rose-500/80 hover:text-white transition-all outline-none">
                       🛑
                     </button>
                   </>
