@@ -1151,34 +1151,37 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                   </div>
                 </>
               ) : status === 'searching' ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#0c0e1a]">
-                  <div className="relative w-24 h-24 flex items-center justify-center">
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-[#0c0e1a]/90 backdrop-blur-sm">
+                  <div className="relative w-32 h-32 flex items-center justify-center">
                     {/* Earth Animation */}
-                    <div className="absolute inset-0 rounded-full bg-blue-900/40 border border-blue-500/30 overflow-hidden shadow-[0_0_30px_rgba(59,130,246,0.3)]">
-                      <div className="absolute inset-0 bg-[url('https://upload.wikimedia.org/wikipedia/commons/c/c3/World_map_blue_dotted.svg')] bg-cover bg-center opacity-60 animate-[spin_15s_linear_infinite]" />
+                    <div className="absolute inset-0 rounded-full bg-indigo-900/20 border border-indigo-500/20 overflow-hidden shadow-[0_0_50px_rgba(99,102,241,0.2)]">
+                      <div className="absolute inset-0 bg-[url('https://upload.wikimedia.org/wikipedia/commons/c/c3/World_map_blue_dotted.svg')] bg-[length:200%] bg-center opacity-30 animate-[spin_30s_linear_infinite]" />
                     </div>
+                    {/* Pulsing Rings */}
+                    <div className="absolute inset-0 rounded-full border border-cyan-500/10 animate-ping" />
+                    <div className="absolute inset-4 rounded-full border border-indigo-500/10 animate-ping" style={{ animationDelay: '0.5s' }} />
+                    
                     {/* Network Nodes */}
-                    <div className="absolute inset-0 rounded-full animate-[spin_10s_linear_infinite_reverse] overflow-hidden">
-                      <div className="absolute top-3 left-5 w-1 h-1 bg-white rounded-full shadow-[0_0_5px_#fff]" />
-                      <div className="absolute top-10 right-3 w-1.5 h-1.5 bg-cyan-300 rounded-full shadow-[0_0_8px_#67e8f9]" />
-                      <div className="absolute bottom-5 left-8 w-1 h-1 bg-indigo-300 rounded-full shadow-[0_0_5px_#818cf8]" />
-                      <div className="absolute top-1/2 left-1/2 w-[150%] h-[1px] bg-white/30 -translate-x-1/2 -translate-y-1/2 rotate-45" />
-                      <div className="absolute top-1/2 left-1/2 w-[120%] h-[1px] bg-white/30 -translate-x-1/2 -translate-y-1/2 -rotate-12" />
+                    <div className="absolute inset-0 rounded-full animate-[spin_15s_linear_infinite_reverse]">
+                      <div className="absolute top-4 left-6 w-1 h-1 bg-white/80 rounded-full shadow-[0_0_8px_#fff]" />
+                      <div className="absolute top-12 right-4 w-1.5 h-1.5 bg-cyan-400 rounded-full shadow-[0_0_10px_#22d3ee]" />
+                      <div className="absolute bottom-6 left-10 w-1 h-1 bg-indigo-400 rounded-full shadow-[0_0_8px_#818cf8]" />
                     </div>
-                    {/* Search Lines radiating outward */}
-                    <div className="absolute w-[150%] h-[1px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent rotate-45 animate-spin shadow-[0_0_8px_rgba(34,211,238,0.8)]" style={{ animationDuration: '2s' }} />
-                    <div className="absolute w-[150%] h-[1px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent -rotate-45 animate-spin shadow-[0_0_8px_rgba(99,102,241,0.8)]" style={{ animationDuration: '3s', animationDirection: 'reverse' }} />
-                    <div className="absolute z-10 w-3 h-3 rounded-full bg-cyan-400 shadow-[0_0_15px_rgba(34,211,238,1)] animate-pulse" />
+                    
+                    {/* Radar Sweep */}
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-transparent via-transparent to-indigo-500/20 animate-spin" style={{ animationDuration: '3s' }} />
+                    <div className="absolute z-10 w-4 h-4 rounded-full bg-indigo-500 shadow-[0_0_20px_rgba(99,102,241,1)] animate-pulse" />
                   </div>
-                  <div className="text-center z-10 mt-2">
-                    <div className="flex items-end justify-center text-sm font-black text-white/90 uppercase tracking-[0.2em] drop-shadow-md">
+                  <div className="text-center z-10">
+                    <div className="flex items-end justify-center text-xs font-black text-white/40 uppercase tracking-[0.4em] drop-shadow-lg">
                       <span>Searching</span>
-                      <span className="flex tracking-[0.1em] ml-1">
+                      <span className="flex tracking-[0.2em] ml-2 text-indigo-400">
                         <span className="animate-[bounce_1s_infinite_0ms]">.</span>
                         <span className="animate-[bounce_1s_infinite_150ms]">.</span>
                         <span className="animate-[bounce_1s_infinite_300ms]">.</span>
                       </span>
                     </div>
+                    <p className="mt-2 text-[8px] font-bold text-white/20 uppercase tracking-[0.2em]">Connecting to global nodes</p>
                   </div>
                 </div>
               ) : (
@@ -1217,28 +1220,30 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
               </div>
 
               {/* VERTICAL CONTROL BAR (Right Side) */}
-              <div className="absolute top-1/2 right-2 -translate-y-1/2 z-30 flex flex-col items-center gap-3 px-2 py-4 rounded-3xl bg-black/10 border border-white/5 backdrop-blur-2xl shadow-2xl justify-center pointer-events-auto scale-[0.8] origin-right transition-all hover:bg-black/20">
+              <div className="absolute top-1/2 right-3 -translate-y-1/2 z-30 flex flex-col items-center gap-3 px-2 py-5 rounded-full bg-black/5 border border-white/5 backdrop-blur-xl shadow-2xl justify-center pointer-events-auto scale-[0.85] origin-right transition-all hover:bg-black/10">
                   {(status === 'idle' || status === 'disconnected') ? (
-                    <button onClick={handleStart} className="w-12 h-12 flex items-center justify-center rounded-full bg-indigo-500 text-white shadow-lg animate-pulse" title="Start">▶️</button>
+                    <button onClick={handleStart} className="w-12 h-12 flex items-center justify-center rounded-full bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.4)] animate-pulse" title="Start">▶️</button>
                   ) : (
                     <>
-                      <button id="video-skip-btn" onClick={(e) => { e.stopPropagation(); handleSkip(); }} className="w-12 h-12 flex items-center justify-center rounded-full bg-amber-500/90 text-white shadow-lg active:scale-90 transition-all outline-none group relative" title="Next Stranger">
-                        <span>⏭️</span>
-                        <div className="absolute right-full mr-2 px-2 py-1 rounded bg-black/80 text-[8px] font-black uppercase tracking-widest text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">Next Stranger</div>
+                      <button id="video-skip-btn" onClick={(e) => { e.stopPropagation(); handleSkip(); }} className="w-12 h-12 flex items-center justify-center rounded-full bg-amber-500 text-white shadow-lg active:scale-90 transition-all outline-none group relative overflow-hidden" title="Next Stranger">
+                        <span className="z-10 text-xl font-bold">⏭️</span>
+                        <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent" />
+                        <div className="absolute right-full mr-3 px-2 py-1 rounded bg-black/80 text-[8px] font-black uppercase tracking-widest text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">Next Stranger</div>
                       </button>
-                      <div className="w-6 h-[1px] bg-white/10" />
-                      <button onClick={(e) => { e.stopPropagation(); toggleCamera(); }} title="Cam" className={`w-10 h-10 flex items-center justify-center rounded-full transition-all outline-none ${cameraOff ? 'bg-rose-500/80 text-white' : 'bg-white/10 border border-white/10 text-white/80 hover:bg-white/20'}`}>
+                      <div className="w-6 h-[1px] bg-white/5" />
+                      <button onClick={(e) => { e.stopPropagation(); toggleCamera(); }} title="Cam" className={`w-11 h-11 flex items-center justify-center rounded-full transition-all outline-none border ${cameraOff ? 'bg-rose-500 border-rose-400 text-white' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20'}`}>
                         {cameraOff ? '📹' : '📸'}
                       </button>
-                      <button onClick={(e) => { e.stopPropagation(); setCameraBlur(!cameraBlur); }} title="Blur" className={`w-10 h-10 flex items-center justify-center rounded-full transition-all outline-none ${cameraBlur ? 'bg-indigo-500/80 text-white' : 'bg-white/10 border border-white/10 text-white/80 hover:bg-white/20'}`}>
+                      <button onClick={(e) => { e.stopPropagation(); setCameraBlur(!cameraBlur); }} title="Blur" className={`w-11 h-11 flex items-center justify-center rounded-full transition-all outline-none border ${cameraBlur ? 'bg-indigo-500 border-indigo-400 text-white' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20'}`}>
                         🫥
                       </button>
-                      <button onClick={(e) => { e.stopPropagation(); setShowChat(!showChat); }} title="Chat" className={`w-10 h-10 flex items-center justify-center rounded-full transition-all outline-none ${showChat ? 'bg-emerald-500/80 text-white' : 'bg-white/10 border border-white/10 text-white/80 hover:bg-white/20'}`}>
+                      <button onClick={(e) => { e.stopPropagation(); setShowChat(!showChat); }} title="Chat" className={`w-11 h-11 flex items-center justify-center rounded-full transition-all outline-none border ${showChat ? 'bg-emerald-500 border-emerald-400 text-white' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20'}`}>
                         💬
                       </button>
-                      <div className="w-6 h-[1px] bg-white/10" />
-                      <button onClick={(e) => { e.stopPropagation(); handleStop(); }} title="Stop" className="w-10 h-10 flex items-center justify-center rounded-full bg-rose-500/10 text-rose-400 hover:bg-rose-500/80 hover:text-white transition-all outline-none">
+                      <div className="w-6 h-[1px] bg-white/5" />
+                      <button onClick={(e) => { e.stopPropagation(); handleStop(); }} title="Stop" className="w-11 h-11 flex items-center justify-center rounded-full bg-rose-500/5 border border-rose-500/10 text-rose-500/60 hover:bg-rose-500 hover:text-white hover:border-rose-400 transition-all outline-none group relative">
                         🛑
+                        <div className="absolute right-full mr-3 px-2 py-1 rounded bg-black/80 text-[8px] font-black uppercase tracking-widest text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap italic">End Session</div>
                       </button>
                     </>
                   )}

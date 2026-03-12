@@ -138,13 +138,22 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
   const [activeInterests, setActiveInterests] = useState([]);
   const [queuePos, setQueuePos] = useState(null);
 
-  // Fetch active groups/interests on mount
-  useEffect(() => {
-    fetch('http://localhost:5000/api/rooms/active-interests?mode=group_video')
+  // Fetch active groups/interests on mount and when modal opens
+  const fetchInterests = () => {
+    const apiBase = import.meta.env.VITE_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+    fetch(`${apiBase}/api/rooms/active-interests?mode=group_video`)
       .then(res => res.json())
       .then(data => setActiveInterests(data.interests || []))
       .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchInterests();
   }, []);
+
+  useEffect(() => {
+    if (showEntryModal) fetchInterests();
+  }, [showEntryModal]);
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
@@ -1082,45 +1091,33 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
 
       {/* BOTTOM CONTROL BAR */}
       {/* BOTTOM CONTROL BAR - FLOATING & SMALLER */}
-      <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center justify-center gap-1 sm:gap-4 px-3 py-1.5 rounded-2xl bg-black/40 border border-white/5 backdrop-blur-xl shadow-2xl z-[150] scale-90 sm:scale-100">
+      <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center justify-center gap-1 sm:gap-4 px-2.5 py-1.5 rounded-full bg-black/5 border border-white/5 backdrop-blur-2xl shadow-2xl z-[150] scale-90 sm:scale-100 transition-all hover:bg-black/10">
         <div className="flex items-center gap-1">
-          <button onClick={toggleMute} className={`group flex flex-col items-center gap-1 px-3 py-1 transition-all ${muted ? 'text-rose-500' : 'hover:bg-white/5 rounded-lg'}`}>
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${muted ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' : 'bg-white/5'}`}>
-              {muted ? '🔇' : '🎤'}
-            </div>
+          <button onClick={toggleMute} title="Mic" className={`w-9 h-9 flex items-center justify-center rounded-full transition-all ${muted ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' : 'bg-white/5 text-white/70 hover:bg-white/10'}`}>
+            {muted ? '🔇' : '🎤'}
           </button>
-          <button onClick={toggleCamera} className={`group flex flex-col items-center gap-1 px-3 py-1 transition-all ${cameraOff ? 'text-rose-500' : 'hover:bg-white/5 rounded-lg'}`}>
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${cameraOff ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' : 'bg-white/5'}`}>
-              {cameraOff ? '📷' : '📹'}
-            </div>
+          <button onClick={toggleCamera} title="Cam" className={`w-9 h-9 flex items-center justify-center rounded-full transition-all ${cameraOff ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' : 'bg-white/5 text-white/70 hover:bg-white/10'}`}>
+            {cameraOff ? '📷' : '📹'}
           </button>
         </div>
 
-        <div className="h-6 w-[1px] bg-white/10 mx-1" />
+        <div className="h-4 w-[1px] bg-white/5 mx-1" />
 
-        <div className="flex items-center gap-0.5 sm:gap-1">
-          <button onClick={() => setShowParticipants(!showParticipants)} className={`group flex flex-col items-center gap-1 px-2 py-1 transition-all ${showParticipants ? 'text-indigo-400' : 'hover:bg-white/5 rounded-lg'}`}>
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center group-hover:bg-white/10 transition-all ${showParticipants ? 'bg-indigo-500/20 border border-indigo-500/30' : 'bg-white/5'}`}>
-               <span className="text-sm">👥</span>
-            </div>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setShowParticipants(!showParticipants)} title="Participants" className={`w-9 h-9 flex items-center justify-center rounded-full transition-all ${showParticipants ? 'bg-indigo-500 text-white border border-indigo-400' : 'bg-white/5 text-white/70 hover:bg-white/10'}`}>
+             <span className="text-sm">👥</span>
           </button>
-          <button onClick={() => setShowChat(!showChat)} className={`group flex flex-col items-center gap-1 px-2 py-1 transition-all ${showChat ? 'text-indigo-400' : 'hover:bg-white/5 rounded-lg'}`}>
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center group-hover:bg-white/10 transition-all ${showChat ? 'bg-indigo-500/20 border border-indigo-500/30' : 'bg-white/5'}`}>
-               <span className="text-sm">💬</span>
-            </div>
+          <button onClick={() => setShowChat(!showChat)} title="Chat" className={`w-9 h-9 flex items-center justify-center rounded-full transition-all ${showChat ? 'bg-indigo-500 text-white border border-indigo-400' : 'bg-white/5 text-white/70 hover:bg-white/10'}`}>
+             <span className="text-sm">💬</span>
           </button>
-          <button onClick={toggleHandRaise} className={`group flex flex-col items-center gap-1 px-2 py-1 transition-all ${handRaised ? 'text-amber-400' : 'hover:bg-white/5 rounded-lg'}`}>
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${handRaised ? 'bg-amber-400 text-white shadow-lg shadow-amber-500/20' : 'bg-white/5'}`}>
-               <span className="text-sm">✋</span>
-            </div>
+          <button onClick={toggleHandRaise} title="Raise Hand" className={`w-9 h-9 flex items-center justify-center rounded-full transition-all ${handRaised ? 'bg-amber-400 text-white shadow-lg shadow-amber-500/20' : 'bg-white/5 text-white/70 hover:bg-white/10'}`}>
+             <span className="text-sm">✋</span>
           </button>
           <div className="relative group">
-            <button className="group flex flex-col items-center gap-1 px-2 py-1 rounded-lg hover:bg-white/5 transition-all">
-              <div className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-all">
-                <span className="text-sm">😀</span>
-              </div>
+            <button className="w-9 h-9 flex items-center justify-center rounded-full bg-white/5 text-white/70 hover:bg-white/10 transition-all">
+              <span className="text-sm">😀</span>
             </button>
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 p-2 bg-[#2a2d32] border border-white/10 rounded-2xl shadow-2xl flex gap-1.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all scale-75 group-hover:scale-100">
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 p-2 bg-[#2a2d32]/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl flex gap-1.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all scale-75 group-hover:scale-100">
               {['👏', '❤️', '😂', '😮', '👍', '🎉'].map(emoji => (
                 <button key={emoji} onClick={() => sendReaction(emoji)} className="w-8 h-8 rounded-lg hover:bg-white/5 text-base transition-all">{emoji}</button>
               ))}
@@ -1128,9 +1125,9 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
           </div>
         </div>
 
-        <div className="h-6 w-[1px] bg-white/10 mx-1" />
+        <div className="h-4 w-[1px] bg-white/5 mx-1" />
 
-        <button onClick={onLeave} className="px-5 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[9px] font-black uppercase tracking-widest shadow-lg shadow-rose-600/20 active:scale-95 transition-all">
+        <button onClick={onLeave} className="px-4 py-1.5 rounded-full bg-rose-600/10 border border-rose-500/20 hover:bg-rose-600 text-white text-[9px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">
           Leave
         </button>
       </footer>
@@ -1150,28 +1147,32 @@ function RemoteVideoTile({ stream, socketId }) {
     const el = ref.current;
     if (!el || !stream) return;
     
-    // Explicitly handle track-to-stream assignment for maximum cross-browser visibility
-    if (el.srcObject !== stream) {
-      el.srcObject = stream;
-    }
+    // Reset srcObject to force re-mounting and visibility
+    el.srcObject = null;
+    el.srcObject = stream;
     
-    const play = () => {
-      if (el.paused) el.play?.().catch(() => { });
+    const play = async () => {
+       try {
+         if (el.paused) await el.play();
+       } catch (e) {
+         // Silently retry
+       }
     };
     
     play();
-    const t1 = setTimeout(play, 100);
-    const t2 = setTimeout(play, 1000);
+    const t1 = setTimeout(play, 300);
+    const t2 = setTimeout(play, 1500);
     
+    const onUnmute = () => play();
     stream.getTracks().forEach((t) => {
       t.enabled = true;
-      t.addEventListener('unmute', play);
+      t.addEventListener('unmute', onUnmute);
     });
     
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
-      stream.getTracks().forEach((t) => t.removeEventListener('unmute', play));
+      stream.getTracks().forEach((t) => t.removeEventListener('unmute', onUnmute));
     };
   }, [stream]);
 
@@ -1182,7 +1183,6 @@ function RemoteVideoTile({ stream, socketId }) {
       autoPlay
       playsInline
       className="absolute inset-0 w-full h-full object-cover sm:rounded-tl-[40px] sm:rounded-br-[40px]"
-      style={{ pointerEvents: 'none' }}
     />
   );
 }
