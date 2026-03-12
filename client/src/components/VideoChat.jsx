@@ -150,6 +150,18 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const [pipPos, setPipPos] = useState('br');
+  const togglePip = () => {
+    const pos = ['tr', 'tl', 'bl', 'br'];
+    setPipPos(pos[(pos.indexOf(pipPos) + 1) % pos.length]);
+  };
+
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
   // Toast auto-dismiss after 4 seconds
   useEffect(() => {
     if (!toast) return;
@@ -1083,9 +1095,9 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
         )}
         <div className="flex-1 flex flex-col sm:flex-row min-h-0 overflow-hidden relative">
           {/* VIDEO CONTAINER (uMingle Split Style) */}
-          <div className={`flex-1 flex flex-col sm:flex-row min-h-0 relative gap-4 p-4 ${showChat ? 'sm:max-w-[calc(100%-320px)]' : ''}`}>
+          <div className={`flex-1 min-h-0 relative sm:flex sm:flex-col sm:gap-4 sm:p-4 ${showChat ? 'sm:flex-none sm:w-[400px] lg:w-[480px]' : ''}`}>
             {/* SLOT 1: REMOTE (STRANGER) */}
-            <div className="flex-1 relative bg-[#07080f] rounded-tl-[40px] rounded-br-[40px] rounded-tr-none rounded-bl-none overflow-hidden border-2 border-indigo-500/30">
+            <div className="absolute inset-0 sm:relative sm:flex-1 bg-[#07080f] sm:rounded-tl-[40px] sm:rounded-br-[40px] sm:rounded-tr-none sm:rounded-bl-none overflow-hidden sm:border-2 border-indigo-500/30 z-0">
               {status === 'connected' && peer?.stream ? (
                 <>
                   <RemoteVideoComponent stream={peer.stream} muted={mutedStranger} />
@@ -1122,7 +1134,14 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
             </div>
 
             {/* SLOT 2: LOCAL (YOU) */}
-            <div className="flex-1 relative bg-[#07080f] rounded-tl-[40px] rounded-br-[40px] rounded-tr-none rounded-bl-none overflow-hidden border-2 border-indigo-500/30">
+            <div 
+              onClick={togglePip}
+              className={`
+                absolute z-30 w-28 h-40 rounded-3xl overflow-hidden border-2 border-indigo-500/50 cursor-pointer shadow-2xl transition-all duration-300
+                sm:inset-auto sm:relative sm:w-auto sm:h-auto sm:flex-1 bg-[#07080f] sm:rounded-tl-[40px] sm:rounded-br-[40px] sm:rounded-tr-none sm:rounded-bl-none sm:border-indigo-500/30 sm:cursor-auto sm:shadow-none
+                ${pipPos === 'tl' ? 'top-4 left-4' : pipPos === 'tr' ? 'top-4 right-4' : pipPos === 'bl' ? 'bottom-24 left-4' : 'bottom-24 right-4'}
+              `}
+            >
               <video
                 ref={localVideoRef}
                 autoPlay
@@ -1135,9 +1154,10 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                 <div className="w-2 h-2 rounded-full bg-blue-500" />
                 <span className="text-xs font-black text-white/90 uppercase tracking-widest">You</span>
               </div>
+            </div>
 
-              {/* FLOATING CONTROL BAR */}
-              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-4 py-2 rounded-2xl bg-black/60 border border-white/10 backdrop-blur-xl shadow-2xl min-w-[280px] justify-center">
+            {/* FLOATING CONTROL BAR (Moved outside local video for mobile support) */}
+            <div className="absolute bottom-6 sm:bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-4 py-2 rounded-2xl bg-black/60 border border-white/10 backdrop-blur-xl shadow-2xl min-w-[280px] justify-center pointer-events-auto">
                 {(status === 'idle' || status === 'disconnected') ? (
                   <button onClick={handleStart} className="btn btn-primary h-12 px-8 font-black uppercase text-sm tracking-widest animate-pulse">Start Vibe</button>
                 ) : (
@@ -1158,40 +1178,40 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                     </button>
                   </>
                 )}
-              </div>
             </div>
           </div>
 
-          {/* CHAT PANEL (uMingle Slide-out Style) */}
+          {/* CHAT PANEL (uMingle Slide-out Style Desktop, Overlay Mobile) */}
           {showChat && (
-            <div className="w-full sm:w-[320px] h-full bg-[#0d0f1c] border-l border-white/5 flex flex-col z-40 animate-slide-in-right">
-              <div className="p-4 border-b border-white/5 flex items-center justify-between">
+            <div className="absolute inset-0 z-20 flex flex-col justify-end pointer-events-none sm:pointer-events-auto sm:static sm:flex-1 sm:h-full sm:bg-[#0d0f1c] sm:border-l sm:border-white/5 sm:z-40 sm:justify-start animate-slide-in-right sm:animate-none">
+              <div className="hidden sm:flex p-4 border-b border-white/5 items-center justify-between">
                 <span className="text-xs font-black uppercase tracking-[0.2em] text-white/40">Chat Room</span>
                 <button onClick={() => setShowChat(false)} className="text-white/20 hover:text-white">✕</button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-4" id="video-chat-messages">
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 pointer-events-none" id="video-chat-messages">
                 {(messages.length === 0 || !isConnected) && (
-                  <div className="p-6 rounded-2xl bg-white/5 border border-white/5 space-y-3 mt-4">
+                  <div className="hidden sm:block p-6 rounded-2xl bg-white/5 border border-white/5 space-y-3 mt-4">
                     <p className="text-xs text-white/40 font-black uppercase tracking-widest">{isConnected ? "👋 Start the vibe!" : "🔒 Connect to Chat"}</p>
                     <p className="text-[10px] text-white/20 uppercase font-bold leading-relaxed">No nudity • No harassment • Have fun</p>
                   </div>
                 )}
                 {messages.map((m, i) => {
                   const isMe = m.socketId === socket.id || m.fromSelf;
+                  if (now - m.ts > 60000) return null; // vanish in 1 min
                   return (
                     <div key={m.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-message-pop`}>
-                      <div className={`px-4 py-2.5 rounded-2xl text-sm ${isMe ? 'bg-indigo-500 text-white rounded-tr-none' : 'bg-white/5 text-white/90 rounded-tl-none border border-white/5'}`}>
+                      <div className={`px-4 py-2.5 rounded-2xl text-sm ${isMe ? 'bg-indigo-500 text-white rounded-tr-none' : 'bg-black/60 backdrop-blur-md text-white/90 rounded-tl-none border border-white/10'}`}>
                         {m.text}
                       </div>
-                      <span className="text-[8px] font-black uppercase text-white/20 mt-1 px-1">{isMe ? 'You' : 'Stranger'} • {formatTime(m.ts)}</span>
+                      <span className="text-[8px] font-black uppercase text-white/40 mt-1 px-1 drop-shadow-md">{isMe ? 'You' : 'Stranger'} • {formatTime(m.ts)}</span>
                     </div>
                   );
                 })}
-                <div ref={chatEndRef} />
+                <div ref={chatEndRef} className="pb-2" />
               </div>
 
-              <div className="p-4 bg-[#0a0c16] border-t border-white/5">
+              <div className="p-4 sm:bg-[#0a0c16] sm:border-t sm:border-white/5 pointer-events-auto mb-20 sm:mb-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent sm:bg-none">
                 <div className="flex gap-2">
                   <input
                     ref={inputRef}

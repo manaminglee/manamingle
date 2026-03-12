@@ -135,6 +135,16 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
   const [showEntryModal, setShowEntryModal] = useState(isQueuing);
   const [localInterest, setLocalInterest] = useState(interestProp || 'general');
   const [joinRoomIdInput, setJoinRoomIdInput] = useState('');
+  const [activeInterests, setActiveInterests] = useState([]);
+  const [queuePos, setQueuePos] = useState(null);
+
+  // Fetch active groups/interests on mount
+  useEffect(() => {
+    fetch('http://localhost:5000/api/rooms/active-interests?mode=group_video')
+      .then(res => res.json())
+      .then(data => setActiveInterests(data.interests || []))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
@@ -568,6 +578,9 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
         alert(data.message);
         setShowEntryModal(true);
       });
+      socket.on('waiting-in-group-queue', (data) => {
+        setQueuePos(data.queuePosition);
+      });
       socket.on('hand-raise', ({ socketId, raised }) => {
         setRemoteRaisedHands(prev => {
           const next = new Set(prev);
@@ -589,6 +602,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
         socket.off('room-reaction');
         socket.off('error');
         socket.off('room-full');
+        socket.off('waiting-in-group-queue');
       };
     }
   }, [socket]);
@@ -748,12 +762,46 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
 
   return (
     <div className="h-screen flex flex-col bg-[#1a1d21] text-white overflow-hidden font-sans select-none">
+      {/* QUEUING OVERLAY */}
+      {queuePos !== null && (
+        <div className="absolute inset-0 z-[250] bg-[#0c0e1a]/95 backdrop-blur-3xl flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+          <div className="relative w-32 h-32 mb-8">
+            <div className="radar-ring absolute inset-0 border-indigo-500/30" />
+            <div className="radar-ring absolute inset-8 border-indigo-500/20" style={{ animationDelay: '0.6s' }} />
+            <div className="absolute inset-10 rounded-full bg-indigo-500/10 flex items-center justify-center text-4xl animate-pulse">⏳</div>
+          </div>
+          <h2 className="text-xl font-bold tracking-widest uppercase text-white mb-2">Group is Full</h2>
+          <p className="text-sm font-black text-indigo-400 uppercase tracking-widest mb-8">Waiting in Queue: Position {queuePos}</p>
+          <div className="search-dots scale-150 mb-8"><span /><span /><span /></div>
+          <button onClick={() => { setQueuePos(null); setShowEntryModal(true); }} className="px-6 py-3 rounded-full bg-white/10 hover:bg-white/20 font-black text-xs uppercase tracking-widest transition-all">
+            Cancel & Pick Another
+          </button>
+        </div>
+      )}
+
       {/* ENTRY MODAL */}
       {showEntryModal && (
         <div className="absolute inset-0 z-[200] bg-[#1a1d21]/95 backdrop-blur-xl flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-[#0c0e1a] border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col gap-6">
+          <div className="w-full max-w-sm bg-[#0c0e1a] border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col gap-6 animate-slide-in-up">
             <h2 className="text-xl font-bold tracking-tight text-white text-center">Join Group Video</h2>
             
+            {activeInterests.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-emerald-400 ml-1 flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Active Groups</label>
+                <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto custom-scrollbar">
+                  {activeInterests.map(ai => (
+                    <button 
+                      key={ai.interest} 
+                      onClick={() => setLocalInterest(ai.interest)}
+                      className={`px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${localInterest === ai.interest ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300 scale-105 shadow-lg shadow-indigo-500/20' : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white'}`}
+                    >
+                      {ai.interest} <span className="text-white/30 ml-1">({ai.count})</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-col gap-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-1">Select Interest (Mandatory)</label>
               <input 
@@ -863,11 +911,11 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
           )}
 
           {/* Video Area */}
-          <div className="flex-1 min-h-0">
+          <div className="flex-1 min-h-0 flex items-center justify-center">
             {viewMode === 'grid' ? (
-              <div className={`grid h-full gap-4 ${participantCount <= 1 ? 'grid-cols-1' : participantCount === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2'}`}>
+              <div className={`grid w-full h-full p-2 lg:p-4 gap-4 ${participantCount <= 1 ? 'grid-cols-1' : participantCount === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2 lg:grid-cols-2 aspect-video mx-auto'}`}>
                 {tiles.map((tile, idx) => (
-                  <div key={idx} className={`relative rounded-tl-[40px] rounded-br-[40px] rounded-tr-none rounded-bl-none overflow-hidden border-2 border-indigo-500/30 bg-[#0c0e1a] shadow-2xl transition-all duration-500 ${activeSpeakerId === (tile.type === 'peer' ? tile.peer.socketId : null) ? 'ring-4 ring-indigo-500/50 border-indigo-500' : ''}`}>
+                  <div key={idx} className={`relative lg:aspect-video rounded-tl-[40px] rounded-br-[40px] rounded-tr-none rounded-bl-none overflow-hidden border-2 border-indigo-500/30 bg-[#0c0e1a] shadow-2xl transition-all duration-500 ${activeSpeakerId === (tile.type === 'peer' ? tile.peer.socketId : null) ? 'ring-4 ring-indigo-500/50 border-indigo-500' : ''}`}>
                     {tile.type === 'local' ? (
                       <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-20' : ''}`} style={cameraBlur ? { filter: 'blur(15px)', transform: 'scaleX(-1)' } : {}} />
                     ) : tile.type === 'peer' && tile.peer.stream ? (
@@ -1077,9 +1125,8 @@ function RemoteVideoTile({ stream, socketId }) {
       ref={ref}
       autoPlay
       playsInline
-      tabIndex="-1"
-      className="absolute inset-0 w-full h-full object-cover rounded-xl"
-      style={{ backgroundColor: '#000', pointerEvents: 'none' }}
+      className="absolute inset-0 w-full h-full object-cover sm:rounded-tl-[40px] sm:rounded-br-[40px]"
+      style={{ pointerEvents: 'none' }}
     />
   );
 }

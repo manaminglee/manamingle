@@ -55,6 +55,8 @@ const rooms = new Map();
 const users = new Map();
 // 1:1 queues: mode -> [{ socketId, userData, interest }]
 const pairQueues = { text: [], video: [] };
+// Group queues: interestKey -> [{ socketId, userData }]
+const groupQueues = new Map();
 
 // Admin & Safety State
 const blockedIps = new Set();
@@ -76,12 +78,15 @@ function interestKey(interest, mode) {
   return `${interest}_${mode}`;
 }
 
-function getRoomByInterestKey(key) {
+function getRoomByInterestKey(key, returnEvenIfFull = false) {
   const roomId = interestToRoom.get(key);
   if (!roomId) return null;
   const room = rooms.get(roomId);
-  if (!room || room.users.size >= room.maxSize) {
+  if (!room) {
     interestToRoom.delete(key);
+    return null;
+  }
+  if (!returnEvenIfFull && room.users.size >= room.maxSize) {
     return null;
   }
   return room;
@@ -135,6 +140,51 @@ function removeUserFromRoom(socketId, roomId, io) {
       roomId,
       participantCount: room.users.size,
     });
+
+    // Check if anyone is waiting in the queue for this group
+    if (room.interestKey) {
+      const q = groupQueues.get(room.interestKey) || [];
+      if (q.length > 0) {
+        // Pop next available valid user
+        while (q.length > 0) {
+          const nextUser = q.shift();
+          const nextSocket = io.sockets.sockets.get(nextUser.socketId);
+          if (nextSocket && users.has(nextUser.socketId)) {
+            // Let them join
+            const actuallyAdded = addUserToRoom(room, nextUser.socketId, nextUser.userData);
+            if (actuallyAdded) {
+              nextUser.userData.rooms.add(room.id);
+              nextSocket.join(room.id);
+              // Send them joined events
+              const peers = room.participants
+                .filter((p) => p.socketId !== nextUser.socketId)
+                .map((p) => {
+                  const u = users.get(p.socketId);
+                  return { socketId: p.socketId, userId: u?.id, nickname: p.nickname, country: u?.country };
+                });
+              nextSocket.emit('group-joined', {
+                roomId: room.id,
+                mode: room.mode,
+                interest: room.interest,
+                participantCount: room.users.size,
+                country: nextUser.userData.country,
+              });
+              nextSocket.emit('existing-peers', { roomId: room.id, peers, total: peers.length });
+              nextSocket.emit('chat-history', { roomId: room.id, messages: (room.messages || []).slice(-MESSAGE_HISTORY) });
+              nextSocket.to(room.id).emit('user-joined', {
+                roomId: room.id,
+                socketId: nextUser.socketId,
+                userId: nextUser.userData.id,
+                nickname: nextUser.userData.nickname,
+                country: nextUser.userData.country,
+                participantCount: room.users.size,
+              });
+              break;
+            }
+          }
+        }
+      }
+    }
   } else {
     rooms.delete(roomId);
     if (room.interestKey) interestToRoom.delete(room.interestKey);
@@ -179,6 +229,26 @@ app.use(rateLimit({
 // Public settings (for client feature flags like ads, dev tools)
 app.get('/api/settings', (req, res) => {
   res.json({ adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools });
+});
+
+// Get active interests for group chats
+app.get('/api/rooms/active-interests', (req, res) => {
+  const mode = req.query.mode || 'group_video';
+  const interestCounts = new Map();
+
+  for (const room of rooms.values()) {
+    if (room.mode === mode && room.interest && room.interest !== 'general') {
+      const currentCount = interestCounts.get(room.interest) || 0;
+      interestCounts.set(room.interest, currentCount + room.users.size);
+    }
+  }
+
+  const results = Array.from(interestCounts.entries())
+    .map(([interest, count]) => ({ interest, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+
+  res.json({ interests: results });
 });
 
 // Cloudflare Turnstile verification
@@ -760,7 +830,17 @@ io.on('connection', (socket) => {
     };
 
     const key = interestKey(interest, mode);
-    let room = getRoomByInterestKey(key);
+    let room = getRoomByInterestKey(key, true); // Get it even if full
+
+    // If the room exists but is full, put them in queue instead of creating a new one
+    if (room && room.users.size >= room.maxSize) {
+      if (!groupQueues.has(key)) groupQueues.set(key, []);
+      const q = groupQueues.get(key);
+      q.push({ socketId: socket.id, userData: { id: userData.id, nickname: userData.nickname, country: userData.country, rooms: userData.rooms } });
+      socket.emit('waiting-in-group-queue', { queuePosition: q.length, interest: room.interest });
+      return;
+    }
+
     if (room && !canJoinRoom(room)) room = null;
     if (!room) {
       room = getAnyRoomByMode(mode);
@@ -994,6 +1074,9 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     pairQueues.text = pairQueues.text.filter((e) => e.socketId !== socket.id);
     pairQueues.video = pairQueues.video.filter((e) => e.socketId !== socket.id);
+    for (const [key, q] of groupQueues.entries()) {
+      groupQueues.set(key, q.filter(u => u.socketId !== socket.id));
+    }
     const userData = users.get(socket.id);
     if (userData?.rooms) {
       userData.rooms.forEach((roomId) => {
