@@ -132,6 +132,9 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
   const typingTimerRef = useRef(null);
   const toastTimerRef = useRef(null);
   const inputRef = useRef(null);
+  const [showEntryModal, setShowEntryModal] = useState(isQueuing);
+  const [localInterest, setLocalInterest] = useState(interestProp || 'general');
+  const [joinRoomIdInput, setJoinRoomIdInput] = useState('');
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
@@ -534,10 +537,8 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
     socket.on('webrtc-signal', onSignal);
     socket.on('system-announcement', onSystemMsg);
 
-    // Auto-join group on mount if we're queuing
-    if (socket && isQueuing && !hasJoinedRef.current) {
-      socket.emit('join-group-by-interest', { interest: displayInterest || interestProp || 'general', nickname: 'Anonymous', mode: 'group_video' });
-    }
+    // Auto-join group on mount removed; we rely on the Entry Modal instead.
+
 
     return () => {
       socket.off('group-joined', onGroupJoined);
@@ -560,6 +561,13 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
       socket.on('media-message', (data) => {
         setMessages(prev => [...prev.slice(-100), { ...data, media: true }]);
       });
+      socket.on('error', (data) => {
+        alert(data.message);
+      });
+      socket.on('room-full', (data) => {
+        alert(data.message);
+        setShowEntryModal(true);
+      });
       socket.on('hand-raise', ({ socketId, raised }) => {
         setRemoteRaisedHands(prev => {
           const next = new Set(prev);
@@ -579,6 +587,8 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
         socket.off('media-message');
         socket.off('hand-raise');
         socket.off('room-reaction');
+        socket.off('error');
+        socket.off('room-full');
       };
     }
   }, [socket]);
@@ -738,6 +748,71 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
 
   return (
     <div className="h-screen flex flex-col bg-[#1a1d21] text-white overflow-hidden font-sans select-none">
+      {/* ENTRY MODAL */}
+      {showEntryModal && (
+        <div className="absolute inset-0 z-[200] bg-[#1a1d21]/95 backdrop-blur-xl flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-[#0c0e1a] border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col gap-6">
+            <h2 className="text-xl font-bold tracking-tight text-white text-center">Join Group Video</h2>
+            
+            <div className="flex flex-col gap-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-1">Select Interest (Mandatory)</label>
+              <input 
+                type="text" 
+                value={localInterest} 
+                onChange={(e) => setLocalInterest(e.target.value)}
+                placeholder="e.g. Anime, Gaming, Music" 
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 transition-all text-white outline-none"
+              />
+              <button 
+                onClick={() => {
+                   if(!localInterest.trim()) return alert("Interest is mandatory!");
+                   setDisplayInterest(localInterest.trim());
+                   socket.emit('join-group-by-interest', { interest: localInterest.trim(), nickname: 'Anonymous', mode: 'group_video' });
+                   setShowEntryModal(false);
+                }}
+                className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition-all"
+              >
+                Join via Interest
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-[1px] bg-white/10"></div>
+              <span className="text-[10px] uppercase font-bold text-white/30">OR Paste Link</span>
+              <div className="flex-1 h-[1px] bg-white/10"></div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-1">Join via Link / ID</label>
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  value={joinRoomIdInput}
+                  onChange={(e) => setJoinRoomIdInput(e.target.value)}
+                  placeholder="Paste Room ID"
+                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 transition-all text-white outline-none"
+                />
+                <button 
+                  onClick={() => {
+                    const rId = joinRoomIdInput.trim().split('/').pop();
+                    if(!rId) return alert("Enter a valid Room ID");
+                    socket.emit('join-specific-group', { roomId: rId, nickname: 'Anonymous' });
+                    setShowEntryModal(false);
+                  }}
+                  className="h-full px-5 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-all"
+                >
+                  Enter
+                </button>
+              </div>
+            </div>
+            
+            <button onClick={onLeave} className="text-[10px] font-bold text-white/30 hover:text-white uppercase tracking-widest underline mt-2">
+              Cancel & Leave
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* TOP MEETING BAR */}
       <header className="h-14 flex-shrink-0 flex items-center justify-between px-6 bg-[#1a1d21] border-b border-white/5 z-[80]">
         <div className="flex items-center gap-4">
@@ -792,7 +867,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
             {viewMode === 'grid' ? (
               <div className={`grid h-full gap-4 ${participantCount <= 1 ? 'grid-cols-1' : participantCount === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2'}`}>
                 {tiles.map((tile, idx) => (
-                  <div key={idx} className={`relative rounded-3xl overflow-hidden border border-white/10 bg-[#0c0e1a] shadow-2xl transition-all duration-500 ${activeSpeakerId === (tile.type === 'peer' ? tile.peer.socketId : null) ? 'ring-4 ring-indigo-500/50' : ''}`}>
+                  <div key={idx} className={`relative rounded-tl-[40px] rounded-br-[40px] rounded-tr-none rounded-bl-none overflow-hidden border-2 border-indigo-500/30 bg-[#0c0e1a] shadow-2xl transition-all duration-500 ${activeSpeakerId === (tile.type === 'peer' ? tile.peer.socketId : null) ? 'ring-4 ring-indigo-500/50 border-indigo-500' : ''}`}>
                     {tile.type === 'local' ? (
                       <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-20' : ''}`} style={cameraBlur ? { filter: 'blur(15px)', transform: 'scaleX(-1)' } : {}} />
                     ) : tile.type === 'peer' && tile.peer.stream ? (
@@ -825,7 +900,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
             ) : (
               <div className="h-full flex flex-col gap-4">
                 {/* Speaker Stage */}
-                <div className="flex-[4] relative rounded-3xl overflow-hidden border border-white/10 bg-[#0c0e1a] shadow-2xl">
+                <div className="flex-[4] relative rounded-tl-[40px] rounded-br-[40px] rounded-tr-none rounded-bl-none overflow-hidden border-2 border-indigo-500/30 bg-[#0c0e1a] shadow-2xl">
                   {(() => {
                     const speaker = peers.find(p => p.socketId === (activeSpeakerId || (peers.length > 0 ? peers[0].socketId : null)));
                     if (speaker) return <RemoteVideoTile stream={speaker.stream} socketId={speaker.socketId} />;
@@ -839,7 +914,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
                 {/* Peer Strip */}
                 <div className="flex-1 flex gap-4 overflow-x-auto pb-2">
                   {tiles.map((tile, idx) => (
-                    <div key={idx} className="h-full aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/40 flex-shrink-0 relative">
+                      <div key={idx} className="h-full aspect-video rounded-tl-[20px] rounded-br-[20px] rounded-tr-none rounded-bl-none overflow-hidden border-2 border-indigo-500/30 bg-black/40 flex-shrink-0 relative">
                       {tile.type === 'local' ? (
                         <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" />
                       ) : tile.type === 'peer' ? (

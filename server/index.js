@@ -811,6 +811,58 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('join-specific-group', (data) => {
+    const userData = users.get(socket.id);
+    if (!userData) return;
+    const { roomId, nickname } = data || {};
+    if (!roomId) return socket.emit('error', { message: 'Room ID required' });
+    userData.nickname = sanitize(nickname || 'Anonymous', 30);
+
+    const room = rooms.get(roomId);
+    if (!room) return socket.emit('room-full', { message: 'Room not found or expired.' });
+    if (room.mode !== 'group_video' && room.mode !== 'group_text') return socket.emit('room-full', { message: 'Invalid room mode.' });
+
+    const myBlocks = userBlocks.get(ip);
+    for (const p of room.participants) {
+      const otherIp = users.get(p.socketId)?.ip;
+      if (!otherIp || blockedIps.has(otherIp)) return socket.emit('error', { message: 'Cannot join this room.' });
+      if (myBlocks && myBlocks.has(otherIp)) return socket.emit('error', { message: 'Cannot join this room.' });
+      if (userBlocks.get(otherIp)?.has(ip)) return socket.emit('error', { message: 'Cannot join this room.' });
+    }
+
+    const added = addUserToRoom(room, socket.id, { id: userData.id, nickname: userData.nickname, country: userData.country });
+    if (!added) return socket.emit('room-full', { message: 'Room is full.' });
+
+    userData.rooms.add(room.id);
+    socket.join(room.id);
+
+    const peers = room.participants
+      .filter((p) => p.socketId !== socket.id)
+      .map((p) => {
+        const u = users.get(p.socketId);
+        return { socketId: p.socketId, userId: u?.id, nickname: p.nickname, country: u?.country };
+      });
+
+    socket.emit('group-joined', {
+      roomId: room.id,
+      mode: room.mode,
+      interest: room.interest,
+      participantCount: room.users.size,
+      country: userData.country,
+    });
+    socket.emit('existing-peers', { roomId: room.id, peers, total: peers.length });
+    socket.emit('chat-history', { roomId: room.id, messages: (room.messages || []).slice(-MESSAGE_HISTORY) });
+
+    socket.to(room.id).emit('user-joined', {
+      roomId: room.id,
+      socketId: socket.id,
+      userId: userData.id,
+      nickname: userData.nickname,
+      country: userData.country,
+      participantCount: room.users.size,
+    });
+  });
+
   socket.on('leave-room', (data) => {
     const roomId = String(data?.roomId || '');
     const userData = users.get(socket.id);

@@ -1083,9 +1083,9 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
         )}
         <div className="flex-1 flex flex-col sm:flex-row min-h-0 overflow-hidden relative">
           {/* VIDEO CONTAINER (uMingle Split Style) */}
-          <div className={`flex-1 flex flex-col sm:flex-row min-h-0 relative ${showChat ? 'sm:max-w-[calc(100%-320px)]' : ''}`}>
+          <div className={`flex-1 flex flex-col sm:flex-row min-h-0 relative gap-4 p-4 ${showChat ? 'sm:max-w-[calc(100%-320px)]' : ''}`}>
             {/* SLOT 1: REMOTE (STRANGER) */}
-            <div className="flex-1 relative bg-[#07080f] border-b sm:border-b-0 sm:border-r border-white/5 overflow-hidden">
+            <div className="flex-1 relative bg-[#07080f] rounded-tl-[40px] rounded-br-[40px] rounded-tr-none rounded-bl-none overflow-hidden border-2 border-indigo-500/30">
               {status === 'connected' && peer?.stream ? (
                 <>
                   <RemoteVideoComponent stream={peer.stream} muted={mutedStranger} />
@@ -1122,7 +1122,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
             </div>
 
             {/* SLOT 2: LOCAL (YOU) */}
-            <div className="flex-1 relative bg-[#07080f] overflow-hidden">
+            <div className="flex-1 relative bg-[#07080f] rounded-tl-[40px] rounded-br-[40px] rounded-tr-none rounded-bl-none overflow-hidden border-2 border-indigo-500/30">
               <video
                 ref={localVideoRef}
                 autoPlay
