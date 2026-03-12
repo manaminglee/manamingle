@@ -913,15 +913,15 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
           {/* Video Area */}
           <div className="flex-1 min-h-0 flex items-center justify-center">
             {viewMode === 'grid' ? (
-              <div className={`grid w-full h-full p-2 lg:p-4 gap-4 ${participantCount <= 1 ? 'grid-cols-1' : participantCount === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2 lg:grid-cols-2 aspect-video mx-auto'}`}>
+              <div className={`grid w-full h-full p-2 lg:p-4 gap-4 ${participantCount <= 1 ? 'grid-cols-1' : participantCount === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2 lg:grid-cols-2 mx-auto sm:aspect-video'}`}>
                 {tiles.map((tile, idx) => (
-                  <div key={idx} className={`relative lg:aspect-video rounded-tl-[40px] rounded-br-[40px] rounded-tr-none rounded-bl-none overflow-hidden border-2 border-indigo-500/30 bg-[#0c0e1a] shadow-2xl transition-all duration-500 ${activeSpeakerId === (tile.type === 'peer' ? tile.peer.socketId : null) ? 'ring-4 ring-indigo-500/50 border-indigo-500' : ''}`}>
+                  <div key={idx} className={`relative sm:aspect-video rounded-3xl sm:rounded-tl-[40px] sm:rounded-br-[40px] sm:rounded-tr-none sm:rounded-bl-none overflow-hidden border-2 border-indigo-500/30 bg-[#0c0e1a] shadow-2xl transition-all duration-500 ${activeSpeakerId === (tile.type === 'peer' ? tile.peer.socketId : null) ? 'ring-4 ring-indigo-500/50 border-indigo-500' : ''}`}>
                     {tile.type === 'local' ? (
-                      <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-20' : ''}`} style={cameraBlur ? { filter: 'blur(15px)', transform: 'scaleX(-1)' } : {}} />
+                      <video ref={localVideoRef} autoPlay muted playsInline className={`absolute inset-0 w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-20' : ''}`} style={cameraBlur ? { filter: 'blur(15px)', transform: 'scaleX(-1)' } : {}} />
                     ) : tile.type === 'peer' && tile.peer.stream ? (
                       <RemoteVideoTile stream={tile.peer.stream} socketId={tile.peer.socketId} />
                     ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center gap-3">
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
                         <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-3xl opacity-20">👤</div>
                         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">{tile.type === 'searching' ? 'Scanning...' : 'Connecting...'}</p>
                       </div>
@@ -948,11 +948,11 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
             ) : (
               <div className="h-full flex flex-col gap-4">
                 {/* Speaker Stage */}
-                <div className="flex-[4] relative rounded-tl-[40px] rounded-br-[40px] rounded-tr-none rounded-bl-none overflow-hidden border-2 border-indigo-500/30 bg-[#0c0e1a] shadow-2xl">
+                <div className="flex-[4] relative rounded-3xl sm:rounded-tl-[40px] sm:rounded-br-[40px] sm:rounded-tr-none sm:rounded-bl-none overflow-hidden border-2 border-indigo-500/30 bg-[#0c0e1a] shadow-2xl">
                   {(() => {
                     const speaker = peers.find(p => p.socketId === (activeSpeakerId || (peers.length > 0 ? peers[0].socketId : null)));
                     if (speaker) return <RemoteVideoTile stream={speaker.stream} socketId={speaker.socketId} />;
-                    return <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-20' : ''}`} />;
+                    return <video ref={localVideoRef} autoPlay muted playsInline className={`absolute inset-0 w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-20' : ''}`} />;
                   })()}
                   <div className="absolute bottom-6 left-6 flex items-center gap-3 px-4 py-2 rounded-2xl bg-black/60 border border-white/10 backdrop-blur-xl">
                     <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
@@ -962,12 +962,12 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
                 {/* Peer Strip */}
                 <div className="flex-1 flex gap-4 overflow-x-auto pb-2">
                   {tiles.map((tile, idx) => (
-                      <div key={idx} className="h-full aspect-video rounded-tl-[20px] rounded-br-[20px] rounded-tr-none rounded-bl-none overflow-hidden border-2 border-indigo-500/30 bg-black/40 flex-shrink-0 relative">
+                      <div key={idx} className="h-full aspect-video rounded-xl sm:rounded-tl-[20px] sm:rounded-br-[20px] sm:rounded-tr-none sm:rounded-bl-none overflow-hidden border-2 border-indigo-500/30 bg-black/40 flex-shrink-0 relative">
                       {tile.type === 'local' ? (
-                        <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" />
+                        <video ref={localVideoRef} autoPlay muted playsInline className="absolute inset-0 w-full h-full object-cover scale-x-[-1]" />
                       ) : tile.type === 'peer' ? (
                         <RemoteVideoTile stream={tile.peer.stream} socketId={tile.peer.socketId} />
-                      ) : <div className="w-full h-full flex items-center justify-center">👤</div>}
+                      ) : <div className="absolute inset-0 flex items-center justify-center">👤</div>}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
                       <span className="absolute bottom-2 left-3 text-[8px] font-black uppercase tracking-widest text-white/60">{tile.type === 'local' ? 'You' : tile.peer?.nickname}</span>
                     </div>

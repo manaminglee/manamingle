@@ -1119,23 +1119,33 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                   </div>
                 </>
               ) : status === 'searching' ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-[#0c0e1a]">
-                  <div className="relative w-40 h-40 flex items-center justify-center">
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#0c0e1a]">
+                  <div className="relative w-24 h-24 flex items-center justify-center">
                     {/* Earth Animation */}
-                    <div className="absolute inset-0 rounded-full bg-blue-900/40 border border-blue-500/30 overflow-hidden shadow-[0_0_40px_rgba(59,130,246,0.2)]">
-                      <div className="absolute inset-0 bg-[url('https://upload.wikimedia.org/wikipedia/commons/c/c3/World_map_blue_dotted.svg')] bg-cover bg-center opacity-40 animate-[spin_20s_linear_infinite]" />
+                    <div className="absolute inset-0 rounded-full bg-blue-900/40 border border-blue-500/30 overflow-hidden shadow-[0_0_30px_rgba(59,130,246,0.3)]">
+                      <div className="absolute inset-0 bg-[url('https://upload.wikimedia.org/wikipedia/commons/c/c3/World_map_blue_dotted.svg')] bg-cover bg-center opacity-60 animate-[spin_15s_linear_infinite]" />
+                    </div>
+                    {/* Network Nodes */}
+                    <div className="absolute inset-0 rounded-full animate-[spin_10s_linear_infinite_reverse] overflow-hidden">
+                      <div className="absolute top-3 left-5 w-1 h-1 bg-white rounded-full shadow-[0_0_5px_#fff]" />
+                      <div className="absolute top-10 right-3 w-1.5 h-1.5 bg-cyan-300 rounded-full shadow-[0_0_8px_#67e8f9]" />
+                      <div className="absolute bottom-5 left-8 w-1 h-1 bg-indigo-300 rounded-full shadow-[0_0_5px_#818cf8]" />
+                      <div className="absolute top-1/2 left-1/2 w-[150%] h-[1px] bg-white/30 -translate-x-1/2 -translate-y-1/2 rotate-45" />
+                      <div className="absolute top-1/2 left-1/2 w-[120%] h-[1px] bg-white/30 -translate-x-1/2 -translate-y-1/2 -rotate-12" />
                     </div>
                     {/* Search Lines radiating outward */}
-                    <div className="absolute w-[200%] h-[1px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent rotate-45 animate-spin shadow-[0_0_10px_rgba(99,102,241,0.8)]" style={{ animationDuration: '3s' }} />
-                    <div className="absolute w-[200%] h-[1px] bg-gradient-to-r from-transparent via-emerald-500 to-transparent -rotate-45 animate-spin shadow-[0_0_10px_rgba(16,185,129,0.8)]" style={{ animationDuration: '4s', animationDirection: 'reverse' }} />
-                    <div className="absolute z-10 w-4 h-4 rounded-full bg-emerald-400 shadow-[0_0_20px_rgba(52,211,153,1)] animate-pulse" />
+                    <div className="absolute w-[150%] h-[1px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent rotate-45 animate-spin shadow-[0_0_8px_rgba(34,211,238,0.8)]" style={{ animationDuration: '2s' }} />
+                    <div className="absolute w-[150%] h-[1px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent -rotate-45 animate-spin shadow-[0_0_8px_rgba(99,102,241,0.8)]" style={{ animationDuration: '3s', animationDirection: 'reverse' }} />
+                    <div className="absolute z-10 w-3 h-3 rounded-full bg-cyan-400 shadow-[0_0_15px_rgba(34,211,238,1)] animate-pulse" />
                   </div>
-                  <div className="text-center z-10 mt-4">
-                    <p className="text-sm font-black text-white/90 uppercase tracking-[0.3em] mb-2 drop-shadow-lg">Finding Match</p>
-                    <div className="flex gap-1 justify-center">
-                      <span className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                      <span className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                      <span className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                  <div className="text-center z-10 mt-2">
+                    <div className="flex items-end justify-center text-sm font-black text-white/90 uppercase tracking-[0.2em] drop-shadow-md">
+                      <span>Searching</span>
+                      <span className="flex tracking-[0.1em] ml-1">
+                        <span className="animate-[bounce_1s_infinite_0ms]">.</span>
+                        <span className="animate-[bounce_1s_infinite_150ms]">.</span>
+                        <span className="animate-[bounce_1s_infinite_300ms]">.</span>
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1169,8 +1179,8 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
               </div>
             </div>
 
-            {/* FLOATING CONTROL BAR (Moved outside local video for mobile support) */}
-            <div className="absolute bottom-6 sm:bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 border border-white/10 backdrop-blur-xl shadow-2xl justify-center pointer-events-auto scale-90 sm:scale-100">
+            {/* FLOATING CONTROL BAR */}
+            <div className="absolute bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-[45] flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 border border-white/10 backdrop-blur-xl shadow-2xl justify-center pointer-events-auto scale-90 sm:scale-100">
                 {(status === 'idle' || status === 'disconnected') ? (
                   <button onClick={handleStart} className="btn btn-primary h-10 px-6 font-black uppercase text-xs tracking-widest animate-pulse">Start Vibe</button>
                 ) : (
@@ -1194,9 +1204,9 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
             </div>
           </div>
 
-          {/* CHAT PANEL (uMingle Slide-out Style Desktop, Overlay Mobile) */}
+          {/* CHAT PANEL (Overlay Mobile) */}
           {showChat && (
-            <div className="absolute inset-0 z-20 flex flex-col justify-end pointer-events-none sm:pointer-events-auto sm:static sm:flex-1 sm:h-full sm:bg-[#0d0f1c] sm:border-l sm:border-white/5 sm:z-40 sm:justify-start animate-slide-in-right sm:animate-none">
+            <div className={`absolute inset-0 z-40 flex flex-col justify-end pointer-events-none sm:pointer-events-auto sm:static sm:flex-1 sm:h-full sm:bg-[#0d0f1c] sm:border-l sm:border-white/5 sm:z-40 sm:justify-start animate-slide-in-right sm:animate-none`}>
               <div className="hidden sm:flex p-4 border-b border-white/5 items-center justify-between">
                 <span className="text-xs font-black uppercase tracking-[0.2em] text-white/40">Chat Room</span>
                 <button onClick={() => setShowChat(false)} className="text-white/20 hover:text-white">✕</button>
@@ -1221,10 +1231,10 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                     </div>
                   );
                 })}
-                <div ref={chatEndRef} className="pb-2" />
+                <div ref={chatEndRef} className="pb-32 sm:pb-2" />
               </div>
 
-              <div className="p-4 sm:bg-[#0a0c16] sm:border-t sm:border-white/5 pointer-events-auto mb-20 sm:mb-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent sm:bg-none">
+              <div className="p-4 sm:bg-[#0a0c16] sm:border-t sm:border-white/5 pointer-events-auto bg-gradient-to-t from-black/90 via-black/50 to-transparent sm:bg-none z-[50]">
                 <div className="flex gap-2">
                   <input
                     ref={inputRef}
