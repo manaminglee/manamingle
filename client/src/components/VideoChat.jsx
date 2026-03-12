@@ -364,15 +364,19 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       setShowRating(true);
       generateAiSummary(messages);
     }
-    if (roomIdRef.current && socket) socket.emit('leave-room', { roomId: roomIdRef.current });
-    else socket?.emit('cancel-find-partner');
+    if (socket) {
+      if (roomIdRef.current) socket.emit('leave-room', { roomId: roomIdRef.current });
+      else socket.emit('cancel-find-partner');
+    }
     clearRoom();
     setStatus('searching');
     setGoodVibesSent(false); setGoodVibesMatch(false); setCameraBlur(false);
     setTimeout(() => {
-      socket?.emit('find-partner', { mode: 'video', interest: interest || 'general', nickname: 'Anonymous' });
-      onFindNewPartner?.();
-    }, 50);
+      if (status !== 'idle') {
+        socket?.emit('find-partner', { mode: 'video', interest: interest || 'general', nickname: 'Anonymous' });
+        onFindNewPartner?.();
+      }
+    }, 100);
   };
 
   const handleStop = () => {
@@ -419,27 +423,30 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     }
   }, [peer]);
 
+  const handleEsc = useCallback(() => {
+    if (status === 'connected' || status === 'searching') {
+      handleSkip();
+    } else {
+      handleBack();
+    }
+  }, [status, handleSkip, handleBack]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e) => {
       const target = e.target;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
 
-      if (e.key === 's' || e.key === 'S') handleStart();
-      if (e.key === 'Escape') {
-        if (status === 'connected' || status === 'searching') {
-          handleSkip();
-        } else {
-          handleBack();
-        }
-      }
+      if (e.key.toLowerCase() === 's') handleStart();
+      if (e.key === 'Escape') handleEsc();
       if (e.key === 'Enter') {
+        e.preventDefault();
         inputRef.current?.focus();
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [status, handleStart, handleSkip, handleBack]);
+  }, [status, handleStart, handleSkip, handleBack, handleEsc]);
 
   // AI icebreaker when first connected
   useEffect(() => {
@@ -607,6 +614,12 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     const onUserLeft = () => {
       setPeer((p) => (p ? { ...p, stream: null } : null));
       setStatus('disconnected');
+      // Auto-reconnect on remote user leave
+      setTimeout(() => {
+        if (roomIdRef.current) {
+           handleSkip();
+        }
+      }, 1000);
     };
 
     const onWaiting = () => setStatus('searching');
@@ -1204,12 +1217,12 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
               </div>
 
               {/* VERTICAL CONTROL BAR (Right Side) */}
-              <div className="absolute top-1/2 right-2 -translate-y-1/2 z-30 flex flex-col items-center gap-3 px-2 py-4 rounded-3xl bg-black/30 border border-white/5 backdrop-blur-2xl shadow-2xl justify-center pointer-events-auto scale-[0.8] origin-right transition-all hover:bg-black/40">
+              <div className="absolute top-1/2 right-2 -translate-y-1/2 z-30 flex flex-col items-center gap-3 px-2 py-4 rounded-3xl bg-black/10 border border-white/5 backdrop-blur-2xl shadow-2xl justify-center pointer-events-auto scale-[0.8] origin-right transition-all hover:bg-black/20">
                   {(status === 'idle' || status === 'disconnected') ? (
                     <button onClick={handleStart} className="w-12 h-12 flex items-center justify-center rounded-full bg-indigo-500 text-white shadow-lg animate-pulse" title="Start">▶️</button>
                   ) : (
                     <>
-                      <button id="video-skip-btn" onClick={(e) => { e.stopPropagation(); handleSkip(); handleStart(); }} className="w-12 h-12 flex items-center justify-center rounded-full bg-amber-500/90 text-white shadow-lg active:scale-90 transition-all outline-none group relative" title="Next Stranger">
+                      <button id="video-skip-btn" onClick={(e) => { e.stopPropagation(); handleSkip(); }} className="w-12 h-12 flex items-center justify-center rounded-full bg-amber-500/90 text-white shadow-lg active:scale-90 transition-all outline-none group relative" title="Next Stranger">
                         <span>⏭️</span>
                         <div className="absolute right-full mr-2 px-2 py-1 rounded bg-black/80 text-[8px] font-black uppercase tracking-widest text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">Next Stranger</div>
                       </button>
@@ -1224,7 +1237,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                         💬
                       </button>
                       <div className="w-6 h-[1px] bg-white/10" />
-                      <button onClick={(e) => { e.stopPropagation(); handleStop(); setStatus('idle'); setTimeout(handleStart, 100); }} title="Stop" className="w-10 h-10 flex items-center justify-center rounded-full bg-rose-500/20 text-rose-400 hover:bg-rose-500/80 hover:text-white transition-all outline-none">
+                      <button onClick={(e) => { e.stopPropagation(); handleStop(); }} title="Stop" className="w-10 h-10 flex items-center justify-center rounded-full bg-rose-500/10 text-rose-400 hover:bg-rose-500/80 hover:text-white transition-all outline-none">
                         🛑
                       </button>
                     </>
@@ -1243,7 +1256,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                 <button onClick={() => setShowChat(false)} className="text-white/20 hover:text-white">✕</button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-4 pointer-events-none" id="video-chat-messages">
+              <div className="flex-[0.5] overflow-y-auto p-4 space-y-4 pointer-events-none" id="video-chat-messages">
                 {(messages.length === 0 || !isConnected) && (
                   <div className="hidden sm:block p-6 rounded-2xl bg-white/5 border border-white/5 space-y-3 mt-4">
                     <p className="text-xs text-white/40 font-black uppercase tracking-widest">{isConnected ? "👋 Start the vibe!" : "🔒 Connect to Chat"}</p>
@@ -1252,7 +1265,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                 )}
                 {messages.map((m, i) => {
                   const isMe = m.socketId === socket.id || m.fromSelf;
-                  if (now - m.ts > 60000) return null; // vanish in 1 min
+                  if (now - m.ts > 30000) return null; // vanish in 30s
                   return (
                     <div key={m.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-message-pop`}>
                       <div className={`px-4 py-2.5 rounded-2xl text-sm ${isMe ? 'bg-indigo-500 text-white rounded-tr-none' : 'bg-black/60 backdrop-blur-md text-white/90 rounded-tl-none border border-white/10'}`}>
@@ -1266,6 +1279,14 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
               </div>
 
               <div className="p-4 sm:bg-[#0a0c16] sm:border-t sm:border-white/5 pointer-events-auto bg-gradient-to-t from-black/90 via-black/50 to-transparent sm:bg-none z-[50]">
+                {/* Mobile Quick Controls above text field */}
+                <div className="flex sm:hidden items-center justify-center gap-3 mb-4 scale-90">
+                     <button onClick={handleSkip} className="w-10 h-10 flex items-center justify-center rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-500 font-black text-[10px] uppercase">Skip</button>
+                     <button onClick={toggleCamera} className={`w-10 h-10 flex items-center justify-center rounded-xl ${cameraOff ? 'bg-rose-500 text-white' : 'bg-white/10 text-white/80'}`}>{cameraOff ? '📹' : '📸'}</button>
+                     <button onClick={() => setCameraBlur(!cameraBlur)} className={`w-10 h-10 flex items-center justify-center rounded-xl ${cameraBlur ? 'bg-indigo-500 text-white' : 'bg-white/10 text-white/80'}`}>🫥</button>
+                     <button onClick={handleStop} className="w-10 h-10 flex items-center justify-center rounded-xl bg-rose-500/20 border border-rose-500/30 text-rose-500 font-black text-[10px] uppercase">Stop</button>
+                </div>
+                
                 <div className="flex gap-2">
                   <input
                     ref={inputRef}
@@ -1275,7 +1296,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                     onKeyDown={(e) => e.key === 'Enter' && sendMsg()}
                     placeholder={isConnected ? "Say hello..." : "Connecting..."}
                     disabled={!isConnected}
-                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500/50 outline-none transition-all"
+                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500/50 outline-none transition-all placeholder:text-white/20"
                   />
                   <button id="video-chat-send-btn" onClick={sendMsg} disabled={!isConnected || !input.trim()} className="w-10 h-10 rounded-xl bg-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20 active:scale-95 transition-all">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>

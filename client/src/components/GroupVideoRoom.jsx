@@ -320,26 +320,31 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
     };
 
     pc.ontrack = (e) => {
-      const nick = peerNicksRef.current.get(remoteId) || 'Stranger';
-      const ctry = peerCountriesRef.current.get(remoteId);
       const track = e.track;
       if (!track) return;
 
+      const remoteStream = e.streams[0] || new MediaStream([track]);
+      
       setPeers((prev) => {
-        const filtered = prev.filter((p) => p.socketId !== remoteId);
         const existing = prev.find((p) => p.socketId === remoteId);
-        let stream = existing?.stream;
+        let stream = existing?.stream || remoteStream;
+        
+        // Ensure track is in the stream
+        if (!stream.getTracks().some(t => t.id === track.id)) {
+            stream.addTrack(track);
+        }
 
-        if (!stream) stream = new MediaStream();
-        const hasTrack = stream.getTracks().some((t) => t.id === track.id);
-        if (!hasTrack) stream.addTrack(track);
+        const nick = peerNicksRef.current.get(remoteId) || 'Stranger';
+        const ctry = peerCountriesRef.current.get(remoteId);
 
-        // Active Speaker Tracking
         if (track.kind === 'audio') {
           setupAudioAnalyzer(remoteId, stream);
         }
 
-        return [...filtered, { socketId: remoteId, stream, nickname: nick, country: ctry }];
+        if (existing) {
+            return prev.map(p => p.socketId === remoteId ? { ...p, stream, nickname: nick, country: ctry } : p);
+        }
+        return [...prev, { socketId: remoteId, stream, nickname: nick, country: ctry }];
       });
     };
 
@@ -627,6 +632,12 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
     setToast('Meeting link copied to clipboard! 📋');
   };
 
+  const generateRandomRoom = () => {
+    const randomId = Math.random().toString(36).substring(2, 10);
+    setJoinRoomIdInput(randomId);
+    setToast('🎲 Random ID Generated!');
+  };
+
   const send3dEmoji = (emoji) => {
     if (balance < 5) return alert('Need 5 coins!');
     if (socket && (roomIdRef.current || roomId)) {
@@ -842,14 +853,21 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
                 />
                 <button 
                   onClick={() => {
-                    const rId = joinRoomIdInput.trim().split('/').pop();
-                    if(!rId) return alert("Enter a valid Room ID");
-                    socket.emit('join-specific-group', { roomId: rId, nickname: 'Anonymous' });
+                    const cleanId = joinRoomIdInput.trim().split('/').pop();
+                    if(!cleanId) return alert("Enter a valid Room ID");
+                    socket.emit('join-specific-group', { roomId: cleanId, nickname: 'Anonymous' });
                     setShowEntryModal(false);
                   }}
-                  className="h-full px-5 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-all"
+                  className="h-full px-5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all text-xs"
                 >
-                  Enter
+                  Join
+                </button>
+                <button 
+                  onClick={generateRandomRoom}
+                  className="h-full px-3 bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-xl hover:bg-indigo-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest"
+                  title="Generate Random ID"
+                >
+                  🎲
                 </button>
               </div>
             </div>
@@ -889,7 +907,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
 
       {/* MAIN VIEWPORT */}
       <main className="flex-1 flex min-h-0 relative">
-        <div className="flex-1 relative p-4 flex flex-col gap-4 overflow-hidden">
+        <div className="flex-1 relative p-2 sm:p-4 flex flex-col gap-2 sm:gap-4 overflow-hidden">
           {/* Reaction Layer */}
           <div className="absolute inset-0 pointer-events-none z-[100] overflow-hidden">
             {localReactions.map(r => (
@@ -911,31 +929,39 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
           )}
 
           {/* Video Area */}
-          <div className="flex-1 min-h-0 flex items-center justify-center">
+          <div className="flex-1 min-h-0 relative">
             {viewMode === 'grid' ? (
-              <div className={`grid w-full h-full p-2 lg:p-4 gap-4 ${participantCount <= 1 ? 'grid-cols-1' : participantCount === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2 lg:grid-cols-2 mx-auto sm:aspect-video'}`}>
+              <div className="absolute inset-0 flex items-center justify-center p-2 sm:p-4">
+                <div className="grid grid-cols-2 grid-rows-2 w-full max-w-6xl aspect-video gap-3 sm:gap-6">
                 {tiles.map((tile, idx) => (
                   <div key={idx} className={`relative sm:aspect-video rounded-3xl sm:rounded-tl-[40px] sm:rounded-br-[40px] sm:rounded-tr-none sm:rounded-bl-none overflow-hidden border-2 border-indigo-500/30 bg-[#0c0e1a] shadow-2xl transition-all duration-500 ${activeSpeakerId === (tile.type === 'peer' ? tile.peer.socketId : null) ? 'ring-4 ring-indigo-500/50 border-indigo-500' : ''}`}>
                     {tile.type === 'local' ? (
-                      <video ref={localVideoRef} autoPlay muted playsInline className={`absolute inset-0 w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-20' : ''}`} style={cameraBlur ? { filter: 'blur(15px)', transform: 'scaleX(-1)' } : {}} />
-                    ) : tile.type === 'peer' && tile.peer.stream ? (
+                      <video ref={localVideoRef} autoPlay muted playsInline className={`absolute inset-0 w-full h-full object-cover scale-x-[-1] transition-opacity duration-500 ${cameraOff ? 'opacity-20' : 'opacity-100'}`} style={cameraBlur ? { filter: 'blur(15px)', transform: 'scaleX(-1)' } : {}} />
+                    ) : (tile.type === 'peer' && tile.peer.stream) ? (
                       <RemoteVideoTile stream={tile.peer.stream} socketId={tile.peer.socketId} />
                     ) : (
                       <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                        <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-3xl opacity-20">👤</div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">{tile.type === 'searching' ? 'Scanning...' : 'Connecting...'}</p>
+                        <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-2xl font-black text-white/10 select-none">M</div>
+                        <p className="text-[8px] font-black uppercase tracking-[0.3em] text-white/20">{tile.type === 'searching' ? 'Scanning...' : 'Empty Slot'}</p>
                       </div>
                     )}
 
                     {/* Overlay Label */}
-                    <div className="absolute bottom-4 left-4 flex items-center gap-2 px-3 py-1 rounded-full bg-black/40 border border-white/10 backdrop-blur-md">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-white/80">
+                    <div className="absolute bottom-2 left-2 sm:bottom-4 sm:left-4 flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 rounded-full bg-black/40 border border-white/10 backdrop-blur-md">
+                      <div className={`w-1.5 h-1.5 rounded-full ${tile.type === 'local' ? 'bg-blue-500' : 'bg-emerald-500'}`} />
+                      <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-white/80">
                         {tile.type === 'local' ? 'You' : tile.peer?.nickname || 'Stranger'}
                       </span>
+                      {/* Network Indicator */}
+                      <div className="flex gap-0.5 ml-1">
+                         <div className={`w-0.5 h-1.5 ${tile.type === 'local' ? 'bg-blue-500/80' : 'bg-emerald-500/80'} rounded-[1px]`} />
+                         <div className={`w-0.5 h-2 ${tile.type === 'local' ? 'bg-blue-500/80' : 'bg-emerald-500/80'} rounded-[1px]`} />
+                         <div className={`w-0.5 h-2.5 ${tile.type === 'local' ? 'bg-blue-500/80' : 'bg-emerald-500/80'} rounded-[1px]`} />
+                      </div>
                       {remoteRaisedHands.has(tile.type === 'peer' ? tile.peer.socketId : socket?.id) && (
-                        <span className="text-xs animate-bounce">✋</span>
+                        <span className="text-[10px] animate-bounce ml-1">✋</span>
                       )}
-                      {(tile.type === 'local' ? muted : false) && <span className="text-rose-400">🔇</span>}
+                      {(tile.type === 'local' ? muted : false) && <span className="text-rose-400 text-[10px]">🔇</span>}
                     </div>
 
                     {/* Active Speaker Ring Indicator */}
@@ -944,6 +970,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
                     )}
                   </div>
                 ))}
+                </div>
               </div>
             ) : (
               <div className="h-full flex flex-col gap-4">
@@ -1013,26 +1040,39 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
           )}
 
           {showChat && (
-            <div className="w-80 bg-[#1a1d21] border-l border-white/5 flex flex-col animate-slide-in-right z-50">
-              <div className="p-4 border-b border-white/5 flex items-center justify-between">
+            <div className="absolute inset-x-0 bottom-0 top-1/2 z-50 pointer-events-none sm:pointer-events-auto sm:static sm:flex-1 sm:w-80 sm:h-full bg-black/20 sm:bg-[#1a1d21] border-t sm:border-t-0 sm:border-l border-white/5 flex flex-col animate-slide-in-up sm:animate-slide-in-right">
+              <div className="hidden sm:flex p-4 border-b border-white/5 items-center justify-between">
                 <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">In-Meeting Chat</h2>
                 <button onClick={() => setShowChat(false)} className="text-white/20 hover:text-white">✕</button>
               </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-4" id="group-video-chat-messages">
-                {messages.map((m, i) => (
-                  <div key={i} className={`flex flex-col ${m.socketId === socket.id ? 'items-end' : 'items-start'}`}>
-                    {!m.system && <span className="text-[8px] font-black uppercase text-white/20 mb-1 px-1">{m.nickname || 'Stranger'}</span>}
-                    <div className={`px-4 py-2 rounded-2xl text-xs ${m.system ? 'bg-white/5 text-white/30 italic text-[10px]' : m.socketId === socket.id ? 'bg-indigo-500 text-white rounded-tr-none' : 'bg-white/5 text-white/90 rounded-tl-none'}`}>
-                      {m.text}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 pointer-events-none" id="group-video-chat-messages">
+                {messages.map((m, i) => {
+                  const isMe = m.socketId === socket.id;
+                  const now = Date.now();
+                  if (m.ts && now - m.ts > 30000) return null; // 30s vanish
+                  return (
+                    <div key={i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-message-pop`}>
+                      {!m.system && <span className="text-[8px] font-black uppercase text-white/20 mb-1 px-1">{m.nickname || 'Stranger'}</span>}
+                      <div className={`px-4 py-2 rounded-2xl text-xs ${m.system ? 'bg-white/5 text-white/30 italic text-[10px]' : isMe ? 'bg-indigo-500 text-white rounded-tr-none' : 'bg-black/60 backdrop-blur-md text-white/90 rounded-tl-none border border-white/10'}`}>
+                        {m.text}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 <div ref={chatEndRef} />
               </div>
-              <div className="p-4 border-t border-white/5 bg-[#16191c]">
+              <div className="p-4 sm:bg-[#16191c] sm:border-t sm:border-white/5 pointer-events-auto bg-gradient-to-t from-black/80 to-transparent">
+                 {/* Mobile Quick Controls above input */}
+                 <div className="flex sm:hidden items-center justify-center gap-4 mb-4 scale-90">
+                     <button onClick={toggleMute} className={`w-9 h-9 rounded-xl flex items-center justify-center ${muted ? 'bg-rose-500' : 'bg-white/10'}`}>{muted ? '🔇' : '🎤'}</button>
+                     <button onClick={toggleCamera} className={`w-9 h-9 rounded-xl flex items-center justify-center ${cameraOff ? 'bg-rose-500' : 'bg-white/10'}`}>{cameraOff ? '📷' : '📹'}</button>
+                     <button onClick={toggleHandRaise} className={`w-9 h-9 rounded-xl flex items-center justify-center ${handRaised ? 'bg-amber-400' : 'bg-white/10'}`}>✋</button>
+                     <button onClick={onLeave} className="w-9 h-9 rounded-xl flex items-center justify-center bg-rose-500/20 text-rose-500 text-[10px] font-bold">End</button>
+                 </div>
+
                 <div className="flex gap-2">
-                  <input autoFocus value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMessage()} placeholder="Message..." className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-indigo-500/50 transition-all" />
-                  <button onClick={sendMessage} className="w-10 h-10 rounded-xl bg-indigo-500 text-white flex items-center justify-center active:scale-95 transition-all">🚀</button>
+                  <input autoFocus value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMessage()} placeholder="Message..." className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-indigo-500/50 transition-all placeholder:text-white/20" />
+                  <button onClick={sendMessage} className="w-10 h-10 rounded-xl bg-indigo-500 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg shadow-indigo-500/20">🚀</button>
                 </div>
               </div>
             </div>
@@ -1041,54 +1081,57 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
       </main>
 
       {/* BOTTOM CONTROL BAR */}
-      <footer className="h-20 flex-shrink-0 bg-[#1a1d21] border-t border-white/5 flex items-center justify-center gap-2 sm:gap-6 z-[80]">
-        <div className="flex items-center gap-1.5 sm:gap-3">
-          <button onClick={toggleMute} className={`group flex flex-col items-center gap-1.5 px-4 py-2 rounded-xl transition-all ${muted ? 'text-rose-500' : 'hover:bg-white/5'}`}>
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${muted ? 'bg-rose-500 text-white' : 'bg-white/5'}`}>
+      {/* BOTTOM CONTROL BAR - FLOATING & SMALLER */}
+      <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center justify-center gap-1 sm:gap-4 px-3 py-1.5 rounded-2xl bg-black/40 border border-white/5 backdrop-blur-xl shadow-2xl z-[150] scale-90 sm:scale-100">
+        <div className="flex items-center gap-1">
+          <button onClick={toggleMute} className={`group flex flex-col items-center gap-1 px-3 py-1 transition-all ${muted ? 'text-rose-500' : 'hover:bg-white/5 rounded-lg'}`}>
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${muted ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' : 'bg-white/5'}`}>
               {muted ? '🔇' : '🎤'}
             </div>
-            <span className="text-[8px] font-black uppercase tracking-widest opacity-40 group-hover:opacity-100">{muted ? 'Unmute' : 'Mute'}</span>
           </button>
-          <button onClick={toggleCamera} className={`group flex flex-col items-center gap-1.5 px-4 py-2 rounded-xl transition-all ${cameraOff ? 'text-rose-500' : 'hover:bg-white/5'}`}>
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${cameraOff ? 'bg-rose-500 text-white' : 'bg-white/5'}`}>
+          <button onClick={toggleCamera} className={`group flex flex-col items-center gap-1 px-3 py-1 transition-all ${cameraOff ? 'text-rose-500' : 'hover:bg-white/5 rounded-lg'}`}>
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${cameraOff ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' : 'bg-white/5'}`}>
               {cameraOff ? '📷' : '📹'}
             </div>
-            <span className="text-[8px] font-black uppercase tracking-widest opacity-40 group-hover:opacity-100">Video</span>
           </button>
         </div>
 
-        <div className="h-10 w-[1px] bg-white/5 mx-2" />
+        <div className="h-6 w-[1px] bg-white/10 mx-1" />
 
-        <div className="flex items-center gap-1.5 sm:gap-3">
-          <button onClick={() => setShowParticipants(!showParticipants)} className={`group flex flex-col items-center gap-1.5 px-4 py-2 rounded-xl transition-all ${showParticipants ? 'text-indigo-400' : 'hover:bg-white/5'}`}>
-            <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-all">👥</div>
-            <span className="text-[8px] font-black uppercase tracking-widest opacity-40 group-hover:opacity-100">Members</span>
+        <div className="flex items-center gap-0.5 sm:gap-1">
+          <button onClick={() => setShowParticipants(!showParticipants)} className={`group flex flex-col items-center gap-1 px-2 py-1 transition-all ${showParticipants ? 'text-indigo-400' : 'hover:bg-white/5 rounded-lg'}`}>
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center group-hover:bg-white/10 transition-all ${showParticipants ? 'bg-indigo-500/20 border border-indigo-500/30' : 'bg-white/5'}`}>
+               <span className="text-sm">👥</span>
+            </div>
           </button>
-          <button onClick={() => setShowChat(!showChat)} className={`group flex flex-col items-center gap-1.5 px-4 py-2 rounded-xl transition-all ${showChat ? 'text-indigo-400' : 'hover:bg-white/5'}`}>
-            <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-all">💬</div>
-            <span className="text-[8px] font-black uppercase tracking-widest opacity-40 group-hover:opacity-100">Chat</span>
+          <button onClick={() => setShowChat(!showChat)} className={`group flex flex-col items-center gap-1 px-2 py-1 transition-all ${showChat ? 'text-indigo-400' : 'hover:bg-white/5 rounded-lg'}`}>
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center group-hover:bg-white/10 transition-all ${showChat ? 'bg-indigo-500/20 border border-indigo-500/30' : 'bg-white/5'}`}>
+               <span className="text-sm">💬</span>
+            </div>
           </button>
-          <button onClick={toggleHandRaise} className={`group flex flex-col items-center gap-1.5 px-4 py-2 rounded-xl transition-all ${handRaised ? 'text-amber-400' : 'hover:bg-white/5'}`}>
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${handRaised ? 'bg-amber-400 text-white' : 'bg-white/5'}`}>✋</div>
-            <span className="text-[8px] font-black uppercase tracking-widest opacity-40 group-hover:opacity-100">{handRaised ? 'Lower' : 'Raise'}</span>
+          <button onClick={toggleHandRaise} className={`group flex flex-col items-center gap-1 px-2 py-1 transition-all ${handRaised ? 'text-amber-400' : 'hover:bg-white/5 rounded-lg'}`}>
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${handRaised ? 'bg-amber-400 text-white shadow-lg shadow-amber-500/20' : 'bg-white/5'}`}>
+               <span className="text-sm">✋</span>
+            </div>
           </button>
           <div className="relative group">
-            <button className="group flex flex-col items-center gap-1.5 px-4 py-2 rounded-xl hover:bg-white/5 transition-all">
-              <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-all">😀</div>
-              <span className="text-[8px] font-black uppercase tracking-widest opacity-40 group-hover:opacity-100">React</span>
+            <button className="group flex flex-col items-center gap-1 px-2 py-1 rounded-lg hover:bg-white/5 transition-all">
+              <div className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-all">
+                <span className="text-sm">😀</span>
+              </div>
             </button>
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 p-2 bg-[#2a2d32] border border-white/10 rounded-2xl shadow-2xl flex gap-1.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all scale-75 group-hover:scale-100">
               {['👏', '❤️', '😂', '😮', '👍', '🎉'].map(emoji => (
-                <button key={emoji} onClick={() => sendReaction(emoji)} className="w-10 h-10 rounded-xl hover:bg-white/5 text-xl transition-all">{emoji}</button>
+                <button key={emoji} onClick={() => sendReaction(emoji)} className="w-8 h-8 rounded-lg hover:bg-white/5 text-base transition-all">{emoji}</button>
               ))}
             </div>
           </div>
         </div>
 
-        <div className="h-10 w-[1px] bg-white/5 mx-2" />
+        <div className="h-6 w-[1px] bg-white/10 mx-1" />
 
-        <button onClick={onLeave} className="px-6 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-rose-600/20 active:scale-95 transition-all">
-          End Meeting
+        <button onClick={onLeave} className="px-5 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[9px] font-black uppercase tracking-widest shadow-lg shadow-rose-600/20 active:scale-95 transition-all">
+          Leave
         </button>
       </footer>
 
@@ -1106,19 +1149,32 @@ function RemoteVideoTile({ stream, socketId }) {
   useEffect(() => {
     const el = ref.current;
     if (!el || !stream) return;
-    el.srcObject = stream;
-    const play = () => el.play?.().catch(() => { });
+    
+    // Explicitly handle track-to-stream assignment for maximum cross-browser visibility
+    if (el.srcObject !== stream) {
+      el.srcObject = stream;
+    }
+    
+    const play = () => {
+      if (el.paused) el.play?.().catch(() => { });
+    };
+    
     play();
-    // Retry play (fixes video not showing on first join - mobile/slow connections)
     const t1 = setTimeout(play, 100);
-    const t2 = setTimeout(play, 500);
-    stream.getTracks().forEach((t) => t.addEventListener('unmute', play));
+    const t2 = setTimeout(play, 1000);
+    
+    stream.getTracks().forEach((t) => {
+      t.enabled = true;
+      t.addEventListener('unmute', play);
+    });
+    
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
       stream.getTracks().forEach((t) => t.removeEventListener('unmute', play));
     };
   }, [stream]);
+
   if (!stream) return null;
   return (
     <video
