@@ -244,8 +244,27 @@ export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nick
 
   const getNickColor = (idx) => COLORS[idx % COLORS.length];
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e) => {
+      const target = e.target;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      if (e.key === 'Escape') {
+        onLeave();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onLeave]);
+
   return (
-    <div className="h-screen flex flex-col bg-[#070811] text-white overflow-hidden">
+    <div className="h-screen flex flex-col bg-[#070811] text-white overflow-hidden relative">
+      {/* AI SAFETY LAYER */}
+      <div className="absolute top-[72px] left-1/2 -translate-x-1/2 z-[100] pointer-events-none px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center gap-2 animate-pulse">
+         <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">AI Safety Monitor Active</span>
+      </div>
+
       {/* HEADER */}
       <header className="app-header flex-shrink-0">
         <div className="flex items-center gap-3">
@@ -348,19 +367,19 @@ export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nick
                   <div className="sys-msg pt-4">Welcome to the room! Say hello 👋</div>
                 )}
                 {messages.map((m, i) => {
-                  if (m.system) return <div key={m.id} className="sys-msg">{m.text}</div>;
-                  const isMe = m.nickname === (nickname || 'Anonymous');
-                  const peerIdx = allParticipants.findIndex((p) => p.nickname === m.nickname);
+                  if (m.system) return <div key={m.id || i} className="sys-msg">{m.text}</div>;
+                  const isMe = m.socketId === socket.id || m.fromSelf;
+                  const peerIdx = allParticipants.findIndex((p) => p.socketId === m.socketId);
                   const color = peerIdx >= 0 ? getNickColor(peerIdx) : COLORS[0];
-                  const showNick = i === 0 || messages[i - 1]?.nickname !== m.nickname || messages[i - 1]?.system;
+                  const showNick = i === 0 || messages[i - 1]?.socketId !== m.socketId || messages[i - 1]?.system;
                   return (
                     <div key={m.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-message-pop`}>
                       {showNick && !isMe && (
-                        <span className="text-xs font-semibold px-1 mb-1" style={{ color }}>
+                        <span className="text-[10px] font-bold px-1 mb-1 uppercase tracking-tighter" style={{ color }}>
                           {m.nickname || 'Stranger'}
                         </span>
                       )}
-                      <div className={`msg-bubble ${isMe ? 'me' : 'them'}`} style={!isMe ? { borderColor: `${color}30` } : {}}>
+                      <div className={`msg-bubble ${isMe ? 'me' : 'them'} animate-bubble-pop`} style={!isMe ? { borderColor: `${color}30` } : {}}>
                         {m.media ? (
                           <div className="max-w-[200px] rounded-lg overflow-hidden border border-white/10">
                             {m.type === 'video' ? (

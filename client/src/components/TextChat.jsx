@@ -68,10 +68,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
 
   const isFromMe = (m) => {
     if (!m) return false;
-    if (socket && m.socketId) return m.socketId === socket.id;
-    if (typeof m.fromSelf === 'boolean') return m.fromSelf;
-    if (m.nickname && nickname) return m.nickname === nickname;
-    return false;
+    return m.socketId === socket.id || m.fromSelf;
   };
 
   useEffect(() => {
@@ -234,11 +231,19 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
   // keyboard shortcut
   useEffect(() => {
     const handler = (e) => {
-      if (e.key === 'Escape' && status === 'searching') handleSkip();
+      const target = e.target;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      if (e.key === 'Escape') {
+        if (status === 'connected' || status === 'searching') {
+          handleSkip();
+        } else {
+          handleBack();
+        }
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [status]);
+  }, [status, handleSkip, handleBack]);
 
   const handleStart = () => {
     if (!socket || !connected) return;
@@ -314,7 +319,13 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#070811] text-white">
+    <div className="min-h-screen flex flex-col bg-[#070811] text-white overflow-hidden relative">
+      {/* AI SAFETY LAYER */}
+      <div className="absolute top-[72px] left-1/2 -translate-x-1/2 z-[100] pointer-events-none px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center gap-2 animate-pulse transition-opacity duration-1000">
+         <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">AI Safety Monitor Active</span>
+      </div>
+
       {/* HEADER */}
       <header className="app-header">
         <div className="flex items-center gap-3">

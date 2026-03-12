@@ -8,6 +8,7 @@ import { countryToFlag } from '../utils/countryFlag';
 import { useLatency } from '../hooks/useLatency';
 import { useIceServers } from '../hooks/useIceServers';
 import { CoinBadge } from './CoinBadge';
+import { playConnectSound, playMessageSound, playDisconnectSound, playWaveSound } from '../utils/sounds';
 
 const AI_ICEBREAKERS = {
   general: [
@@ -100,6 +101,26 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     () => (typeof window !== 'undefined' ? window.localStorage.getItem('mm_audioDeviceId') : null)
   );
   const [remoteVolume, setRemoteVolume] = useState(1);
+  // --- NEW FEATURES ---
+  const [cameraBlur, setCameraBlur] = useState(false);
+  const [connectedSecs, setConnectedSecs] = useState(0);
+  const [showWave, setShowWave] = useState(false);
+  const [moodEmoji, setMoodEmoji] = useState(null); // live mood: 😊😂🤔😮
+  const [showInterestCard, setShowInterestCard] = useState(false);
+  const [goodVibesSent, setGoodVibesSent] = useState(false);
+  const [goodVibesMatch, setGoodVibesMatch] = useState(false);
+  const [showRating, setShowRating] = useState(false);
+  const [ratingDone, setRatingDone] = useState(false);
+  const [aiSummary, setAiSummary] = useState(null);
+  const [showSummary, setShowSummary] = useState(false);
+  const [strangerTyping, setStrangerTyping] = useState(false);
+  const [countryBanner, setCountryBanner] = useState(null); // { myCountry, peerCountry }
+  const [showChat, setShowChat] = useState(true);
+  const [myCountry, setMyCountry] = useState(country);
+  const connTimerRef = useRef(null);
+  const typingTimerRef = useRef(null);
+  const toastTimerRef = useRef(null);
+  // ---------------
   const pipDragRef = useRef(null);
   const pcRef = useRef(null);
   const roomIdRef = useRef(null);
@@ -113,6 +134,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   const peerInfoRef = useRef(new Map());
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  const inputRef = useRef(null);
 
   const isConnected = !!peer && !!roomId;
 
@@ -127,6 +149,105 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Toast auto-dismiss after 4 seconds
+  useEffect(() => {
+    if (!toast) return;
+    clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(toastTimerRef.current);
+  }, [toast]);
+
+  // Connection timer
+  useEffect(() => {
+    if (status === 'connected') {
+      setConnectedSecs(0);
+      connTimerRef.current = setInterval(() => setConnectedSecs(s => s + 1), 1000);
+    } else {
+      clearInterval(connTimerRef.current);
+    }
+    return () => clearInterval(connTimerRef.current);
+  }, [status]);
+
+  const formatTimer = (s) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
+
+  // Mood meter: analyze last message
+  useEffect(() => {
+    const last = messages.filter(m => !m.system && !m.fromSelf && (m.socketId !== (socket?.id))).slice(-1)[0];
+    if (!last?.text) return;
+    const t = last.text.toLowerCase();
+    if (/lol|haha|😂|😄|funny|lmao/.test(t)) setMoodEmoji('😂');
+    else if (/wow|amazing|omg|whoa|really/.test(t)) setMoodEmoji('😮');
+    else if (/hmm|think|maybe|wonder|idk/.test(t)) setMoodEmoji('🤔');
+    else if (/great|nice|good|cool|love|awesome/.test(t)) setMoodEmoji('😊');
+    else setMoodEmoji(null);
+  }, [messages]);
+
+  // Wave reaction handler
+  useEffect(() => {
+    if (!socket) return;
+    const onWave = () => { setShowWave(true); setTimeout(() => setShowWave(false), 2800); playWaveSound(); };
+    const onGoodVibesMatch = () => { setGoodVibesMatch(true); setToast('🤝 Both of you gave Good Vibes! Great conversation!'); playConnectSound(); };
+    const onContentFlagged = (data) => setToast(`⚠️ ${data.message}`);
+    const onTyping = ({ isTyping }) => {
+      setStrangerTyping(isTyping);
+      if (isTyping) {
+        clearTimeout(typingTimerRef.current);
+        typingTimerRef.current = setTimeout(() => setStrangerTyping(false), 3000);
+      }
+    };
+    socket.on('wave-reaction', onWave);
+    socket.on('good-vibes-match', onGoodVibesMatch);
+    socket.on('content-flagged', onContentFlagged);
+    socket.on('stranger-typing', onTyping);
+    return () => {
+      socket.off('wave-reaction', onWave);
+      socket.off('good-vibes-match', onGoodVibesMatch);
+      socket.off('content-flagged', onContentFlagged);
+      socket.off('stranger-typing', onTyping);
+    };
+  }, [socket]);
+
+  const sendWave = () => {
+    if (socket && roomIdRef.current) {
+      socket.emit('send-wave', { roomId: roomIdRef.current });
+      setShowWave(true);
+      setTimeout(() => setShowWave(false), 2800);
+    }
+  };
+
+  const sendGoodVibes = () => {
+    if (socket && roomIdRef.current) {
+      socket.emit('send-good-vibes', { roomId: roomIdRef.current });
+      setGoodVibesSent(true);
+      setToast('🤝 Good Vibes sent! Waiting for the other person...');
+    }
+  };
+
+  const submitRating = (stars) => {
+    setRatingDone(true);
+    setShowRating(false);
+    setToast(`Thanks for rating! ${'⭐'.repeat(stars)} — Your feedback helps improve Mana Mingle.`);
+  };
+
+  const generateAiSummary = async (msgs) => {
+    if (!msgs || msgs.length < 3) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/ai/spark`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ interest: 'Summarize this anonymous conversation in 2 fun bullet points (no names, no personal info): ' + msgs.filter(m => !m.system).map(m => m.text).join(' | ') })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAiSummary(data.spark);
+      }
+    } catch (e) { }
+  };
 
   // Get user media on mount
   useEffect(() => {
@@ -201,7 +322,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     if (!el || !peer?.stream) return;
     el.srcObject = peer.stream;
     el.volume = remoteVolume;
-    el.play?.().catch(() => {});
+    el.play?.().catch(() => { });
   }, [peer?.stream, remoteVolume]);
 
   const bandwidthLabel = autoBandwidth ? 'Auto' : (lowBandwidth ? 'Low' : 'High');
@@ -227,10 +348,15 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   };
 
   const handleSkip = () => {
+    if (status === 'connected' && messages.filter(m => !m.system).length > 2) {
+      setShowRating(true);
+      generateAiSummary(messages);
+    }
     if (roomIdRef.current && socket) socket.emit('leave-room', { roomId: roomIdRef.current });
     else socket?.emit('cancel-find-partner');
     clearRoom();
     setStatus('searching');
+    setGoodVibesSent(false); setGoodVibesMatch(false); setCameraBlur(false);
     setTimeout(() => {
       socket?.emit('find-partner', { mode: 'video', interest: interest || 'general', nickname: 'Anonymous' });
       onFindNewPartner?.();
@@ -238,10 +364,15 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   };
 
   const handleStop = () => {
+    if (status === 'connected' && messages.filter(m => !m.system).length > 2) {
+      setShowRating(true);
+      generateAiSummary(messages);
+    }
     if (roomIdRef.current && socket) socket.emit('leave-room', { roomId: roomIdRef.current });
     socket?.emit('cancel-find-partner');
     clearRoom();
     setStatus('idle');
+    setGoodVibesSent(false); setGoodVibesMatch(false); setCameraBlur(false);
   };
 
   const handleBack = () => { handleStop(); onBack?.(); };
@@ -257,29 +388,46 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [peer]);
 
-  // Global keyboard shortcuts (desktop)
+  useEffect(() => {
+    if (status === 'connected') {
+      setTimeout(() => inputRef.current?.focus(), 500);
+      setToast('✅ Connected with a stranger!');
+      playConnectSound();
+    } else if (status === 'disconnected') {
+      playDisconnectSound();
+    }
+  }, [status]);
+
+  // Country discovery banner when peer is found
+  useEffect(() => {
+    if (!peer) return;
+    if (peer.country || country) {
+      setCountryBanner({ myCountry: country, peerCountry: peer.country });
+      setTimeout(() => setCountryBanner(null), 4000);
+    }
+  }, [peer]);
+
+  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e) => {
       const target = e.target;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
-      if (e.key === 's' || e.key === 'S') {
-        if (status === 'idle' || status === 'disconnected') {
-          handleStart();
-        } else if (status === 'searching' || status === 'connected') {
-          handleSkip();
-        }
-      }
+
+      if (e.key === 's' || e.key === 'S') handleStart();
       if (e.key === 'Escape') {
         if (status === 'connected' || status === 'searching') {
-          handleStop();
+          handleSkip();
         } else {
           handleBack();
         }
       }
+      if (e.key === 'Enter') {
+        inputRef.current?.focus();
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [status, handleStart, handleSkip, handleStop, handleBack]);
+  }, [status, handleStart, handleSkip, handleBack]);
 
   // AI icebreaker when first connected
   useEffect(() => {
@@ -430,7 +578,11 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     };
 
     const onMsg = (data) => {
-      if (data.roomId === roomIdRef.current) setMessages((m) => [...m.slice(-100), data]);
+      if (data.roomId === roomIdRef.current) {
+        setMessages((m) => [...m.slice(-100), data]);
+        // Play sound only for incoming messages
+        if (data.socketId !== socket.id) playMessageSound();
+      }
     };
 
     const onUserLeft = () => {
@@ -627,7 +779,21 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     const r = roomIdRef.current;
     if (!t || !socket || !r) return;
     socket.emit('send-message', { roomId: r, text: t });
+    // Clear typing indicator
+    socket.emit('typing', { roomId: r, isTyping: false });
     setInput('');
+  };
+
+  const handleInputChange = (e) => {
+    setInput(e.target.value);
+    const r = roomIdRef.current;
+    if (!socket || !r) return;
+    socket.emit('typing', { roomId: r, isTyping: e.target.value.length > 0 });
+    // Auto-stop typing after 2s of no keystroke
+    clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => {
+      socket.emit('typing', { roomId: r, isTyping: false });
+    }, 2000);
   };
 
   const toggleMute = () => {
@@ -716,7 +882,142 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   const formatTime = (ts) => ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
   return (
-    <div className="h-screen flex flex-col bg-[#070811] text-white overflow-hidden">
+    <div className="h-screen flex flex-col bg-[#070811] text-white overflow-hidden relative font-sans">
+      {/* AI SAFETY LAYER */}
+      <div className="absolute top-[72px] left-1/2 -translate-x-1/2 z-[100] pointer-events-none px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center gap-2 animate-pulse transition-opacity duration-1000">
+        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">AI Safety Monitor Active</span>
+      </div>
+
+      {/* 🌐 COUNTRY DISCOVERY BANNER */}
+      {countryBanner && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[150] animate-slide-in-up pointer-events-none">
+          <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-black/80 border border-indigo-500/40 backdrop-blur-xl shadow-2xl">
+            <span className="text-2xl">{countryToFlag(countryBanner.myCountry) || '🌏'}</span>
+            <div className="text-center">
+              <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Global Connection!</p>
+              <p className="text-xs text-white/70 font-medium">You connected across the world 🌍</p>
+            </div>
+            <span className="text-2xl">{countryToFlag(countryBanner.peerCountry) || '🌎'}</span>
+          </div>
+        </div>
+      )}
+
+      {/* ⌨️ TYPING INDICATOR */}
+      {strangerTyping && (
+        <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-[110] pointer-events-none animate-slide-in-up">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#1a1d30] border border-white/10 shadow-xl backdrop-blur-md">
+            <div className="flex gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+            <span className="text-xs text-white/50 font-medium">Stranger is typing</span>
+          </div>
+        </div>
+      )}
+
+      {/* WAVE OVERLAY */}
+      {showWave && (
+        <div className="fixed inset-0 z-[200] pointer-events-none flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3 animate-3d-emoji-pop">
+            <span className="text-8xl drop-shadow-2xl" style={{ filter: 'drop-shadow(0 0 30px rgba(251,191,36,0.8))' }}>👋</span>
+            <span className="px-5 py-2 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 font-black text-sm uppercase tracking-widest shadow-2xl backdrop-blur-md">
+              Someone waved!
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* MOOD INDICATOR */}
+      {moodEmoji && status === 'connected' && (
+        <div className="fixed top-20 right-4 z-[90] pointer-events-none flex items-center gap-2 px-3 py-2 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md shadow-xl animate-slide-in-up">
+          <span className="text-2xl">{moodEmoji}</span>
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Stranger's Mood</p>
+            <p className="text-xs font-bold text-white/80">
+              {moodEmoji === '😂' ? 'Having fun!' : moodEmoji === '😮' ? 'Surprised!' : moodEmoji === '🤔' ? 'Thinking...' : 'Positive!'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* GOOD VIBES MATCH */}
+      {goodVibesMatch && (
+        <div className="fixed inset-0 z-[190] pointer-events-none flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4 animate-3d-emoji-pop">
+            <span className="text-7xl">🤝</span>
+            <div className="text-center px-6 py-4 rounded-3xl bg-indigo-500/20 border border-indigo-500/40 backdrop-blur-xl shadow-2xl">
+              <p className="font-black text-white text-lg uppercase tracking-widest">Mutual Good Vibes!</p>
+              <p className="text-white/60 text-sm mt-1">You both had a great conversation</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* INTEREST CARD MODAL */}
+      {showInterestCard && (
+        <div className="fixed inset-0 z-[180] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setShowInterestCard(false)}>
+          <div className="bg-[#12152a] border border-indigo-500/30 rounded-3xl p-6 max-w-xs w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="text-center mb-4">
+              <span className="text-3xl">🃏</span>
+              <h3 className="font-black text-white text-lg mt-2 uppercase tracking-widest">Your Interest Card</h3>
+              <p className="text-white/40 text-xs mt-1">Shared anonymously — no personal info</p>
+            </div>
+            <div className="space-y-2 mb-4">
+              {(interest ? [interest, 'conversations', 'global culture'] : ['conversations', 'global culture', 'ideas']).map((tag, i) => (
+                <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
+                  <span className="text-indigo-400 text-sm">#{i + 1}</span>
+                  <span className="text-white font-bold capitalize text-sm">{tag}</span>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => {
+                if (socket && roomIdRef.current) {
+                  socket.emit('send-message', { roomId: roomIdRef.current, text: `🃏 Interest Card: I'm into ${interest || 'general conversations'}, global culture, and sharing ideas!` });
+                }
+                setShowInterestCard(false);
+              }}
+              className="w-full py-3 rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white font-black text-sm uppercase tracking-widest transition-all active:scale-95"
+            >
+              Share with Stranger (3 Coins)
+            </button>
+            <button onClick={() => setShowInterestCard(false)} className="w-full mt-2 py-2 text-white/30 text-xs hover:text-white/60 transition">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* POST-CHAT RATING MODAL */}
+      {showRating && !ratingDone && (
+        <div className="fixed inset-0 z-[180] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-[#12152a] border border-white/10 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center">
+            <span className="text-4xl">⭐</span>
+            <h3 className="font-black text-white text-lg mt-3 uppercase tracking-widest">Rate This Conversation</h3>
+            <p className="text-white/40 text-sm mt-1 mb-5">How was your chat experience? (anonymous)</p>
+            <div className="flex justify-center gap-3 mb-4">
+              {[1, 2, 3, 4, 5].map(s => (
+                <button
+                  key={s}
+                  onClick={() => submitRating(s)}
+                  className="text-3xl hover:scale-125 transition-transform active:scale-95"
+                  title={['Terrible', 'Bad', 'Okay', 'Good', 'Amazing!'][s - 1]}
+                >
+                  ⭐
+                </button>
+              ))}
+            </div>
+            {aiSummary && (
+              <div className="mt-3 p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-left">
+                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-2">🤖 AI Chat Summary</p>
+                <p className="text-sm text-white/70">{aiSummary}</p>
+              </div>
+            )}
+            <button onClick={() => { setShowRating(false); setRatingDone(true); }} className="mt-4 text-white/30 text-xs hover:text-white/60 transition">Skip Rating</button>
+          </div>
+        </div>
+      )}
+
       {/* HEADER */}
       <header className="app-header">
         <div className="flex items-center gap-3">
@@ -774,326 +1075,141 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       </header>
 
       {/* MAIN */}
-      <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
         {adsEnabled && (
           <div className="w-full bg-white/5 border border-white/10 p-2 text-center text-white/30 text-[10px] font-mono uppercase tracking-widest hidden sm:flex items-center justify-center">
             [Advertisement Placeholder Banner]
           </div>
         )}
-        <div className="flex-1 flex flex-col sm:flex-row min-h-0 overflow-hidden">
-          {/* LEFT (desktop) / TOP (mobile): Video area - ensure panel is always visible */}
-          <div className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4 min-h-[200px] sm:min-h-0 w-full sm:w-auto sm:min-w-[320px] sm:max-w-[360px] sm:flex-shrink-0 sm:flex-grow-0 overflow-visible">
-            <div className="relative flex flex-col gap-2 sm:gap-3 min-h-0 flex-1 sm:max-h-[440px] overflow-visible">
-              {/* Remote video - 1st panel; mobile: big, desktop: compact */}
-              <div className="video-frame-torn w-full aspect-square min-h-[45vh] max-h-[60vh] sm:min-h-0 sm:max-h-[200px] sm:max-w-[320px] flex-[1_1_0] relative mx-auto">
-                <div className="video-frame-torn-inner relative bg-black w-full h-full">
-                  {cameraError ? (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-4 text-center">
-                      <div className="peer-avatar text-3xl w-16 h-16 flex items-center justify-center rounded-full bg-rose-500/15 border border-rose-400/40">!</div>
-                      <p className="text-xs sm:text-sm" style={{ color: 'rgba(232,234,246,0.75)' }}>{cameraError}</p>
-                      <button
-                        type="button"
-                        className="btn btn-primary px-3 py-1.5 text-[11px]"
-                        onClick={async () => {
-                          try {
-                            const s2 = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                            localStreamRef.current = s2;
-                            setLocalStream(s2);
-                            if (localVideoRef.current) localVideoRef.current.srcObject = s2;
-                            setCameraError(null);
-                          } catch (err) {
-                            console.error('Retry camera error', err);
-                            setCameraError('Still cannot access camera. Check browser and OS permissions.');
-                          }
-                        }}
-                      >
-                        Retry camera
-                      </button>
-                    </div>
-                  ) : status === 'connected' && peer?.stream ? (
-                    <>
-                      <video
-                        ref={remoteVideoRef}
-                        autoPlay
-                        playsInline
-                        muted={mutedStranger}
-                        className="absolute inset-0 w-full h-full object-cover scale-x-[-1]"
-                      />
-                      <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-black/80 to-transparent" />
-                      <div className="absolute bottom-2 left-3 flex items-center gap-2">
-                        <div className="live-dot" style={{ width: 6, height: 6 }} />
-                        <span className="text-xs sm:text-sm font-medium text-white/95">{countryToFlag(peer?.country)} Stranger</span>
-                      </div>
-                      <div className="absolute top-2 right-2 flex gap-1.5">
-                        <button type="button" onClick={() => setMutedStranger((m) => !m)} className={`report-btn ${mutedStranger ? 'bg-amber-500/30' : ''}`} title={mutedStranger ? 'Unmute' : 'Mute stranger'}>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">{mutedStranger ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /> : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />}</svg>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (socket) socket.emit('block-user', { targetSocketId: peer?.socketId });
-                            handleSkip();
-                            setToast('User blocked. You will be connected to someone new.');
-                          }}
-                          className="report-btn"
-                          title="Block"
-                        >
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (socket) socket.emit('report-user', { reason: 'Inappropriate (Video)' });
-                            handleSkip();
-                            setToast('Thank you for reporting. We will review this user.');
-                          }}
-                          className="report-btn"
-                          title="Report & Skip"
-                        >
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
-                        </button>
-                      </div>
-                    </>
-                  ) : status === 'connected' && !peer?.stream ? (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                      <div className="peer-avatar text-2xl w-14 h-14 flex items-center justify-center">👤</div>
-                      <p className="text-xs sm:text-sm" style={{ color: 'rgba(232,234,246,0.5)' }}>Connecting...</p>
-                      <div className="search-dots"><span /><span /><span /></div>
-                    </div>
-                  ) : status === 'idle' ? (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                      <div className="peer-avatar text-3xl w-16 h-16 flex items-center justify-center rounded-full bg-indigo-500/20 border border-indigo-400/40">📹</div>
-                      <p className="text-xs" style={{ color: 'rgba(232,234,246,0.6)' }}>Press Start to begin</p>
-                    </div>
-                  ) : status === 'searching' ? (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                      <div className="relative w-16 h-16">
-                        <div className="radar-ring absolute inset-0" />
-                        <div className="absolute inset-3 rounded-full bg-indigo-500/20 flex items-center justify-center text-xl">📡</div>
-                      </div>
-                      <p className="text-xs" style={{ color: 'rgba(232,234,246,0.6)' }}>Finding stranger...</p>
-                    </div>
-                  ) : status === 'disconnected' ? (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                      <span className="text-4xl opacity-50">👋</span>
-                      <p className="text-xs" style={{ color: 'rgba(232,234,246,0.5)' }}>Stranger left. Press Start to find a new one.</p>
-                    </div>
-                  ) : null}
-                  {status === 'connected' && peer?.stream && (
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.05"
-                      value={remoteVolume}
-                      onChange={(e) => setRemoteVolume(Number(e.target.value))}
-                      className="hidden sm:block absolute bottom-3 right-24 w-24 h-1 opacity-60 hover:opacity-100 transition"
-                    />
-                  )}
-                  <div className="absolute bottom-2 right-2 text-[10px] font-medium text-white/25 pointer-events-none">Mana Mingle</div>
+        <div className="flex-1 flex flex-col sm:flex-row min-h-0 overflow-hidden relative">
+          {/* VIDEO CONTAINER (uMingle Split Style) */}
+          <div className={`flex-1 flex flex-col sm:flex-row min-h-0 relative ${showChat ? 'sm:max-w-[calc(100%-320px)]' : ''}`}>
+            {/* SLOT 1: REMOTE (STRANGER) */}
+            <div className="flex-1 relative bg-[#07080f] border-b sm:border-b-0 sm:border-r border-white/5 overflow-hidden">
+              {status === 'connected' && peer?.stream ? (
+                <>
+                  <RemoteVideoComponent stream={peer.stream} muted={mutedStranger} />
+                  <div className="absolute top-4 left-4 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 border border-white/10 backdrop-blur-md">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-xs font-black text-white/90 uppercase tracking-widest">{countryToFlag(peer.country)} Stranger</span>
+                  </div>
+                  <div className="absolute top-4 right-4 z-20 flex gap-1.5">
+                    <button type="button" onClick={() => setMutedStranger(!mutedStranger)} className={`w-8 h-8 flex items-center justify-center rounded-lg bg-black/40 border border-white/10 text-white/60 hover:text-white transition-all ${mutedStranger ? 'text-amber-400' : ''}`}>
+                      {mutedStranger ? <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg> : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>}
+                    </button>
+                    <button type="button" onClick={handleSkip} className="w-8 h-8 flex items-center justify-center rounded-lg bg-rose-500/20 border border-rose-500/40 text-rose-400 hover:bg-rose-500 hover:text-white transition-all">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
+                    </button>
+                  </div>
+                </>
+              ) : status === 'searching' ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-[#0c0e1a]">
+                  <div className="relative w-32 h-32">
+                    <div className="radar-ring absolute inset-0 border-indigo-500/30" />
+                    <div className="radar-ring absolute inset-8 border-indigo-500/20" style={{ animationDelay: '0.6s' }} />
+                    <div className="absolute inset-10 rounded-full bg-indigo-500/10 flex items-center justify-center text-4xl animate-pulse">📡</div>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-black text-white/90 uppercase tracking-[0.3em] mb-2">Finding Match</p>
+                    <div className="search-dots scale-125"><span /><span /><span /></div>
+                  </div>
                 </div>
+              ) : (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#07080f]">
+                  <p className="text-xs font-black uppercase tracking-widest text-white/20">Press Start to Begin</p>
+                </div>
+              )}
+            </div>
+
+            {/* SLOT 2: LOCAL (YOU) */}
+            <div className="flex-1 relative bg-[#07080f] overflow-hidden">
+              <video
+                ref={localVideoRef}
+                autoPlay
+                muted
+                playsInline
+                className={`absolute inset-0 w-full h-full object-cover scale-x-[-1] transition-all duration-700 ${cameraOff ? 'opacity-20' : ''}`}
+                style={cameraBlur ? { filter: 'blur(15px)', transform: 'scaleX(-1)' } : {}}
+              />
+              <div className="absolute top-4 left-4 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 border border-white/10 backdrop-blur-md">
+                <div className="w-2 h-2 rounded-full bg-blue-500" />
+                <span className="text-xs font-black text-white/90 uppercase tracking-widest">You</span>
               </div>
-              {/* Local video: mobile=PIP, desktop=2nd panel same size as 1st */}
-              <div
-                className="local-video-pip absolute bottom-3 left-3 z-10 w-36 h-36 sm:w-full sm:static sm:bottom-auto sm:left-auto sm:rounded-none sm:border-0 sm:shadow-none video-frame-torn sm:aspect-square sm:max-h-[200px] sm:max-w-[320px] sm:flex-[1_1_0] sm:min-h-0 flex-shrink-0 rounded-lg overflow-hidden border border-white/15 shadow-md bg-black mx-auto sm:mx-auto"
-                ref={pipDragRef}
-              >
-                <div className="video-frame-torn-inner relative w-full h-full min-h-[80px] sm:min-h-0">
-                  <video ref={localVideoRef} autoPlay muted playsInline className={`absolute inset-0 w-full h-full object-contain scale-x-[-1] ${cameraOff ? 'opacity-30' : ''}`} />
-                  {cameraOff && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-                      <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2zM3 3l18 18" /></svg>
-                    </div>
-                  )}
-                  <div className="absolute bottom-0 left-0 right-0 text-[8px] sm:text-[10px] font-semibold text-white/90 sm:text-white/80 bg-black/50 sm:bg-transparent text-center py-0.5 sm:text-left sm:bottom-1 sm:left-2 sm:right-auto">You</div>
-                  <div className="hidden sm:block absolute bottom-2 right-2 text-[10px] font-medium text-white/25 pointer-events-none">Mana Mingle</div>
-                </div>
+
+              {/* FLOATING CONTROL BAR */}
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-4 py-2 rounded-2xl bg-black/60 border border-white/10 backdrop-blur-xl shadow-2xl min-w-[280px] justify-center">
+                {(status === 'idle' || status === 'disconnected') ? (
+                  <button onClick={handleStart} className="btn btn-primary h-12 px-8 font-black uppercase text-sm tracking-widest animate-pulse">Start Vibe</button>
+                ) : (
+                  <>
+                    <button id="video-skip-btn" onClick={handleSkip} className="h-10 px-6 rounded-xl bg-amber-500 text-white font-black uppercase text-xs tracking-widest shadow-lg shadow-amber-500/20 active:scale-95 transition-all">Next Stranger</button>
+                    <div className="w-[1px] h-6 bg-white/10 mx-1" />
+                    <button onClick={toggleCamera} title="Cam" className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${cameraOff ? 'bg-rose-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}>
+                      {cameraOff ? '📹' : '📸'}
+                    </button>
+                    <button onClick={() => setCameraBlur(!cameraBlur)} title="Blur" className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${cameraBlur ? 'bg-indigo-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}>
+                      🫥
+                    </button>
+                    <button onClick={() => setShowChat(!showChat)} title="Chat" className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${showChat ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}>
+                      💬
+                    </button>
+                    <button onClick={handleStop} title="Stop" className="w-10 h-10 flex items-center justify-center rounded-xl bg-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white transition-all">
+                      🛑
+                    </button>
+                  </>
+                )}
               </div>
             </div>
-            {/* Control bar - buttons below local video panel with space */}
-            <div className="flex-shrink-0 min-h-[56px] flex flex-row items-center justify-center gap-1.5 flex-nowrap px-2 py-3 overflow-x-auto w-full border-t border-white/5 mt-6">
-                {(status === 'idle' || status === 'disconnected') && (
-                  <button id="video-start-btn" type="button" disabled={!connected} onClick={handleStart} className="shrink-0 px-2 py-1.5 text-[9px] font-semibold rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white transition-colors" title="Start">
-                    <svg className="w-2.5 h-2.5 inline mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
-                    Start
-                  </button>
-                )}
-                {(status === 'searching' || status === 'connected') && (
-                  <>
-                    <button id="video-skip-btn" type="button" disabled={!connected} onClick={handleSkip} className="shrink-0 px-2 py-1.5 text-[9px] font-semibold rounded-lg bg-amber-500/90 hover:bg-amber-500 text-white transition-colors" title="Skip">
-                      <svg className="w-2.5 h-2.5 inline mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
-                      Skip
-                    </button>
-                    <button type="button" onClick={toggleMute} className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${muted ? 'bg-rose-500/50 text-rose-200' : 'bg-white/8 hover:bg-white/15 text-white/80'}`} title={muted ? 'Unmute' : 'Mute'}>
-                      {muted ? <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg> : <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>}
-                    </button>
-                    <button type="button" onClick={() => { if (autoBandwidth) { setAutoBandwidth(false); setLowBandwidth(false); } else { if (!lowBandwidth) setLowBandwidth(true); else { setLowBandwidth(false); setAutoBandwidth(true); } } }} className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${autoBandwidth ? 'bg-sky-500/40 text-sky-200' : lowBandwidth ? 'bg-teal-500/40 text-teal-200' : 'bg-white/8 hover:bg-white/15 text-white/80'}`} title={`Bandwidth: ${bandwidthLabel}`}>
-                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                    </button>
-                    <button type="button" onClick={toggleCamera} className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${cameraOff ? 'bg-rose-500/50 text-rose-200' : 'bg-white/8 hover:bg-white/15 text-white/80'}`} title={cameraOff ? 'Camera on' : 'Camera off'}>
-                      {cameraOff ? <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2zM3 3l18 18" /></svg> : <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>}
-                    </button>
-                    <button type="button" onClick={startScreenShare} className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${isScreenSharing ? 'bg-indigo-500 text-white' : 'bg-white/8 hover:bg-white/15 text-white/80'}`} title="Screen Share">
-                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                    </button>
-                    <button id="video-stop-btn" type="button" onClick={handleStop} className="shrink-0 px-2 py-1.5 text-[9px] font-semibold rounded-lg bg-rose-500/90 hover:bg-rose-500 text-white transition-colors" title="Stop">
-                      Stop
-                    </button>
-                  </>
-                )}
-              </div>
           </div>
 
-          {/* RIGHT: Rules + Chat (single unified area with auto-scroll) */}
-          <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-[#0d0f1c]/60 border-l-[0.5px] border-indigo-500/10">
-            <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
-              {/* Rules + Messages in one scrollable area */}
-              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 sm:p-6 space-y-4" id="video-chat-messages">
-                <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Welcome to Mana Mingle.</h2>
-                <ul className="space-y-3 text-sm" style={{ color: 'rgba(232,234,246,0.85)' }}>
-                  <li className="flex items-start gap-3">
-                    <span className="flex-shrink-0 w-7 h-7 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-[10px] font-black text-rose-400">18+</span>
-                    <span>You must be 18+</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">✓</span>
-                    <span>No nudity, hate speech, or harassment</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">✓</span>
-                    <span>Your webcam must show you, live</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">✓</span>
-                    <span>Do not ask for gender. This is not a dating site</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="flex-shrink-0 w-7 h-7 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">!</span>
-                    <span>Violators will be banned</span>
-                  </li>
-                </ul>
-                {messages.length > 0 && (
-                  <>
-                    <div className="border-t border-white/10 pt-4 mt-4">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Chat</span>
+          {/* CHAT PANEL (uMingle Slide-out Style) */}
+          {showChat && (
+            <div className="w-full sm:w-[320px] h-full bg-[#0d0f1c] border-l border-white/5 flex flex-col z-40 animate-slide-in-right">
+              <div className="p-4 border-b border-white/5 flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-[0.2em] text-white/40">Chat Room</span>
+                <button onClick={() => setShowChat(false)} className="text-white/20 hover:text-white">✕</button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 space-y-4" id="video-chat-messages">
+                {(messages.length === 0 || !isConnected) && (
+                  <div className="p-6 rounded-2xl bg-white/5 border border-white/5 space-y-3 mt-4">
+                    <p className="text-xs text-white/40 font-black uppercase tracking-widest">{isConnected ? "👋 Start the vibe!" : "🔒 Connect to Chat"}</p>
+                    <p className="text-[10px] text-white/20 uppercase font-bold leading-relaxed">No nudity • No harassment • Have fun</p>
+                  </div>
+                )}
+                {messages.map((m, i) => {
+                  const isMe = m.socketId === socket.id || m.fromSelf;
+                  return (
+                    <div key={m.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-message-pop`}>
+                      <div className={`px-4 py-2.5 rounded-2xl text-sm ${isMe ? 'bg-indigo-500 text-white rounded-tr-none' : 'bg-white/5 text-white/90 rounded-tl-none border border-white/5'}`}>
+                        {m.text}
+                      </div>
+                      <span className="text-[8px] font-black uppercase text-white/20 mt-1 px-1">{isMe ? 'You' : 'Stranger'} • {formatTime(m.ts)}</span>
                     </div>
-                    {messages.map((m, i) => {
-                      const isMe = m.nickname === 'Anonymous' || m.fromSelf;
-                      return (
-                        <div key={m.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                          <div className={`msg-bubble ${isMe ? 'me' : 'them'}`}>
-                            {m.media ? (
-                              <div className="max-w-[200px] rounded-lg overflow-hidden border border-white/10">
-                                {m.type === 'video' ? (
-                                  <video src={m.content} controls className="w-full" autoPlay loop muted />
-                                ) : (
-                                  <img src={m.content} className="w-full h-auto" alt="media" />
-                                )}
-                              </div>
-                            ) : (
-                              <>
-                                {isTranslatorActive && !isMe ? (
-                                  <div className="flex flex-col gap-1">
-                                    {m.translated ? (
-                                      <>
-                                        <span className="text-[10px] opacity-40 uppercase font-bold tracking-widest leading-none mb-1">NVIDIA AI Translate</span>
-                                        <span className="opacity-60 text-[11px] italic line-through mb-0.5">{m.text}</span>
-                                        <span className="text-white font-medium">✨ {m.translated}</span>
-                                      </>
-                                    ) : (
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-[10px] opacity-40 uppercase font-bold tracking-widest animate-pulse">Translating...</span>
-                                        <span className="opacity-80">{m.text}</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                ) : m.text}
-                              </>
-                            )}
-                          </div>
-                          <span className="msg-time px-1 text-[10px]">{formatTime(m.ts)}</span>
-                        </div>
-                      );
-                    })}
-                  </>
-                )}
-                {messages.length === 0 && !isConnected && (
-                  <div className="sys-msg">Chat will appear here once connected</div>
-                )}
-                {messages.length === 0 && isConnected && (
-                  <div className="sys-msg">Start chatting!</div>
-                )}
+                  );
+                })}
                 <div ref={chatEndRef} />
               </div>
 
-              {active3dEmoji && (
-                <div className="absolute inset-0 pointer-events-none z-[100] flex items-center justify-center overflow-hidden">
-                  <div className="animate-3d-emoji-pop flex flex-col items-center gap-2">
-                    <picture>
-                      <source srcSet={active3dEmoji.emoji.url} type="image/webp" />
-                      <img src={active3dEmoji.emoji.url} className="w-40 h-40" alt="3d" />
-                    </picture>
-                    <span className="bg-black/80 px-4 py-1.5 rounded-full text-xs font-bold border border-white/10 shadow-2xl">
-                      {active3dEmoji.nickname} sent {active3dEmoji.emoji.char}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* Start + Chat input - mobile responsive */}
-              <div className="flex-shrink-0 p-3 sm:p-6 space-y-3">
-                {status === 'idle' && (
-                  <button
-                    id="video-start-btn-alt"
-                    type="button"
-                    disabled={!connected}
-                    onClick={handleStart}
-                    className="btn btn-primary w-full px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-bold rounded-2xl shadow-lg shadow-indigo-500/25"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
-                    Start
+              <div className="p-4 bg-[#0a0c16] border-t border-white/5">
+                <div className="flex gap-2">
+                  <input
+                    ref={inputRef}
+                    id="video-chat-input"
+                    value={input}
+                    onChange={handleInputChange}
+                    onKeyDown={(e) => e.key === 'Enter' && sendMsg()}
+                    placeholder={isConnected ? "Say hello..." : "Connecting..."}
+                    disabled={!isConnected}
+                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500/50 outline-none transition-all"
+                  />
+                  <button id="video-chat-send-btn" onClick={sendMsg} disabled={!isConnected || !input.trim()} className="w-10 h-10 rounded-xl bg-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20 active:scale-95 transition-all">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
                   </button>
-                )}
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-2 items-stretch sm:items-center">
-                  {isConnected && (
-                    <div className="flex gap-1 shrink-0 self-start sm:self-center order-last sm:order-first">
-                      <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/40 hover:text-emerald-400" title="Media">📂</button>
-                      <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*" onChange={handleMediaUpload} />
-                      <div className="relative">
-                        <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/40 hover:text-amber-400" title="3D Emoji">✨</button>
-                        {showEmojiPicker && (
-                          <div className="absolute bottom-full right-0 mb-2 p-3 bg-[#151829] border border-indigo-500/20 rounded-xl shadow-xl w-[160px] grid grid-cols-4 gap-1.5 z-[50]">
-                            {EMOJIS_3D.map(e => (
-                              <button key={e.char} onClick={() => send3dEmoji(e)} className="w-8 h-8 flex items-center justify-center bg-white/5 hover:bg-indigo-500/20 rounded-lg text-lg">{e.char}</button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <button type="button" onClick={generateAiSpark} disabled={isAiGenerating} className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/40 hover:text-indigo-400" title="AI Spark">
-                        <svg className={`w-4 h-4 ${isAiGenerating ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                      </button>
-                    </div>
-                  )}
-                  <div className="flex gap-2 min-w-0 flex-1">
-                    <input
-                      id="video-chat-input"
-                      type="text"
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && sendMsg()}
-                      placeholder={isAiGenerating ? 'AI thinking...' : (isConnected ? 'Message...' : 'Connect first')}
-                      disabled={!isConnected || isAiGenerating}
-                      className="chat-input flex-1 min-w-0 py-2.5 sm:py-3 px-3 sm:px-4 text-sm rounded-xl border border-indigo-500/20 bg-white/5 focus:border-indigo-500/40 focus:ring-2 focus:ring-indigo-500/20 w-full"
-                    />
-                    <button id="video-chat-send-btn" type="button" onClick={sendMsg} disabled={!isConnected || !input.trim()} className="btn btn-primary w-10 h-10 sm:w-12 sm:h-12 p-0 rounded-xl flex-shrink-0">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-                    </button>
-                  </div>
                 </div>
-                <p className="text-[10px] text-white/30 text-center">Esc to go back</p>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </main>
       {toast && (
@@ -1102,5 +1218,24 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
         </div>
       )}
     </div>
+  );
+}
+
+function RemoteVideoComponent({ stream, muted }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (ref.current && stream) {
+      ref.current.srcObject = stream;
+      ref.current.play().catch(() => { });
+    }
+  }, [stream]);
+  return (
+    <video
+      ref={ref}
+      autoPlay
+      playsInline
+      muted={muted}
+      className="absolute inset-0 w-full h-full object-cover scale-x-[-1]"
+    />
   );
 }

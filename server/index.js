@@ -158,11 +158,11 @@ app.use(helmet({
 app.use(cors({
   origin: NODE_ENV === 'production'
     ? [
-        'https://manamingle.site',
-        'https://www.manamingle.site',
-        process.env.FRONTEND_ORIGIN,
-        'http://localhost:5173',
-      ].filter(Boolean)
+      'https://manamingle.site',
+      'https://www.manamingle.site',
+      process.env.FRONTEND_ORIGIN,
+      'http://localhost:5173',
+    ].filter(Boolean)
     : true,
   credentials: true,
 }));
@@ -829,6 +829,16 @@ io.on('connection', (socket) => {
     if (!userData || !room || !room.users.has(socket.id)) return;
     const msg = sanitize(String(text || ''), 500);
     if (!msg) return;
+
+    // SIMULATED AI MONITORING (as requested)
+    const harmfulTerms = ['badword1', 'badword2']; // Just examples
+    const isHarmful = harmfulTerms.some(term => msg.toLowerCase().includes(term));
+    if (isHarmful) {
+      console.log(`[AI MONITOR] Harmful message blocked from ${socket.id}: ${msg}`);
+      socket.emit('content-flagged', { message: 'Our AI has flagged your message for potentially violating our safety community guidelines.' });
+      return;
+    }
+
     stats.totalMessages++;
     const entry = {
       id: generateId('msg'),
@@ -841,6 +851,38 @@ io.on('connection', (socket) => {
     room.messages.push(entry);
     if (room.messages.length > 100) room.messages = room.messages.slice(-MESSAGE_HISTORY);
     io.to(roomId).emit('chat-message', { roomId, ...entry });
+  });
+
+  // Wave reaction
+  socket.on('send-wave', (data) => {
+    const { roomId } = data || {};
+    const userData = users.get(socket.id);
+    const room = rooms.get(roomId);
+    if (!userData || !room || !room.users.has(socket.id)) return;
+    socket.to(roomId).emit('wave-reaction', { fromSocketId: socket.id, nickname: userData.nickname });
+  });
+
+  // Good vibes (mutual positivity - NOT a dating feature, just conversation quality)
+  const goodVibesPending = new Map(); // roomId -> Set of socketIds
+  socket.on('send-good-vibes', (data) => {
+    const { roomId } = data || {};
+    const userData = users.get(socket.id);
+    const room = rooms.get(roomId);
+    if (!userData || !room || !room.users.has(socket.id)) return;
+    if (!goodVibesPending.has(roomId)) goodVibesPending.set(roomId, new Set());
+    const pending = goodVibesPending.get(roomId);
+    pending.add(socket.id);
+    // Check if all users in room sent good vibes
+    const allSent = [...room.users].every(uid => pending.has(uid));
+    if (allSent) {
+      io.to(roomId).emit('good-vibes-match', { roomId });
+      goodVibesPending.delete(roomId);
+    }
+  });
+
+  socket.on('typing', (data) => {
+    const { roomId, isTyping } = data || {};
+    socket.to(roomId).emit('stranger-typing', { isTyping, socketId: socket.id });
   });
 
   socket.on('send-3d-emoji', (data) => {
