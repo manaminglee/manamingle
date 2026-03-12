@@ -443,19 +443,11 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
   // AI icebreaker when first connected
   useEffect(() => {
-    if (!isConnected || !peer) return;
-    if (messages.length > 0) return;
-    const pool = AI_ICEBREAKERS[interest] || AI_ICEBREAKERS.general;
+    const pool = AI_ICEBREAKERS[interest?.toLowerCase()] || AI_ICEBREAKERS.general;
     const pick = pool[Math.floor(Math.random() * pool.length)];
     if (!pick) return;
-    setMessages((prev) => (prev.length ? prev : [{
-      id: 'ai-icebreaker',
-      nickname: 'Mana Mingle AI',
-      fromSelf: false,
-      text: pick,
-      ts: Date.now(),
-    }]));
-  }, [isConnected, peer, interest, messages.length]);
+    // Removed auto-sent AI message to chat log as per user request
+  }, [isConnected, peer, interest]);
 
   // Auto hide toast after a few seconds
   useEffect(() => {
@@ -481,9 +473,24 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
     pc.ontrack = (e) => {
       const info = peerInfoRef.current.get(remoteId) || {};
-      const stream = e.streams?.[0] || (e.track ? new MediaStream([e.track]) : null);
-      if (!stream) return;
-      setPeer((prev) => ({ ...(prev || {}), socketId: remoteId, stream, nickname: info.nickname || prev?.nickname, country: info.country || prev?.country }));
+      const streams = e.streams;
+      let stream = null;
+      if (streams && streams[0]) {
+        stream = streams[0];
+      } else {
+        stream = new MediaStream([e.track]);
+      }
+      
+      setPeer((prev) => {
+        if (prev?.socketId === remoteId && prev?.stream) {
+          // Add track to existing stream
+          if (!prev.stream.getTracks().find(t => t.id === e.track.id)) {
+            prev.stream.addTrack(e.track);
+          }
+          return { ...prev, nickname: info.nickname || prev.nickname, country: info.country || prev.country };
+        }
+        return { socketId: remoteId, stream, nickname: info.nickname || prev?.nickname, country: info.country || prev?.country };
+      });
     };
 
     pc.oniceconnectionstatechange = () => {
@@ -600,9 +607,6 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     const onUserLeft = () => {
       setPeer((p) => (p ? { ...p, stream: null } : null));
       setStatus('disconnected');
-      setTimeout(() => {
-        handleStart(); // Immediately find another person
-      }, 500);
     };
 
     const onWaiting = () => setStatus('searching');
@@ -1056,35 +1060,44 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap justify-end min-w-0">
+        <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap justify-end min-w-0 pr-2">
           {connected && (
             <>
-              <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
-                <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} compact />
+              {/* COMPACT MOBILE NAX / STATUS BAR */}
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <div className="hidden sm:block">
+                  <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} compact />
+                </div>
+                <div className="flex sm:hidden items-center gap-1 bg-black/20 px-2 py-1 rounded-full border border-white/5 backdrop-blur-sm">
+                   <span className="text-[10px] font-black text-amber-400">🪙 {balance}</span>
+                </div>
+
+                <div
+                  className={`flex px-2 py-0.5 rounded-md border text-[9px] font-black uppercase tracking-tighter gap-1 items-center shrink-0 ${connectionQuality === 'good'
+                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                    : connectionQuality === 'ok'
+                      ? 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+                      : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                    }`}
+                >
+                  <div className={`w-1 h-1 rounded-full ${connectionQuality === 'good' ? 'bg-emerald-400' : connectionQuality === 'ok' ? 'bg-amber-300' : 'bg-rose-300'} animate-pulse`} />
+                  {latency ?? '—'}ms
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsTranslatorActive(!isTranslatorActive)}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider border transition-all ${isTranslatorActive ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-400' : 'bg-white/5 border-white/10 text-white/30'}`}
+                >
+                  <span className={`w-1 h-1 rounded-full ${isTranslatorActive ? 'bg-indigo-400 animate-pulse' : 'bg-white/20'}`} />
+                  {isTranslatorActive ? 'AI ON' : 'AI'}
+                </button>
               </div>
-              <div
-                className={`hidden sm:flex px-2 py-0.5 rounded-md border text-[9px] font-black uppercase tracking-tighter gap-1 items-center shrink-0 ${connectionQuality === 'good'
-                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                  : connectionQuality === 'ok'
-                    ? 'bg-amber-500/10 border-amber-500/20 text-amber-300'
-                    : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
-                  }`}
-              >
-                <div className={`w-1 h-1 rounded-full ${connectionQuality === 'good' ? 'bg-emerald-400' : connectionQuality === 'ok' ? 'bg-amber-300' : 'bg-rose-300'} animate-pulse`} />
-                {latency ?? '—'}ms
-              </div>
-              <div className="online-pill shrink-0 max-w-[100px] sm:max-w-none overflow-hidden text-ellipsis">
+
+              <div className="online-pill hidden sm:flex shrink-0">
                 <div className="live-dot shrink-0" style={{ width: 6, height: 6 }} />
                 <span className="truncate text-[11px] sm:text-sm">{onlineCount?.toLocaleString()} online</span>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsTranslatorActive(!isTranslatorActive)}
-                className={`hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all border shrink-0 ${isTranslatorActive ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-400' : 'bg-white/5 border-white/10 text-white/30'}`}
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${isTranslatorActive ? 'bg-indigo-400 animate-pulse' : 'bg-white/20'}`} />
-                AI Translate
-              </button>
             </>
           )}
         </div>
@@ -1108,6 +1121,12 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                   <div className="absolute top-4 left-4 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 border border-white/10 backdrop-blur-md">
                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                     <span className="text-xs font-black text-white/90 uppercase tracking-widest">{countryToFlag(peer.country)} Stranger</span>
+                    {/* NETWORK INDICATOR REMOTE */}
+                    <div className="flex gap-0.5 ml-1">
+                       <div className="w-1 h-2 bg-emerald-500/80 rounded-[1px]" />
+                       <div className="w-1 h-2.5 bg-emerald-500/80 rounded-[1px]" />
+                       <div className="w-1 h-3 bg-emerald-500/80 rounded-[1px]" />
+                    </div>
                   </div>
                   <div className="absolute top-4 right-4 z-20 flex gap-1.5">
                     <button type="button" onClick={() => setMutedStranger(!mutedStranger)} className={`w-8 h-8 flex items-center justify-center rounded-lg bg-black/40 border border-white/10 text-white/60 hover:text-white transition-all ${mutedStranger ? 'text-amber-400' : ''}`}>
@@ -1176,6 +1195,12 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
               <div className="absolute top-4 left-4 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 border border-white/10 backdrop-blur-md">
                 <div className="w-2 h-2 rounded-full bg-blue-500" />
                 <span className="text-xs font-black text-white/90 uppercase tracking-widest">You</span>
+                {/* NETWORK INDICATOR LOCAL */}
+                <div className="flex gap-0.5 ml-1">
+                   <div className="w-1 h-2 bg-blue-500/80 rounded-[1px]" />
+                   <div className="w-1 h-2.5 bg-blue-500/80 rounded-[1px]" />
+                   <div className="w-1 h-3 bg-blue-500/80 rounded-[1px]" />
+                </div>
               </div>
 
               {/* VERTICAL CONTROL BAR (Right Side) */}
