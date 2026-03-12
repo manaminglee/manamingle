@@ -1125,9 +1125,9 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
         )}
         <div className="flex-1 flex flex-col sm:flex-row min-h-0 overflow-hidden relative">
           {/* VIDEO CONTAINER (uMingle Split Style) */}
-          <div className={`flex-1 min-h-0 relative sm:flex sm:flex-col sm:gap-4 sm:p-4 ${showChat ? 'sm:flex-none sm:w-[400px] lg:w-[480px]' : ''}`}>
+          <div className={`flex-1 min-h-0 relative flex sm:p-4 gap-0 sm:gap-4 ${showChat ? 'flex-col lg:flex-none lg:w-[480px] sm:w-[400px]' : 'flex-col sm:flex-row'}`}>
             {/* SLOT 1: REMOTE (STRANGER) */}
-            <div className="absolute inset-0 sm:relative sm:flex-1 bg-[#07080f] sm:rounded-tl-[40px] sm:rounded-br-[40px] sm:rounded-tr-none sm:rounded-bl-none overflow-hidden sm:border-2 border-indigo-500/30 z-0">
+            <div className={`bg-[#07080f] overflow-hidden transition-all duration-500 ${showChat ? 'absolute inset-0 sm:relative sm:flex-1 sm:rounded-tl-[40px] sm:rounded-br-[40px] sm:border-2 border-indigo-500/30' : 'relative flex-1 sm:rounded-3xl sm:border-2 border-white/5'}`}>
               {status === 'connected' && peer?.stream ? (
                 <>
                   <RemoteVideoComponent stream={peer.stream} muted={mutedStranger} />
@@ -1193,11 +1193,13 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
             {/* SLOT 2: LOCAL (YOU) */}
             <div 
-              onClick={togglePip}
+              onClick={showChat ? togglePip : undefined}
               className={`
-                absolute z-30 w-28 h-40 rounded-3xl overflow-hidden border-2 border-indigo-500/50 cursor-pointer shadow-2xl transition-all duration-300
-                sm:inset-auto sm:relative sm:w-auto sm:h-auto sm:flex-1 bg-[#07080f] sm:rounded-tl-[40px] sm:rounded-br-[40px] sm:rounded-tr-none sm:rounded-bl-none sm:border-indigo-500/30 sm:cursor-auto sm:shadow-none
-                ${pipPos === 'tl' ? 'top-4 left-4' : pipPos === 'tr' ? 'top-4 right-4' : pipPos === 'bl' ? 'bottom-24 left-4' : 'bottom-24 right-4'}
+                bg-[#07080f] overflow-hidden transition-all duration-500 z-30
+                ${showChat 
+                  ? `absolute w-28 h-40 rounded-3xl border-2 border-indigo-500/50 cursor-pointer shadow-2xl sm:inset-auto sm:relative sm:w-auto sm:h-auto sm:flex-1 sm:rounded-tl-[40px] sm:rounded-br-[40px] sm:border-indigo-500/30 sm:cursor-auto sm:shadow-none ${pipPos === 'tl' ? 'top-4 left-4' : pipPos === 'tr' ? 'top-4 right-4' : pipPos === 'bl' ? 'bottom-24 left-4' : 'bottom-24 right-4'}`
+                  : 'relative flex-1 sm:rounded-3xl sm:border-2 border-white/5 cursor-auto'
+                }
               `}
             >
               <video
@@ -1220,30 +1222,30 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
               </div>
 
               {/* VERTICAL CONTROL BAR (Right Side) */}
-              <div className="absolute top-1/2 right-3 -translate-y-1/2 z-30 flex flex-col items-center gap-3 px-2 py-5 rounded-full bg-black/5 border border-white/5 backdrop-blur-xl shadow-2xl justify-center pointer-events-auto scale-[0.85] origin-right transition-all hover:bg-black/10">
+              <div className="absolute top-1/2 right-3 -translate-y-1/2 z-30 flex flex-col items-center gap-3 px-2 py-4 rounded-full bg-black/5 border border-white/5 backdrop-blur-xl shadow-2xl justify-center pointer-events-auto scale-[0.8] origin-right transition-all hover:bg-black/10">
                   {(status === 'idle' || status === 'disconnected') ? (
-                    <button onClick={handleStart} className="w-12 h-12 flex items-center justify-center rounded-full bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.4)] animate-pulse" title="Start">▶️</button>
+                    <button onClick={handleStart} className="w-10 h-10 flex items-center justify-center rounded-full bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.4)] animate-pulse" title="Start">▶️</button>
                   ) : (
                     <>
-                      <button id="video-skip-btn" onClick={(e) => { e.stopPropagation(); handleSkip(); }} className="w-12 h-12 flex items-center justify-center rounded-full bg-amber-500 text-white shadow-lg active:scale-90 transition-all outline-none group relative overflow-hidden" title="Next Stranger">
-                        <span className="z-10 text-xl font-bold">⏭️</span>
+                      <button id="video-skip-btn" onClick={(e) => { e.stopPropagation(); handleSkip(); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-amber-500 text-white shadow-lg active:scale-90 transition-all outline-none group relative overflow-hidden" title="Next Stranger">
+                        <span className="z-10 text-lg font-bold">⏭️</span>
                         <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent" />
                         <div className="absolute right-full mr-3 px-2 py-1 rounded bg-black/80 text-[8px] font-black uppercase tracking-widest text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">Next Stranger</div>
                       </button>
-                      <div className="w-6 h-[1px] bg-white/5" />
-                      <button onClick={(e) => { e.stopPropagation(); toggleCamera(); }} title="Cam" className={`w-11 h-11 flex items-center justify-center rounded-full transition-all outline-none border ${cameraOff ? 'bg-rose-500 border-rose-400 text-white' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20'}`}>
+                      <div className="w-5 h-[1px] bg-white/5" />
+                      <button onClick={(e) => { e.stopPropagation(); toggleCamera(); }} title="Cam" className={`w-9 h-9 flex items-center justify-center rounded-full transition-all outline-none border ${cameraOff ? 'bg-rose-500 border-rose-400 text-white' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20'}`}>
                         {cameraOff ? '📹' : '📸'}
                       </button>
-                      <button onClick={(e) => { e.stopPropagation(); setCameraBlur(!cameraBlur); }} title="Blur" className={`w-11 h-11 flex items-center justify-center rounded-full transition-all outline-none border ${cameraBlur ? 'bg-indigo-500 border-indigo-400 text-white' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20'}`}>
+                      <button onClick={(e) => { e.stopPropagation(); setCameraBlur(!cameraBlur); }} title="Blur" className={`w-9 h-9 flex items-center justify-center rounded-full transition-all outline-none border ${cameraBlur ? 'bg-indigo-500 border-indigo-400 text-white' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20'}`}>
                         🫥
                       </button>
-                      <button onClick={(e) => { e.stopPropagation(); setShowChat(!showChat); }} title="Chat" className={`w-11 h-11 flex items-center justify-center rounded-full transition-all outline-none border ${showChat ? 'bg-emerald-500 border-emerald-400 text-white' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20'}`}>
+                      <button onClick={(e) => { e.stopPropagation(); setShowChat(!showChat); }} title="Chat" className={`w-9 h-9 flex items-center justify-center rounded-full transition-all outline-none border ${showChat ? 'bg-emerald-500 border-emerald-400 text-white' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20'}`}>
                         💬
                       </button>
-                      <div className="w-6 h-[1px] bg-white/5" />
-                      <button onClick={(e) => { e.stopPropagation(); handleStop(); }} title="Stop" className="w-11 h-11 flex items-center justify-center rounded-full bg-rose-500/5 border border-rose-500/10 text-rose-500/60 hover:bg-rose-500 hover:text-white hover:border-rose-400 transition-all outline-none group relative">
+                      <div className="w-5 h-[1px] bg-white/5" />
+                      <button onClick={(e) => { e.stopPropagation(); handleStop(); }} title="Stop" className="w-9 h-9 flex items-center justify-center rounded-full bg-rose-500/5 border border-rose-500/10 text-rose-500/60 hover:bg-rose-500 hover:text-white hover:border-rose-400 transition-all outline-none group relative">
                         🛑
-                        <div className="absolute right-full mr-3 px-2 py-1 rounded bg-black/80 text-[8px] font-black uppercase tracking-widest text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap italic">End Session</div>
+                        <div className="absolute right-full mr-3 px-2 py-1 rounded bg-black/80 text-[8px] font-black uppercase tracking-widest text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap italic text-rose-200">End Session</div>
                       </button>
                     </>
                   )}
@@ -1255,19 +1257,20 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
           {/* CHAT PANEL (Overlay Mobile) */}
           {showChat && (
-            <div className={`absolute inset-0 z-40 flex flex-col justify-end pointer-events-none sm:pointer-events-auto sm:static sm:flex-1 sm:h-full sm:bg-[#0d0f1c] sm:border-l sm:border-white/5 sm:z-40 sm:justify-start animate-slide-in-right sm:animate-none`}>
+            <div className={`absolute inset-0 z-40 flex flex-col pointer-events-none sm:pointer-events-auto sm:static sm:flex-1 sm:h-full sm:bg-[#0d0f1c] sm:border-l sm:border-white/5 sm:z-40 animate-slide-in-right sm:animate-none`}>
               <div className="hidden sm:flex p-4 border-b border-white/5 items-center justify-between">
                 <span className="text-xs font-black uppercase tracking-[0.2em] text-white/40">Chat Room</span>
                 <button onClick={() => setShowChat(false)} className="text-white/20 hover:text-white">✕</button>
               </div>
 
-              <div className="flex-[0.5] overflow-y-auto p-4 space-y-4 pointer-events-none" id="video-chat-messages">
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 pointer-events-none" id="video-chat-messages">
                 {(messages.length === 0 || !isConnected) && (
                   <div className="hidden sm:block p-6 rounded-2xl bg-white/5 border border-white/5 space-y-3 mt-4">
                     <p className="text-xs text-white/40 font-black uppercase tracking-widest">{isConnected ? "👋 Start the vibe!" : "🔒 Connect to Chat"}</p>
                     <p className="text-[10px] text-white/20 uppercase font-bold leading-relaxed">No nudity • No harassment • Have fun</p>
                   </div>
                 )}
+                <div className="flex-1" /> {/* Push content down if empty */}
                 {messages.map((m, i) => {
                   const isMe = m.socketId === socket.id || m.fromSelf;
                   if (now - m.ts > 30000) return null; // vanish in 30s
