@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { countryToFlag } from '../utils/countryFlag';
 import { useLatency } from '../hooks/useLatency';
 import { CoinBadge } from './CoinBadge';
+import { ProFeaturesMenu } from './ProFeaturesMenu';
 
 const AI_ICEBREAKERS = {
   general: [
@@ -45,6 +46,18 @@ const EMOJIS_3D = [
   { char: '👑', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f451/512.webp' },
 ];
 
+const QUICK_REACTIONS = ['❤️', '😂', '👍', '🔥'];
+
+const SEARCHING_STATUSES = [
+  'Searching nearby users',
+  'Matching interests',
+  'Checking availability',
+  'Connecting secure channel',
+  'Finding someone...',
+];
+
+const MAX_MEDIA_SIZE_MB = 5;
+
 export function TextChat({ socket, connected, country, onlineCount, interest = 'general', nickname = 'Anonymous', onBack, onJoined, onFindNewPartner, adsEnabled, coinState }) {
   const { balance, streak, canClaim, nextClaim, claimCoins } = coinState;
   const [messages, setMessages] = useState([]);
@@ -59,10 +72,22 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [active3dEmoji, setActive3dEmoji] = useState(null);
   const [mutedStranger, setMutedStranger] = useState(false);
+  const [strangerTyping, setStrangerTyping] = useState(false);
+  const [searchStatusIndex, setSearchStatusIndex] = useState(0);
+  const [connectedSecs, setConnectedSecs] = useState(0);
+  const [showRating, setShowRating] = useState(false);
+  const [showSkipSuggestion, setShowSkipSuggestion] = useState(false);
   const roomIdRef = useRef(null);
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
+  const typingTimerRef = useRef(null);
+  const statusRef = useRef(status);
+  const skipRef = useRef(null);
+  const backRef = useRef(null);
+  const messagesRef = useRef(messages);
+  statusRef.current = status;
+  messagesRef.current = messages;
 
   const isConnected = !!peer && !!roomId;
 
@@ -114,6 +139,12 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
       setPeer(null);
     };
 
+    const onStrangerTyping = (data) => {
+      setStrangerTyping(data.isTyping);
+      clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = setTimeout(() => setStrangerTyping(false), 2500);
+    };
+
     const onWaiting = () => setStatus('searching');
     const onSystemMsg = (data) => setMessages((m) => [...m, { id: Date.now(), system: true, text: `📢 ADMIN: ${data.message}`, ts: Date.now() }]);
 
@@ -121,6 +152,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
     socket.on('chat-history', onHistory);
     socket.on('chat-message', onMessage);
     socket.on('user-left', onUserLeft);
+    socket.on('stranger-typing', onStrangerTyping);
     socket.on('waiting-for-partner', onWaiting);
     socket.on('system-announcement', onSystemMsg);
 
@@ -134,6 +166,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
       socket.off('chat-history', onHistory);
       socket.off('chat-message', onMessage);
       socket.off('user-left', onUserLeft);
+      socket.off('stranger-typing', onStrangerTyping);
       socket.off('waiting-for-partner', onWaiting);
       socket.off('system-announcement', onSystemMsg);
     };
@@ -167,6 +200,11 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
   const handleMediaUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    if (file.size > MAX_MEDIA_SIZE_MB * 1024 * 1024) {
+      alert(`File must be under ${MAX_MEDIA_SIZE_MB}MB`);
+      e.target.value = '';
+      return;
+    }
     const type = file.type.startsWith('video') ? 'video' : 'image';
     const cost = type === 'video' ? 15 : 10;
     if (balance < cost) return alert(`Need ${cost} coins!`);
@@ -228,22 +266,52 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
     }
   }, [messages, isTranslatorActive]);
 
-  // keyboard shortcut
+  // Rotating searching status
+  useEffect(() => {
+    if (status !== 'searching') return;
+    const t = setInterval(() => setSearchStatusIndex((i) => (i + 1) % SEARCHING_STATUSES.length), 1200);
+    return () => clearInterval(t);
+  }, [status]);
+
+  // Connection timer when connected
+  useEffect(() => {
+    if (!isConnected) {
+      setConnectedSecs(0);
+      return;
+    }
+    const start = Date.now();
+    const t = setInterval(() => setConnectedSecs(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(t);
+  }, [isConnected, peer?.socketId]);
+
+  // Smart skip suggestion after 30s no messages
+  useEffect(() => {
+    if (!isConnected || messages.length === 0) {
+      setShowSkipSuggestion(false);
+      return;
+    }
+    setShowSkipSuggestion(false);
+    const t = setTimeout(() => setShowSkipSuggestion(true), 30000);
+    return () => clearTimeout(t);
+  }, [isConnected, messages]);
+
+  // keyboard shortcut - stable handler with refs
   useEffect(() => {
     const handler = (e) => {
       const target = e.target;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
       if (e.key === 'Escape') {
-        if (status === 'connected' || status === 'searching') {
-          handleSkip();
+        const s = statusRef.current;
+        if (s === 'connected' || s === 'searching') {
+          skipRef.current?.();
         } else {
-          handleBack();
+          backRef.current?.();
         }
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [status, handleSkip, handleBack]);
+  }, []);
 
   const handleStart = () => {
     if (!socket || !connected) return;
@@ -252,19 +320,23 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
     emitFind();
   };
 
-  const handleSkip = () => {
+  const handleSkip = useCallback(() => {
     if (roomIdRef.current && socket) {
       socket.emit('leave-room', { roomId: roomIdRef.current });
     } else {
       socket?.emit('cancel-find-partner');
     }
+    const hadMessages = (messagesRef.current || []).filter((m) => !m.system).length >= 2;
+    if (hadMessages) setShowRating(true);
     clearRoom();
     setStatus('searching');
     setTimeout(() => {
       socket?.emit('find-partner', { mode: 'text', interest: interest || 'general', nickname: 'Anonymous' });
       onFindNewPartner?.();
     }, 50);
-  };
+  }, [socket, interest, onFindNewPartner]);
+
+  skipRef.current = handleSkip;
 
   const handleStop = () => {
     if (roomIdRef.current && socket) socket.emit('leave-room', { roomId: roomIdRef.current });
@@ -273,17 +345,30 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
     setStatus('idle');
   };
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     handleStop();
     onBack?.();
-  };
+  }, [onBack]);
+
+  backRef.current = handleBack;
 
   const sendMsg = () => {
     const t = input.trim();
     const r = roomIdRef.current;
     if (!t || !socket || !r) return;
+    socket.emit('typing', { roomId: r, isTyping: false });
     socket.emit('send-message', { roomId: r, text: t });
     setInput('');
+  };
+
+  const handleInputChange = (e) => {
+    setInput(e.target.value);
+    const r = roomIdRef.current;
+    if (socket && r) {
+      socket.emit('typing', { roomId: r, isTyping: e.target.value.length > 0 });
+      clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = setTimeout(() => socket.emit('typing', { roomId: r, isTyping: false }), 2000);
+    }
   };
 
   const generateAiSpark = async () => {
@@ -363,6 +448,8 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
             </>
           )}
           {status === 'connected' && (
+            <>
+            <ProFeaturesMenu />
             <button
               onClick={() => setIsTranslatorActive(!isTranslatorActive)}
               className={`anon-badge transition-all ${isTranslatorActive ? 'bg-indigo-500/20 border-indigo-500 text-indigo-300' : 'hover:bg-white/10'}`}
@@ -372,6 +459,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
               </svg>
               {isTranslatorActive ? 'AI Translator ON' : 'AI Translator OFF'}
             </button>
+            </>
           )}
         </div>
       </header>
@@ -409,7 +497,9 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
                   <p className="text-sm font-semibold text-white">
                     {countryToFlag(peer?.country)} Stranger
                   </p>
-                  <p className="text-xs" style={{ color: 'rgba(232,234,246,0.4)' }}>Anonymous · No identity shared</p>
+                  <p className="text-xs" style={{ color: 'rgba(232,234,246,0.4)' }}>
+                    Anonymous · Connected • {String(Math.floor(connectedSecs / 60)).padStart(2, '0')}:{String(connectedSecs % 60).padStart(2, '0')}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -479,7 +569,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
                 </div>
               </div>
               <div>
-                <h2 className="text-lg font-bold text-white mb-2">Searching for a stranger...</h2>
+                <h2 className="text-lg font-bold text-white mb-2">{SEARCHING_STATUSES[searchStatusIndex]}</h2>
                 <p className="text-sm" style={{ color: 'rgba(232,234,246,0.4)' }}>
                   Press <kbd className="px-2 py-0.5 rounded bg-white/10 text-xs font-mono">Esc</kbd> or Skip to cancel
                 </p>
@@ -525,7 +615,10 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
               {messages.map((m, i) => {
                 const isMe = isFromMe(m);
                 if (mutedStranger && !isMe && !m.system) return null;
-                const showTime = i === 0 || messages[i - 1]?.nickname !== m.nickname;
+                const prev = messages[i - 1];
+                const senderChanged = i === 0 || !prev || isFromMe(prev) !== isMe;
+                const timeDiff = prev?.ts && m.ts ? (m.ts - prev.ts) / 60000 : 999;
+                const showTime = i === 0 || senderChanged || timeDiff >= 3;
                 return (
                   <div key={m.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-message-pop`}>
                     {showTime && (
@@ -561,10 +654,30 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
                         </>
                       )}
                     </div>
-                    <span className="msg-time px-2">{formatTime(m.ts)}</span>
+                    {showTime && <span className="msg-time px-2">{formatTime(m.ts)}</span>}
                   </div>
                 );
               })}
+              {strangerTyping && (
+                <div className="flex items-start gap-2 animate-message-pop">
+                  <span className="msg-time px-2">Stranger</span>
+                  <div className="typing-indicator">
+                    <span /><span /><span />
+                  </div>
+                  <span className="text-xs text-white/50">Stranger is typing...</span>
+                </div>
+              )}
+              {showSkipSuggestion && (
+                <div className="flex justify-center py-3">
+                  <button
+                    type="button"
+                    onClick={() => { setShowSkipSuggestion(false); handleSkip(); }}
+                    className="text-xs px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 transition-all"
+                  >
+                    No messages for 30s? Find someone new →
+                  </button>
+                </div>
+              )}
               <div ref={chatEndRef} />
             </div>
           )}
@@ -572,7 +685,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
 
         {/* CONTROLS */}
         <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 sm:gap-3">
             {/* Main action button */}
             {status === 'idle' && (
               <button
@@ -614,21 +727,57 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
               </>
             )}
 
-            {/* Message input container */}
-            <div className="flex-1 min-w-0 flex gap-1.5 sm:gap-2 items-center">
-              <input
-                ref={inputRef}
-                id="text-message-input"
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && sendMsg()}
-                placeholder={isAiGenerating ? 'AI thinking...' : (isConnected ? 'Type a message...' : 'Connect first')}
-                disabled={!isConnected || isAiGenerating}
-                className={`chat-input flex-1 min-w-0 py-3 px-4 transition-all ${isAiGenerating ? 'opacity-50' : ''}`}
-              />
+            {/* Input + Send row - thumb reach on mobile */}
+            <div className="flex-1 min-w-0 flex flex-col gap-2 sm:gap-0 sm:flex-row sm:items-center sm:gap-2">
+              <div className="flex flex-1 min-w-0 gap-1.5 sm:gap-2 items-center">
+                <input
+                  ref={inputRef}
+                  id="text-message-input"
+                  type="text"
+                  value={input}
+                  onChange={handleInputChange}
+                  onKeyDown={(e) => e.key === 'Enter' && sendMsg()}
+                  placeholder={isAiGenerating ? 'AI thinking...' : (isConnected ? 'Type a message...' : 'Connect first')}
+                  disabled={!isConnected || isAiGenerating}
+                  className={`chat-input flex-1 min-w-0 py-3 px-4 transition-all ${isAiGenerating ? 'opacity-50' : ''}`}
+                />
+                <button
+                  id="text-send-btn"
+                  type="button"
+                  onClick={sendMsg}
+                  disabled={!isConnected || !input.trim()}
+                  className="btn btn-primary shrink-0 w-12 h-12 p-0 rounded-xl"
+                  title="Send"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                </button>
+              </div>
+              {/* Icons row - below on mobile */}
               {isConnected && (
-                <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+                <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                  {/* Quick reactions */}
+                  <div className="flex items-center gap-0.5">
+                    {QUICK_REACTIONS.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => {
+                          if (balance >= 5) {
+                            send3dEmoji(emoji);
+                          } else {
+                            const r = roomIdRef.current;
+                            if (socket && r) socket.emit('send-message', { roomId: r, text: emoji });
+                          }
+                        }}
+                        className="w-9 h-9 flex items-center justify-center rounded-lg text-lg bg-white/5 hover:bg-white/10 border border-white/5 transition-all active:scale-90"
+                        title={balance >= 5 ? 'Send 3D (5🪙)' : 'Send as text'}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
@@ -678,20 +827,6 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
                 </div>
               )}
             </div>
-
-            {/* Send button */}
-            <button
-              id="text-send-btn"
-              type="button"
-              onClick={sendMsg}
-              disabled={!isConnected || !input.trim()}
-              className="btn btn-primary shrink-0 w-12 h-12 p-0 rounded-xl"
-              title="Send"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
-            </button>
           </div>
 
           <p className="text-xs text-center" style={{ color: 'rgba(232,234,246,0.3)' }}>
@@ -699,6 +834,26 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
           </p>
         </div>
       </main>
-    </div >
+
+      {/* Conversation rating modal */}
+      {showRating && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowRating(false)}>
+          <div className="bg-[#0d0f1c] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-fade-in-up" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-white mb-4">⭐ How was this conversation?</h3>
+            <div className="flex gap-2">
+              <button onClick={() => setShowRating(false)} className="flex-1 py-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-medium hover:bg-emerald-500/30 transition-all">
+                Good
+              </button>
+              <button onClick={() => setShowRating(false)} className="flex-1 py-3 rounded-xl bg-white/10 border border-white/10 text-white/70 font-medium hover:bg-white/15 transition-all">
+                Neutral
+              </button>
+              <button onClick={() => setShowRating(false)} className="flex-1 py-3 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 font-medium hover:bg-rose-500/30 transition-all">
+                Bad
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

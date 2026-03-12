@@ -8,6 +8,7 @@ import { countryToFlag } from '../utils/countryFlag';
 import { useLatency } from '../hooks/useLatency';
 import { useIceServers } from '../hooks/useIceServers';
 import { CoinBadge } from './CoinBadge';
+import { ProFeaturesMenu } from './ProFeaturesMenu';
 import { playConnectSound, playMessageSound, playDisconnectSound, playWaveSound } from '../utils/sounds';
 
 const AI_ICEBREAKERS = {
@@ -77,7 +78,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   const [input, setInput] = useState('');
   const [roomId, setRoomId] = useState(null);
   const [peer, setPeer] = useState(null);
-  const [status, setStatus] = useState('searching'); // Start in searching mode by default when mounted from landing
+  const [status, setStatus] = useState('idle'); // Start in idle mode to show preparation screen
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
   const [mutedStranger, setMutedStranger] = useState(false);
@@ -117,6 +118,15 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   const [countryBanner, setCountryBanner] = useState(null); // { myCountry, peerCountry }
   const [showChat, setShowChat] = useState(true);
   const [myCountry, setMyCountry] = useState(country);
+  const [partnerLeft, setPartnerLeft] = useState(false);
+  const [showMatchCelebration, setShowMatchCelebration] = useState(false);
+  const [progressiveTooltip, setProgressiveTooltip] = useState(0); // 0=hello, 1=reaction, 2=AI spark, -1=dismissed
+  const [suggestedIcebreaker] = useState(() => {
+    const pool = AI_ICEBREAKERS.general;
+    return pool[Math.floor(Math.random() * pool.length)] || "What's the best movie you watched recently?";
+  });
+  const [interestTags, setInterestTags] = useState(['social', 'fun', 'music', 'gaming']);
+  const [selectedInterests, setSelectedInterests] = useState([]);
   const connTimerRef = useRef(null);
   const typingTimerRef = useRef(null);
   const toastTimerRef = useRef(null);
@@ -257,6 +267,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       if (res.ok) {
         const data = await res.json();
         setAiSummary(data.spark);
+        setShowSummary(true);
       }
     } catch (e) { }
   };
@@ -393,6 +404,23 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
   const handleBack = () => { handleStop(); onBack?.(); };
 
+  const handleReport = () => {
+    if (!isConnected) return;
+    setToast('🚩 User reported. Our safety AI is now performing a deep scan.');
+    // In a real app, this would emit a 'report-user' event to the server
+    if (socket && roomIdRef.current) {
+      socket.emit('report-user', { roomId: roomIdRef.current, reason: 'unspecified' });
+    }
+    // Optionally auto-skip after report
+    setTimeout(handleSkip, 2000);
+  };
+
+  const toggleInterestTag = (tag) => {
+    setSelectedInterests(prev =>
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+    );
+  };
+
   // Pause remote video when tab is hidden
   useEffect(() => {
     const handleVisibility = () => {
@@ -406,13 +434,22 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
   useEffect(() => {
     if (status === 'connected') {
+      setShowMatchCelebration(true);
+      setProgressiveTooltip(0);
+      setTimeout(() => setShowMatchCelebration(false), 1200);
       setTimeout(() => inputRef.current?.focus(), 500);
-      setToast('✅ Connected with a stranger!');
       playConnectSound();
     } else if (status === 'disconnected') {
       playDisconnectSound();
     }
   }, [status]);
+
+  // Progressive feature tooltips: 0=hello, 20s=reaction, 60s=AI spark
+  useEffect(() => {
+    if (status !== 'connected' || progressiveTooltip < 0) return;
+    if (connectedSecs >= 60 && progressiveTooltip < 2) setProgressiveTooltip(2);
+    else if (connectedSecs >= 20 && progressiveTooltip < 1) setProgressiveTooltip(1);
+  }, [status, connectedSecs, progressiveTooltip]);
 
   // Country discovery banner when peer is found
   useEffect(() => {
@@ -487,7 +524,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       } else {
         stream = new MediaStream([e.track]);
       }
-      
+
       setPeer((prev) => {
         if (prev?.socketId === remoteId && prev?.stream) {
           // Add track to existing stream
@@ -614,12 +651,15 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     const onUserLeft = () => {
       setPeer((p) => (p ? { ...p, stream: null } : null));
       setStatus('disconnected');
-      // Auto-reconnect on remote user leave
+      setPartnerLeft(true);
+      playDisconnectSound();
+      // Smooth transition: 400ms then auto-find next
       setTimeout(() => {
-        if (roomIdRef.current) {
-           handleSkip();
-        }
-      }, 1000);
+        setPartnerLeft(false);
+        setStatus('searching');
+        socket.emit('find-partner', { mode: 'video', interest: interest || 'general', nickname: 'Anonymous' });
+        onFindNewPartner?.();
+      }, 450);
     };
 
     const onWaiting = () => setStatus('searching');
@@ -674,7 +714,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       socket.off('webrtc-signal', onSignal);
       socket.off('system-announcement', onSystemMsg);
     };
-  }, [socket, onJoined, doOffer, doAnswer, addIce]);
+  }, [socket, interest, onJoined, onFindNewPartner, doOffer, doAnswer, addIce]);
 
   // Handle translation for incoming messages
   useEffect(() => {
@@ -914,410 +954,323 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   const formatTime = (ts) => ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
   return (
-    <div className="h-screen flex flex-col bg-[#070811] text-white overflow-hidden relative font-sans">
-      {/* AI SAFETY LAYER - Moved up above everything */}
-      <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[200] pointer-events-none px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center gap-2 animate-pulse transition-opacity duration-1000 backdrop-blur-md">
-        <div className="text-sm animate-bounce origin-bottom">🕵️</div>
-        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">AI Safety Monitor Active</span>
-      </div>
-
-      {/* 🌐 COUNTRY DISCOVERY BANNER */}
-      {countryBanner && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[150] animate-slide-in-up pointer-events-none">
-          <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-black/80 border border-indigo-500/40 backdrop-blur-xl shadow-2xl">
-            <span className="text-2xl">{countryToFlag(countryBanner.myCountry) || '🌏'}</span>
-            <div className="text-center">
-              <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Global Connection!</p>
-              <p className="text-xs text-white/70 font-medium">You connected across the world 🌍</p>
+    <div className="h-screen flex flex-col bg-[#05060b] text-slate-100 overflow-hidden relative font-sans select-none">
+      {/* 1. LAYER: HEADER */}
+      <header className="h-16 sm:h-20 px-4 sm:px-8 flex items-center justify-between border-b border-white/5 bg-black/40 backdrop-blur-2xl z-[100] shrink-0">
+        <div className="flex items-center gap-3 sm:gap-6">
+          <button onClick={handleBack} className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all active:scale-90" title="Go Back">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
+          </button>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-500 shadow-lg shadow-indigo-500/30 flex items-center justify-center font-black text-sm">M</div>
+            <div className="hidden sm:block">
+              <h1 className="text-sm font-black uppercase tracking-[0.2em]">Mana Mingle</h1>
+              <div className="flex items-center gap-2 mt-0.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] font-bold text-emerald-500/80 uppercase tracking-widest">{onlineCount?.toLocaleString()} Users Online</span>
+              </div>
             </div>
-            <span className="text-2xl">{countryToFlag(countryBanner.peerCountry) || '🌎'}</span>
           </div>
         </div>
-      )}
 
-      {/* ⌨️ TYPING INDICATOR */}
-      {strangerTyping && (
-        <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-[110] pointer-events-none animate-slide-in-up">
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#1a1d30] border border-white/10 shadow-xl backdrop-blur-md">
-            <div className="flex gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '300ms' }} />
-            </div>
-            <span className="text-xs text-white/50 font-medium">Stranger is typing</span>
-          </div>
-        </div>
-      )}
-
-      {/* WAVE OVERLAY */}
-      {showWave && (
-        <div className="fixed inset-0 z-[200] pointer-events-none flex items-center justify-center">
-          <div className="flex flex-col items-center gap-3 animate-3d-emoji-pop">
-            <span className="text-8xl drop-shadow-2xl" style={{ filter: 'drop-shadow(0 0 30px rgba(251,191,36,0.8))' }}>👋</span>
-            <span className="px-5 py-2 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 font-black text-sm uppercase tracking-widest shadow-2xl backdrop-blur-md">
-              Someone waved!
+        <div className="flex items-center gap-2 sm:gap-4">
+          <div className="hidden sm:flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/5 border border-white/5 font-black text-[10px] uppercase tracking-widest">
+            <span className={connectionQuality === 'good' ? 'text-emerald-400' : connectionQuality === 'ok' ? 'text-amber-400' : 'text-rose-400'}>
+              {connectionQuality === 'good' ? '🟢 Excellent' : connectionQuality === 'ok' ? '🟡 Fair' : connectionQuality === 'poor' ? '🔴 Poor' : '--'}
             </span>
           </div>
-        </div>
-      )}
 
-      {/* MOOD INDICATOR */}
-      {moodEmoji && status === 'connected' && (
-        <div className="fixed top-20 right-4 z-[90] pointer-events-none flex items-center gap-2 px-3 py-2 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md shadow-xl animate-slide-in-up">
-          <span className="text-2xl">{moodEmoji}</span>
-          <div>
-            <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Stranger's Mood</p>
-            <p className="text-xs font-bold text-white/80">
-              {moodEmoji === '😂' ? 'Having fun!' : moodEmoji === '😮' ? 'Surprised!' : moodEmoji === '🤔' ? 'Thinking...' : 'Positive!'}
-            </p>
+          <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+            <span className="text-xs sm:text-sm font-black text-amber-500">🪙 {balance}</span>
+          </div>
+
+          <ProFeaturesMenu />
+          <button onClick={() => setIsTranslatorActive(!isTranslatorActive)} className={`px-3 py-2 rounded-2xl border transition-all text-[10px] font-black uppercase tracking-widest ${isTranslatorActive ? 'bg-indigo-500 border-indigo-400 text-white shadow-lg shadow-indigo-500/30' : 'bg-white/5 border-white/10 text-slate-500'}`}>
+            {isTranslatorActive ? 'AI ON' : 'AI'}
+          </button>
+        </div>
+      </header>
+
+      {/* 2. LAYER: VIDEO / SEARCH AREA */}
+      <main className="flex-1 relative flex flex-col md:flex-row min-h-0 overflow-hidden p-2 sm:p-4 gap-2 sm:gap-4">
+
+        {/* Floating AI Safety Status */}
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[110] pointer-events-none">
+          <div className="px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 backdrop-blur-xl flex items-center gap-2 animate-fade-in shadow-2xl shadow-black/50">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500">AI Safety Monitor Active</span>
           </div>
         </div>
-      )}
 
-      {/* GOOD VIBES MATCH */}
-      {goodVibesMatch && (
-        <div className="fixed inset-0 z-[190] pointer-events-none flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4 animate-3d-emoji-pop">
-            <span className="text-7xl">🤝</span>
-            <div className="text-center px-6 py-4 rounded-3xl bg-indigo-500/20 border border-indigo-500/40 backdrop-blur-xl shadow-2xl">
-              <p className="font-black text-white text-lg uppercase tracking-widest">Mutual Good Vibes!</p>
-              <p className="text-white/60 text-sm mt-1">You both had a great conversation</p>
-            </div>
-          </div>
-        </div>
-      )}
+        {/* Video Containers Floor */}
+        <div className={`flex-1 relative flex flex-col sm:flex-row gap-2 sm:gap-4 transition-all duration-700 ${showChat ? 'md:flex-none md:w-[65%]' : 'w-full'}`}>
 
-      {/* INTEREST CARD MODAL */}
-      {showInterestCard && (
-        <div className="fixed inset-0 z-[180] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setShowInterestCard(false)}>
-          <div className="bg-[#12152a] border border-indigo-500/30 rounded-3xl p-6 max-w-xs w-full shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="text-center mb-4">
-              <span className="text-3xl">🃏</span>
-              <h3 className="font-black text-white text-lg mt-2 uppercase tracking-widest">Your Interest Card</h3>
-              <p className="text-white/40 text-xs mt-1">Shared anonymously — no personal info</p>
-            </div>
-            <div className="space-y-2 mb-4">
-              {(interest ? [interest, 'conversations', 'global culture'] : ['conversations', 'global culture', 'ideas']).map((tag, i) => (
-                <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
-                  <span className="text-indigo-400 text-sm">#{i + 1}</span>
-                  <span className="text-white font-bold capitalize text-sm">{tag}</span>
+          {/* Main Display (Remote / Searching / Idle) */}
+          <div className={`relative flex-1 bg-black/40 rounded-[2.5rem] border border-white/5 overflow-hidden transition-all duration-500 ${status === 'connected' ? 'shadow-2xl' : ''}`}>
+
+            {status === 'idle' ? (
+              /* IDLE / START SCREEN */
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-8 bg-[#0a0c16]">
+                {cameraError ? (
+                  <div className="flex flex-col items-center text-center max-w-sm animate-fade-in">
+                    <div className="w-20 h-20 mb-6 rounded-2xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-4xl">📷</div>
+                    <h3 className="text-lg font-black text-white uppercase tracking-widest">We need camera access</h3>
+                    <p className="mt-2 text-sm text-slate-500">To start chatting, please allow camera and microphone permissions.</p>
+                    <button onClick={async () => { setCameraError(null); try { const base = { video: selectedVideoDeviceId ? { deviceId: { exact: selectedVideoDeviceId } } : true, audio: selectedAudioDeviceId ? { deviceId: { exact: selectedAudioDeviceId } } : true }; const s = await navigator.mediaDevices.getUserMedia(base); localStreamRef.current = s; setLocalStream(s); if (localVideoRef.current) localVideoRef.current.srcObject = s; } catch (e) { setCameraError('Permission denied. Please allow camera in your browser settings.'); } }} className="mt-6 px-8 py-3 rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white font-black uppercase tracking-widest transition-all active:scale-95">
+                      Allow Camera
+                    </button>
+                  </div>
+                ) : (
+                <>
+                <div className="w-24 h-24 mb-8 rounded-[2rem] bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-4xl shadow-2xl animate-bounce">👋</div>
+                <h2 className="text-2xl sm:text-4xl font-black uppercase tracking-tighter text-center max-w-md">Ready to meet someone new?</h2>
+                <p className="mt-4 text-slate-500 text-sm sm:text-base text-center max-w-sm uppercase font-bold tracking-widest">Connect with verified mingle nodes globally.</p>
+
+                <div className="mt-10 w-full max-w-sm flex flex-col gap-4">
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {interestTags.map(tag => (
+                      <button
+                        key={tag}
+                        onClick={() => toggleInterestTag(tag)}
+                        className={`px-4 py-2 rounded-xl border transition-all text-[10px] font-black uppercase tracking-widest ${selectedInterests.includes(tag) ? 'bg-indigo-500 border-indigo-400 text-white shadow-lg shadow-indigo-500/20' : 'bg-white/5 border-white/5 text-slate-400 hover:border-white/20'}`}
+                      >
+                        #{tag}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={handleStart} className="w-full h-16 rounded-3xl bg-indigo-500 hover:bg-indigo-600 text-white font-black uppercase tracking-[0.2em] shadow-2xl shadow-indigo-500/40 active:scale-95 transition-all text-sm mt-4">
+                    Start Mingling
+                  </button>
                 </div>
-              ))}
-            </div>
-            <button
-              onClick={() => {
-                if (socket && roomIdRef.current) {
-                  socket.emit('send-message', { roomId: roomIdRef.current, text: `🃏 Interest Card: I'm into ${interest || 'general conversations'}, global culture, and sharing ideas!` });
-                }
-                setShowInterestCard(false);
-              }}
-              className="w-full py-3 rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white font-black text-sm uppercase tracking-widest transition-all active:scale-95"
-            >
-              Share with Stranger (3 Coins)
-            </button>
-            <button onClick={() => setShowInterestCard(false)} className="w-full mt-2 py-2 text-white/30 text-xs hover:text-white/60 transition">Cancel</button>
+                </>
+                )}
+              </div>
+            ) : status === 'searching' ? (
+              /* SEARCHING SCREEN */
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#070811]">
+                <div className="relative w-48 h-48 sm:w-64 sm:h-64 flex items-center justify-center">
+                  {/* Modern Pulse Rings */}
+                  <div className="absolute inset-0 rounded-full border border-indigo-500/10 animate-ping" />
+                  <div className="absolute inset-8 rounded-full border border-indigo-500/20 animate-ping" style={{ animationDelay: '0.4s' }} />
+
+                  {/* Spinning Core */}
+                  <div className="relative w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-indigo-900/10 border border-white/5 p-2 overflow-hidden shadow-[0_0_80px_rgba(99,102,241,0.2)]">
+                    <div className="absolute inset-0 bg-[url('https://upload.wikimedia.org/wikipedia/commons/c/c3/World_map_blue_dotted.svg')] bg-[length:300%] bg-center opacity-40 animate-[spin_40s_linear_infinite]" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-indigo-500/20 to-transparent" />
+                  </div>
+
+                  {/* Moving Nodes */}
+                  <div className="absolute inset-0 animate-[spin_20s_linear_infinite]">
+                    <div className="absolute top-4 left-1/4 w-2 h-2 rounded-full bg-indigo-400 shadow-[0_0_15px_#818cf8]" />
+                    <div className="absolute bottom-8 right-1/4 w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_12px_#22d3ee]" />
+                  </div>
+                </div>
+
+                <div className="mt-8 text-center">
+                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-[0.5rem] flex items-center justify-center">
+                    Searching
+                    <span className="flex items-center gap-1 ml-4">
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: '0.1s' }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: '0.2s' }} />
+                    </span>
+                  </h3>
+                  <p className="mt-4 text-[9px] font-bold text-slate-500 uppercase tracking-widest">Establishing secure peer connection...</p>
+                </div>
+              </div>
+            ) : (
+              /* CONNECTED VIEW */
+              <>
+                <RemoteVideoComponent stream={peer?.stream} muted={mutedStranger} />
+
+                {/* Match Celebration */}
+                {showMatchCelebration && (
+                  <div className="absolute inset-0 z-25 flex items-center justify-center bg-black/20 backdrop-blur-sm animate-fade-in pointer-events-none">
+                    <div className="px-8 py-4 rounded-3xl bg-indigo-500/90 border border-indigo-400/50 shadow-2xl animate-slide-in-up text-center">
+                      <span className="text-3xl block mb-1">🎉</span>
+                      <span className="text-lg font-black text-white uppercase tracking-widest">Connected!</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Stranger Info Badge */}
+                <div className="absolute top-6 left-6 z-20 flex items-center gap-3 px-4 py-2 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-xl transition-transform hover:scale-105">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]" />
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-white/90 uppercase tracking-widest leading-none mb-1">Stranger Found</span>
+                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">{countryToFlag(peer?.country)} {peer?.nickname || 'Anonymous'}</span>
+                  </div>
+                </div>
+
+                {/* Report Button */}
+                <div className="absolute top-6 right-6 z-20">
+                  <button
+                    onClick={handleReport}
+                    className="w-10 h-10 flex items-center justify-center rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white transition-all active:scale-95 shadow-xl"
+                    title="Report Inappropriate Behavior"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                  </button>
+                </div>
+
+                {/* Partner Left Overlay */}
+                {partnerLeft && (
+                  <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 backdrop-blur-md animate-fade-in">
+                    <div className="bg-[#12152a] border border-white/10 p-8 rounded-[2.5rem] shadow-2xl text-center max-w-xs scale-in">
+                      <div className="text-4xl mb-4">👋</div>
+                      <h4 className="text-lg font-black uppercase tracking-widest text-white">Partner Disconnected</h4>
+                      <p className="mt-2 text-slate-500 text-xs uppercase font-bold tracking-widest">Searching for someone new...</p>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
+
+          {/* Local Video PIP - Optimized for Mobile Thumb usage */}
+          <div className={`
+             absolute w-28 h-40 sm:w-48 sm:h-64 rounded-[2rem] border-2 border-white/10 overflow-hidden z-50 transition-all duration-700 shadow-2xl bg-black/60
+             ${status === 'connected' ? (pipPos === 'tl' ? 'top-6 left-6' : pipPos === 'tr' ? 'top-6 right-6' : pipPos === 'bl' ? 'bottom-24 left-6' : 'bottom-24 right-6') : 'relative w-full h-full border-none inset-auto sm:rounded-[2.5rem]'}
+             ${status === 'idle' ? 'sm:w-[400px]' : ''}
+          `}
+            onClick={status === 'connected' ? togglePip : undefined}
+          >
+            <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover scale-x-[-1] transition-all duration-1000 ${cameraOff ? 'opacity-20' : ''}`} />
+            <div className="absolute bottom-4 left-4 z-20 px-3 py-1.5 rounded-xl bg-black/40 border border-white/10 backdrop-blur-md">
+              <span className="text-[10px] font-black text-white/90 uppercase tracking-widest">You</span>
+            </div>
+            {cameraBlur && <div className="absolute inset-0 backdrop-blur-3xl z-10" />}
+          </div>
+        </div>
+
+        {/* Chat Panel - Sidebar on desktop, slide-up sheet on mobile */}
+        {showChat && (
+          <div className="flex-1 md:flex-none md:w-[35%] glass-card flex flex-col z-[40] max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:h-[70%] max-md:max-h-[85vh] max-md:rounded-t-[2.5rem] max-md:animate-slide-up-sheet md:relative md:rounded-[1.5rem]">
+            <div className="h-14 sm:h-16 px-6 border-b border-white/5 flex items-center justify-between bg-white/5">
+              <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-slate-400">Secure Message Link</span>
+              <button onClick={() => setShowChat(false)} className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 text-slate-400 hover:text-white transition-all">✕</button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4" id="video-chat-messages">
+              {messages.length === 0 && (
+                <div className="p-6 rounded-3xl bg-indigo-500/5 border border-indigo-500/10 space-y-4 animate-fade-in">
+                  <p className="text-sm font-black text-indigo-400">💬 Start the conversation!</p>
+                  <p className="text-xs text-slate-500">Try asking:</p>
+                  <p className="text-sm text-slate-300 font-medium italic">&ldquo;{suggestedIcebreaker}&rdquo;</p>
+                  <button onClick={() => { setInput(suggestedIcebreaker); inputRef.current?.focus(); }} className="px-4 py-2 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 text-xs font-bold hover:bg-indigo-500/30 transition-all active:scale-95">
+                    Use this
+                  </button>
+                </div>
+              )}
+              {messages.map((m, i) => {
+                const isMe = m.socketId === socket.id || m.fromSelf;
+                return (
+                  <div key={m.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-message-pop`}>
+                    <div className={`px-4 py-2.5 rounded-2xl text-sm font-medium ${isMe ? 'bg-indigo-500 text-white rounded-tr-none shadow-lg shadow-indigo-500/20' : 'bg-white/10 text-slate-100 rounded-tl-none border border-white/5'}`}>
+                      {m.text}
+                    </div>
+                    <span className="text-[8px] font-black uppercase text-slate-500 mt-1.5 px-1 tracking-widest">{isMe ? 'You' : 'Strange'} • {formatTime(m.ts)}</span>
+                  </div>
+                );
+              })}
+              <div ref={chatEndRef} />
+            </div>
+
+            <div className="p-4 sm:p-6 bg-white/5 border-t border-white/5">
+              <div className="relative flex items-center gap-2">
+                <input ref={inputRef} value={input} onChange={handleInputChange} onKeyDown={(e) => e.key === 'Enter' && sendMsg()} placeholder={isConnected ? "Message..." : "Waiting for match..."} disabled={!isConnected} className="flex-1 h-12 bg-black/40 border border-white/10 rounded-2xl px-5 text-sm outline-none focus:border-indigo-500/50 focus:bg-black/60 transition-all font-medium" />
+                <button onClick={sendMsg} disabled={!isConnected || !input.trim()} className="w-12 h-12 rounded-2xl bg-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30 active:scale-90 transition-all disabled:opacity-50">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* 3. LAYER: ACTION CONTROLS */}
+      <footer className="h-20 sm:h-24 px-4 sm:px-12 border-t border-white/5 bg-black/60 backdrop-blur-2xl z-[120] flex items-center justify-center shrink-0">
+        <div className="w-full max-w-2xl flex items-center justify-between gap-4 sm:gap-8">
+          {/* Main Action Block */}
+          <div className="flex-1 flex items-center gap-2 sm:gap-4 h-12 sm:h-14">
+            <button onClick={handleSkip} className="h-full px-6 sm:px-10 rounded-3xl bg-amber-500 hover:bg-amber-600 text-white font-black uppercase tracking-[0.2em] shadow-xl shadow-amber-500/20 transition-all active:scale-95 flex items-center justify-center gap-2 group">
+              <span className="text-xl group-hover:translate-x-1 transition-transform">⏭️</span>
+              <span className="hidden sm:inline text-xs">Skip Stranger</span>
+            </button>
+            <div className="w-[1px] h-8 bg-white/10 mx-2" />
+            <button onClick={toggleCamera} className={`w-12 h-12 sm:w-14 sm:h-14 rounded-3xl flex items-center justify-center transition-all border-2 active:scale-90 ${cameraOff ? 'bg-rose-500 border-rose-400 shadow-lg shadow-rose-500/30 text-white' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:border-white/20'}`} title="Toggle camera">
+              {cameraOff ? '📹' : '📸'}
+            </button>
+            <button onClick={() => setCameraBlur(!cameraBlur)} className={`w-12 h-12 sm:w-14 sm:h-14 rounded-3xl flex items-center justify-center transition-all border-2 active:scale-90 ${cameraBlur ? 'bg-indigo-500 border-indigo-400 shadow-lg shadow-indigo-500/30 text-white' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:border-white/20'}`} title="Blur background">
+              🫥
+            </button>
+            <button onClick={() => setShowChat(!showChat)} className={`w-12 h-12 sm:w-14 sm:h-14 rounded-3xl flex items-center justify-center transition-all border-2 active:scale-90 ${showChat ? 'bg-indigo-500 border-indigo-400 shadow-lg shadow-indigo-500/30 text-white' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'}`} title="Toggle chat">
+              💬
+            </button>
+          </div>
+
+          <div className="w-10 sm:w-12 h-[1px] bg-white/10" />
+
+          {/* Stop Button */}
+          <button onClick={handleStop} className="w-12 h-12 sm:w-14 sm:h-14 rounded-3xl bg-rose-500/10 border-2 border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white transition-all active:scale-90 flex items-center justify-center shadow-lg shadow-rose-500/10">
+            <span className="text-xl">🛑</span>
+          </button>
+        </div>
+      </footer>
+
+      {/* Notifications / Toasts */}
+      {toast && (
+        <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 rounded-2xl bg-black/90 border border-indigo-500/40 text-sm font-black text-white shadow-2xl animate-fade-in-up uppercase tracking-widest backdrop-blur-xl">
+          {toast}
         </div>
       )}
 
-      {/* POST-CHAT RATING MODAL */}
-      {showRating && !ratingDone && (
-        <div className="fixed inset-0 z-[180] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-[#12152a] border border-white/10 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center">
-            <span className="text-4xl">⭐</span>
-            <h3 className="font-black text-white text-lg mt-3 uppercase tracking-widest">Rate This Conversation</h3>
-            <p className="text-white/40 text-sm mt-1 mb-5">How was your chat experience? (anonymous)</p>
-            <div className="flex justify-center gap-3 mb-4">
-              {[1, 2, 3, 4, 5].map(s => (
-                <button
-                  key={s}
-                  onClick={() => submitRating(s)}
-                  className="text-3xl hover:scale-125 transition-transform active:scale-95"
-                  title={['Terrible', 'Bad', 'Okay', 'Good', 'Amazing!'][s - 1]}
-                >
+      {/* Emoji Picker Popover */}
+      {showEmojiPicker && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[150] p-4 glass rounded-[2rem] border border-white/10 flex gap-4 shadow-2xl">
+          {EMOJIS_3D.map(e => (
+            <button key={e.char} onClick={() => send3dEmoji(e.char)} className="w-12 h-12 rounded-2xl hover:bg-white/10 transition-all active:scale-90 flex items-center justify-center text-3xl">{e.char}</button>
+          ))}
+        </div>
+      )}
+
+      {/* Progressive Feature Tooltip - show after 2s to not overlap Connected celebration */}
+      {isConnected && progressiveTooltip >= 0 && (progressiveTooltip > 0 || connectedSecs >= 2) && (
+        <div className="fixed bottom-36 left-1/2 -translate-x-1/2 z-[180] px-4 py-3 rounded-2xl bg-indigo-500/95 border border-indigo-400/50 shadow-2xl animate-slide-in-up flex items-center gap-3 max-w-[280px]">
+          <span className="text-lg">{progressiveTooltip === 0 ? '👋' : progressiveTooltip === 1 ? '✨' : '💡'}</span>
+          <span className="text-xs font-bold text-white">
+            {progressiveTooltip === 0 ? 'Say hello or wave!' : progressiveTooltip === 1 ? 'Try sending a reaction' : 'Use AI spark for conversation ideas'}
+          </span>
+          <button onClick={() => setProgressiveTooltip(-1)} className="ml-1 w-6 h-6 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center text-white text-xs">✕</button>
+        </div>
+      )}
+
+      {/* Rating Modal - smooth transition */}
+      {showRating && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 modal-backdrop animate-fade-in">
+          <div className="modal-box animate-fade-in-up max-w-sm">
+            <h3 className="text-lg font-black text-white mb-4">Rate this conversation</h3>
+            <div className="flex gap-2 justify-center mb-6">
+              {[1, 2, 3, 4, 5].map((s) => (
+                <button key={s} onClick={() => submitRating(s)} className="w-12 h-12 rounded-xl bg-amber-500/20 hover:bg-amber-500/40 border border-amber-500/30 text-2xl transition-all active:scale-90">
                   ⭐
                 </button>
               ))}
             </div>
-            {aiSummary && (
-              <div className="mt-3 p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-left">
-                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400 mb-2">🤖 AI Chat Summary</p>
-                <p className="text-sm text-white/70">{aiSummary}</p>
-              </div>
-            )}
-            <button onClick={() => { setShowRating(false); setRatingDone(true); }} className="mt-4 text-white/30 text-xs hover:text-white/60 transition">Skip Rating</button>
+            <p className="text-xs text-slate-500 text-center">Your feedback helps improve Mana Mingle</p>
+            <button onClick={() => setShowRating(false)} className="mt-4 w-full py-2 rounded-xl bg-white/5 text-slate-400 text-sm font-bold">Skip</button>
           </div>
         </div>
       )}
 
-      {/* HEADER */}
-      <header className="app-header">
-        <div className="flex items-center gap-3">
-          <button
-            id="video-back-btn"
-            type="button"
-            onClick={handleBack}
-            className="btn btn-icon shrink-0"
-            title="Back to home"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div className="logo-icon text-sm shrink-0">M</div>
-          <div className="min-w-0">
-            <h1 className="font-bold text-white leading-none truncate">Mana Mingle</h1>
-            <p className="text-xs mt-0.5 truncate" style={{ color: 'rgba(232,234,246,0.45)' }}>
-              {status === 'idle' ? 'Ready to Video' : status === 'searching' ? 'Finding partner...' : 'Connected Anonymous'}
-            </p>
+      {/* AI Summary - smooth transition */}
+      {showSummary && aiSummary && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 modal-backdrop animate-fade-in">
+          <div className="modal-box animate-fade-in-up max-w-sm">
+            <h3 className="text-lg font-black text-indigo-400 mb-3">✨ Chat Summary</h3>
+            <p className="text-sm text-slate-300 whitespace-pre-wrap">{aiSummary}</p>
+            <button onClick={() => { setShowSummary(false); setAiSummary(null); }} className="mt-6 w-full py-3 rounded-xl bg-indigo-500 text-white font-bold">Close</button>
           </div>
-        </div>
-        <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap justify-end min-w-0 pr-2">
-          {connected && (
-            <>
-              {/* COMPACT MOBILE NAX / STATUS BAR */}
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <div className="hidden sm:block">
-                  <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} compact />
-                </div>
-                <div className="flex sm:hidden items-center gap-1 bg-black/20 px-2 py-1 rounded-full border border-white/5 backdrop-blur-sm">
-                   <span className="text-[10px] font-black text-amber-400">🪙 {balance}</span>
-                </div>
-
-                <div
-                  className={`flex px-2 py-0.5 rounded-md border text-[9px] font-black uppercase tracking-tighter gap-1 items-center shrink-0 ${connectionQuality === 'good'
-                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                    : connectionQuality === 'ok'
-                      ? 'bg-amber-500/10 border-amber-500/20 text-amber-300'
-                      : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
-                    }`}
-                >
-                  <div className={`w-1 h-1 rounded-full ${connectionQuality === 'good' ? 'bg-emerald-400' : connectionQuality === 'ok' ? 'bg-amber-300' : 'bg-rose-300'} animate-pulse`} />
-                  {latency ?? '—'}ms
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setIsTranslatorActive(!isTranslatorActive)}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider border transition-all ${isTranslatorActive ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-400' : 'bg-white/5 border-white/10 text-white/30'}`}
-                >
-                  <span className={`w-1 h-1 rounded-full ${isTranslatorActive ? 'bg-indigo-400 animate-pulse' : 'bg-white/20'}`} />
-                  {isTranslatorActive ? 'AI ON' : 'AI'}
-                </button>
-              </div>
-
-              <div className="online-pill hidden sm:flex shrink-0">
-                <div className="live-dot shrink-0" style={{ width: 6, height: 6 }} />
-                <span className="truncate text-[11px] sm:text-sm">{onlineCount?.toLocaleString()} online</span>
-              </div>
-            </>
-          )}
-        </div>
-      </header>
-
-      {/* MAIN */}
-      <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
-        {adsEnabled && (
-          <div className="w-full bg-white/5 border border-white/10 p-2 text-center text-white/30 text-[10px] font-mono uppercase tracking-widest hidden sm:flex items-center justify-center">
-            [Advertisement Placeholder Banner]
-          </div>
-        )}
-        <div className="flex-1 flex flex-col sm:flex-row min-h-0 overflow-hidden relative">
-          {/* VIDEO CONTAINER (uMingle Split Style) */}
-          <div className={`flex-1 min-h-0 relative flex sm:p-4 gap-0 sm:gap-4 ${showChat ? 'flex-col lg:flex-none lg:w-[480px] sm:w-[400px]' : 'flex-col sm:flex-row'}`}>
-            {/* SLOT 1: REMOTE (STRANGER) */}
-            <div className={`bg-[#07080f] overflow-hidden transition-all duration-500 ${showChat ? 'absolute inset-0 sm:relative sm:flex-1 sm:rounded-tl-[40px] sm:rounded-br-[40px] sm:border-2 border-indigo-500/30' : 'relative flex-1 sm:rounded-3xl sm:border-2 border-white/5'}`}>
-              {status === 'connected' && peer?.stream ? (
-                <>
-                  <RemoteVideoComponent stream={peer.stream} muted={mutedStranger} />
-                  <div className="absolute top-4 left-4 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 border border-white/10 backdrop-blur-md">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-xs font-black text-white/90 uppercase tracking-widest">{countryToFlag(peer.country)} Stranger</span>
-                    {/* NETWORK INDICATOR REMOTE */}
-                    <div className="flex gap-0.5 ml-1">
-                       <div className="w-1 h-2 bg-emerald-500/80 rounded-[1px]" />
-                       <div className="w-1 h-2.5 bg-emerald-500/80 rounded-[1px]" />
-                       <div className="w-1 h-3 bg-emerald-500/80 rounded-[1px]" />
-                    </div>
-                  </div>
-                  <div className="absolute top-4 right-4 z-20 flex gap-1.5">
-                    <button type="button" onClick={() => setMutedStranger(!mutedStranger)} className={`w-8 h-8 flex items-center justify-center rounded-lg bg-black/40 border border-white/10 text-white/60 hover:text-white transition-all ${mutedStranger ? 'text-amber-400' : ''}`}>
-                      {mutedStranger ? <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg> : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>}
-                    </button>
-                    <button type="button" onClick={handleSkip} className="w-8 h-8 flex items-center justify-center rounded-lg bg-rose-500/20 border border-rose-500/40 text-rose-400 hover:bg-rose-500 hover:text-white transition-all">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
-                    </button>
-                  </div>
-                </>
-              ) : status === 'searching' ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-[#0c0e1a]/90 backdrop-blur-sm">
-                  <div className="relative w-32 h-32 flex items-center justify-center">
-                    {/* Earth Animation */}
-                    <div className="absolute inset-0 rounded-full bg-indigo-900/20 border border-indigo-500/20 overflow-hidden shadow-[0_0_50px_rgba(99,102,241,0.2)]">
-                      <div className="absolute inset-0 bg-[url('https://upload.wikimedia.org/wikipedia/commons/c/c3/World_map_blue_dotted.svg')] bg-[length:200%] bg-center opacity-30 animate-[spin_30s_linear_infinite]" />
-                    </div>
-                    {/* Pulsing Rings */}
-                    <div className="absolute inset-0 rounded-full border border-cyan-500/10 animate-ping" />
-                    <div className="absolute inset-4 rounded-full border border-indigo-500/10 animate-ping" style={{ animationDelay: '0.5s' }} />
-                    
-                    {/* Network Nodes */}
-                    <div className="absolute inset-0 rounded-full animate-[spin_15s_linear_infinite_reverse]">
-                      <div className="absolute top-4 left-6 w-1 h-1 bg-white/80 rounded-full shadow-[0_0_8px_#fff]" />
-                      <div className="absolute top-12 right-4 w-1.5 h-1.5 bg-cyan-400 rounded-full shadow-[0_0_10px_#22d3ee]" />
-                      <div className="absolute bottom-6 left-10 w-1 h-1 bg-indigo-400 rounded-full shadow-[0_0_8px_#818cf8]" />
-                    </div>
-                    
-                    {/* Radar Sweep */}
-                    <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-transparent via-transparent to-indigo-500/20 animate-spin" style={{ animationDuration: '3s' }} />
-                    <div className="absolute z-10 w-4 h-4 rounded-full bg-indigo-500 shadow-[0_0_20px_rgba(99,102,241,1)] animate-pulse" />
-                  </div>
-                  <div className="text-center z-10">
-                    <div className="flex items-end justify-center text-xs font-black text-white/40 uppercase tracking-[0.4em] drop-shadow-lg">
-                      <span>Searching</span>
-                      <span className="flex tracking-[0.2em] ml-2 text-indigo-400">
-                        <span className="animate-[bounce_1s_infinite_0ms]">.</span>
-                        <span className="animate-[bounce_1s_infinite_150ms]">.</span>
-                        <span className="animate-[bounce_1s_infinite_300ms]">.</span>
-                      </span>
-                    </div>
-                    <p className="mt-2 text-[8px] font-bold text-white/20 uppercase tracking-[0.2em]">Connecting to global nodes</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#07080f]">
-                  <p className="text-xs font-black uppercase tracking-widest text-white/20">Press Start to Begin</p>
-                </div>
-              )}
-            </div>
-
-            {/* SLOT 2: LOCAL (YOU) */}
-            <div 
-              onClick={showChat ? togglePip : undefined}
-              className={`
-                bg-[#07080f] overflow-hidden transition-all duration-500 z-30
-                ${showChat 
-                  ? `absolute w-28 h-40 rounded-3xl border-2 border-indigo-500/50 cursor-pointer shadow-2xl sm:inset-auto sm:relative sm:w-auto sm:h-auto sm:flex-1 sm:rounded-tl-[40px] sm:rounded-br-[40px] sm:border-indigo-500/30 sm:cursor-auto sm:shadow-none ${pipPos === 'tl' ? 'top-4 left-4' : pipPos === 'tr' ? 'top-4 right-4' : pipPos === 'bl' ? 'bottom-24 left-4' : 'bottom-24 right-4'}`
-                  : 'relative flex-1 sm:rounded-3xl sm:border-2 border-white/5 cursor-auto'
-                }
-              `}
-            >
-              <video
-                ref={localVideoRef}
-                autoPlay
-                muted
-                playsInline
-                className={`absolute inset-0 w-full h-full object-cover scale-x-[-1] transition-all duration-700 ${cameraOff ? 'opacity-20' : ''}`}
-                style={cameraBlur ? { filter: 'blur(15px)', transform: 'scaleX(-1)' } : {}}
-              />
-              <div className="absolute top-4 left-4 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 border border-white/10 backdrop-blur-md">
-                <div className="w-2 h-2 rounded-full bg-blue-500" />
-                <span className="text-xs font-black text-white/90 uppercase tracking-widest">You</span>
-                {/* NETWORK INDICATOR LOCAL */}
-                <div className="flex gap-0.5 ml-1">
-                   <div className="w-1 h-2 bg-blue-500/80 rounded-[1px]" />
-                   <div className="w-1 h-2.5 bg-blue-500/80 rounded-[1px]" />
-                   <div className="w-1 h-3 bg-blue-500/80 rounded-[1px]" />
-                </div>
-              </div>
-
-              {/* VERTICAL CONTROL BAR (Right Side) */}
-              <div className="absolute top-1/2 right-3 -translate-y-1/2 z-30 flex flex-col items-center gap-3 px-2 py-4 rounded-full bg-black/5 border border-white/5 backdrop-blur-xl shadow-2xl justify-center pointer-events-auto scale-[0.8] origin-right transition-all hover:bg-black/10">
-                  {(status === 'idle' || status === 'disconnected') ? (
-                    <button onClick={handleStart} className="w-10 h-10 flex items-center justify-center rounded-full bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.4)] animate-pulse" title="Start">▶️</button>
-                  ) : (
-                    <>
-                      <button id="video-skip-btn" onClick={(e) => { e.stopPropagation(); handleSkip(); }} className="w-10 h-10 flex items-center justify-center rounded-full bg-amber-500 text-white shadow-lg active:scale-90 transition-all outline-none group relative overflow-hidden" title="Next Stranger">
-                        <span className="z-10 text-lg font-bold">⏭️</span>
-                        <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent" />
-                        <div className="absolute right-full mr-3 px-2 py-1 rounded bg-black/80 text-[8px] font-black uppercase tracking-widest text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">Next Stranger</div>
-                      </button>
-                      <div className="w-5 h-[1px] bg-white/5" />
-                      <button onClick={(e) => { e.stopPropagation(); toggleCamera(); }} title="Cam" className={`w-9 h-9 flex items-center justify-center rounded-full transition-all outline-none border ${cameraOff ? 'bg-rose-500 border-rose-400 text-white' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20'}`}>
-                        {cameraOff ? '📹' : '📸'}
-                      </button>
-                      <button onClick={(e) => { e.stopPropagation(); setCameraBlur(!cameraBlur); }} title="Blur" className={`w-9 h-9 flex items-center justify-center rounded-full transition-all outline-none border ${cameraBlur ? 'bg-indigo-500 border-indigo-400 text-white' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20'}`}>
-                        🫥
-                      </button>
-                      <button onClick={(e) => { e.stopPropagation(); setShowChat(!showChat); }} title="Chat" className={`w-9 h-9 flex items-center justify-center rounded-full transition-all outline-none border ${showChat ? 'bg-emerald-500 border-emerald-400 text-white' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20'}`}>
-                        💬
-                      </button>
-                      <div className="w-5 h-[1px] bg-white/5" />
-                      <button onClick={(e) => { e.stopPropagation(); handleStop(); }} title="Stop" className="w-9 h-9 flex items-center justify-center rounded-full bg-rose-500/5 border border-rose-500/10 text-rose-500/60 hover:bg-rose-500 hover:text-white hover:border-rose-400 transition-all outline-none group relative">
-                        🛑
-                        <div className="absolute right-full mr-3 px-2 py-1 rounded bg-black/80 text-[8px] font-black uppercase tracking-widest text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap italic text-rose-200">End Session</div>
-                      </button>
-                    </>
-                  )}
-              </div>
-            </div>
-
-
-          </div>
-
-          {/* CHAT PANEL (Overlay Mobile) */}
-          {showChat && (
-            <div className={`absolute inset-0 z-40 flex flex-col pointer-events-none sm:pointer-events-auto sm:static sm:flex-1 sm:h-full sm:bg-[#0d0f1c] sm:border-l sm:border-white/5 sm:z-40 animate-slide-in-right sm:animate-none`}>
-              <div className="hidden sm:flex p-4 border-b border-white/5 items-center justify-between">
-                <span className="text-xs font-black uppercase tracking-[0.2em] text-white/40">Chat Room</span>
-                <button onClick={() => setShowChat(false)} className="text-white/20 hover:text-white">✕</button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-4 space-y-4 pointer-events-none" id="video-chat-messages">
-                {(messages.length === 0 || !isConnected) && (
-                  <div className="hidden sm:block p-6 rounded-2xl bg-white/5 border border-white/5 space-y-3 mt-4">
-                    <p className="text-xs text-white/40 font-black uppercase tracking-widest">{isConnected ? "👋 Start the vibe!" : "🔒 Connect to Chat"}</p>
-                    <p className="text-[10px] text-white/20 uppercase font-bold leading-relaxed">No nudity • No harassment • Have fun</p>
-                  </div>
-                )}
-                <div className="flex-1" /> {/* Push content down if empty */}
-                {messages.map((m, i) => {
-                  const isMe = m.socketId === socket.id || m.fromSelf;
-                  if (now - m.ts > 30000) return null; // vanish in 30s
-                  return (
-                    <div key={m.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-message-pop`}>
-                      <div className={`px-4 py-2.5 rounded-2xl text-sm ${isMe ? 'bg-indigo-500 text-white rounded-tr-none' : 'bg-black/60 backdrop-blur-md text-white/90 rounded-tl-none border border-white/10'}`}>
-                        {m.text}
-                      </div>
-                      <span className="text-[8px] font-black uppercase text-white/40 mt-1 px-1 drop-shadow-md">{isMe ? 'You' : 'Stranger'} • {formatTime(m.ts)}</span>
-                    </div>
-                  );
-                })}
-                <div ref={chatEndRef} className="pb-32 sm:pb-2" />
-              </div>
-
-              <div className="p-4 sm:bg-[#0a0c16] sm:border-t sm:border-white/5 pointer-events-auto bg-gradient-to-t from-black/90 via-black/50 to-transparent sm:bg-none z-[50]">
-                {/* Mobile Quick Controls above text field */}
-                <div className="flex sm:hidden items-center justify-center gap-3 mb-4 scale-90">
-                     <button onClick={handleSkip} className="w-10 h-10 flex items-center justify-center rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-500 font-black text-[10px] uppercase">Skip</button>
-                     <button onClick={toggleCamera} className={`w-10 h-10 flex items-center justify-center rounded-xl ${cameraOff ? 'bg-rose-500 text-white' : 'bg-white/10 text-white/80'}`}>{cameraOff ? '📹' : '📸'}</button>
-                     <button onClick={() => setCameraBlur(!cameraBlur)} className={`w-10 h-10 flex items-center justify-center rounded-xl ${cameraBlur ? 'bg-indigo-500 text-white' : 'bg-white/10 text-white/80'}`}>🫥</button>
-                     <button onClick={handleStop} className="w-10 h-10 flex items-center justify-center rounded-xl bg-rose-500/20 border border-rose-500/30 text-rose-500 font-black text-[10px] uppercase">Stop</button>
-                </div>
-                
-                <div className="flex gap-2">
-                  <input
-                    ref={inputRef}
-                    id="video-chat-input"
-                    value={input}
-                    onChange={handleInputChange}
-                    onKeyDown={(e) => e.key === 'Enter' && sendMsg()}
-                    placeholder={isConnected ? "Say hello..." : "Connecting..."}
-                    disabled={!isConnected}
-                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500/50 outline-none transition-all placeholder:text-white/20"
-                  />
-                  <button id="video-chat-send-btn" onClick={sendMsg} disabled={!isConnected || !input.trim()} className="w-10 h-10 rounded-xl bg-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20 active:scale-95 transition-all">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </main>
-      {toast && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[120] px-4 py-2 rounded-full bg-black/80 border border-white/10 text-xs sm:text-sm text-white/90 shadow-lg">
-          {toast}
         </div>
       )}
     </div>

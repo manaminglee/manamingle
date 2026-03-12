@@ -94,7 +94,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
   const [chatInput, setChatInput] = useState('');
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
-  const [showChat, setShowChat] = useState(true);
+  const [showChat, setShowChat] = useState(false);
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [isTranslatorActive, setIsTranslatorActive] = useState(false);
   const [icebreaker] = useState(() => ICEBREAKERS[Math.floor(Math.random() * ICEBREAKERS.length)]);
@@ -133,6 +133,8 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
   const toastTimerRef = useRef(null);
   const inputRef = useRef(null);
   const [showEntryModal, setShowEntryModal] = useState(isQueuing);
+  const [showPreRoomWaiting, setShowPreRoomWaiting] = useState(false);
+  const [showReactionTooltip, setShowReactionTooltip] = useState(() => !localStorage.getItem('mm_grp_seen_reaction_tooltip'));
   const [localInterest, setLocalInterest] = useState(interestProp || 'general');
   const [joinRoomIdInput, setJoinRoomIdInput] = useState('');
   const [activeInterests, setActiveInterests] = useState([]);
@@ -464,6 +466,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
       if (data.interest) setDisplayInterest(data.interest);
       if (!hasJoinedRef.current) { hasJoinedRef.current = true; onJoined(rid); }
       setParticipantCount(data.participantCount ?? 1);
+      setShowPreRoomWaiting(false);
     };
 
     const onExistingPeers = (data) => {
@@ -794,6 +797,21 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
   return (
     <div className="h-screen flex flex-col bg-[#1a1d21] text-white overflow-hidden font-sans select-none">
       {/* QUEUING OVERLAY */}
+      {/* Pre-room waiting experience (emotional hook) */}
+      {showPreRoomWaiting && (
+        <div className="absolute inset-0 z-[240] bg-[#0c0e1a]/98 backdrop-blur-3xl flex flex-col items-center justify-center p-8 text-center animate-fade-in">
+          <div className="relative w-24 h-24 mb-8">
+            <div className="radar-ring absolute inset-0 border-indigo-500/40" />
+            <div className="radar-ring absolute inset-4" style={{ animationDelay: '0.4s', borderColor: 'rgba(99,102,241,0.3)' }} />
+            <div className="absolute inset-0 flex items-center justify-center text-4xl">🎥</div>
+          </div>
+          <p className="text-sm font-bold text-white/90 mb-2">Preparing your camera...</p>
+          <p className="text-indigo-400 font-semibold mb-1">🌎 Matching with people who like <span className="capitalize">{displayInterest}</span></p>
+          <p className="text-xs text-white/50 mb-8">👥 Looking for up to 3 others</p>
+          <div className="search-dots scale-125"><span /><span /><span /></div>
+        </div>
+      )}
+
       {queuePos !== null && (
         <div className="absolute inset-0 z-[250] bg-[#0c0e1a]/95 backdrop-blur-3xl flex flex-col items-center justify-center p-6 text-center animate-fade-in">
           <div className="relative w-32 h-32 mb-8">
@@ -846,8 +864,9 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
                 onClick={() => {
                    if(!localInterest.trim()) return alert("Interest is mandatory!");
                    setDisplayInterest(localInterest.trim());
-                   socket.emit('join-group-by-interest', { interest: localInterest.trim(), nickname: 'Anonymous', mode: 'group_video' });
                    setShowEntryModal(false);
+                   setShowPreRoomWaiting(true);
+                   socket.emit('join-group-by-interest', { interest: localInterest.trim(), nickname: 'Anonymous', mode: 'group_video' });
                 }}
                 className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition-all"
               >
@@ -899,30 +918,13 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
         </div>
       )}
 
-      {/* TOP MEETING BAR */}
-      <header className="h-14 flex-shrink-0 flex items-center justify-between px-6 bg-[#1a1d21] border-b border-white/5 z-[80]">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center font-black text-white">M</div>
-            <h1 className="font-bold text-sm tracking-tight hidden sm:block">Mana Mingle Meeting</h1>
-          </div>
-          <div className="h-4 w-[1px] bg-white/10 hidden sm:block" />
-          <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/5 border border-white/5">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-white/60">{formatTimer(connectedSecs)}</span>
-          </div>
+      {/* TOP BAR - minimal: logo + participants count + tap for more */}
+      <header className="h-12 sm:h-14 flex-shrink-0 flex items-center justify-between px-4 sm:px-6 bg-[#1a1d21] border-b border-white/5 z-[80]">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center font-black text-white shrink-0">M</div>
+          <span className="text-[10px] font-bold text-white/60 hidden sm:inline">{formatTimer(connectedSecs)} · {participantCount}/4</span>
         </div>
-
-        <div className="flex items-center gap-3">
-          <div className="hidden md:flex items-center gap-2 mr-4">
-            <span className="text-[10px] font-black uppercase text-white/30 tracking-widest">Meeting ID:</span>
-            <span className="text-[10px] font-mono text-indigo-400 font-bold bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">{(roomId || roomIdRef.current || 'QUEUING').substring(0, 8)}</span>
-          </div>
-          <button onClick={copyRoomLink} className="h-8 px-3 rounded-lg bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">Copy Link</button>
-          <button onClick={() => setViewMode(viewMode === 'grid' ? 'speaker' : 'grid')} className="h-8 px-3 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-[10px] font-black uppercase tracking-widest text-indigo-400 hover:bg-indigo-500 hover:text-white transition-all">
-            {viewMode === 'grid' ? 'Speaker View' : 'Grid View'}
-          </button>
-        </div>
+        <button onClick={copyRoomLink} className="h-8 px-2.5 rounded-lg bg-white/5 border border-white/10 text-[9px] font-bold uppercase tracking-wider hover:bg-white/10 transition-all">Copy Link</button>
       </header>
 
       {/* MAIN VIEWPORT */}
@@ -954,15 +956,24 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
               <div className="absolute inset-0 flex items-center justify-center p-2 sm:p-4">
                 <div className="grid grid-cols-2 grid-rows-2 w-full max-w-6xl aspect-video gap-3 sm:gap-6">
                 {tiles.map((tile, idx) => (
-                  <div key={idx} className={`relative sm:aspect-video rounded-3xl sm:rounded-tl-[40px] sm:rounded-br-[40px] sm:rounded-tr-none sm:rounded-bl-none overflow-hidden border-2 border-indigo-500/30 bg-[#0c0e1a] shadow-2xl transition-all duration-500 ${activeSpeakerId === (tile.type === 'peer' ? tile.peer.socketId : null) ? 'ring-4 ring-indigo-500/50 border-indigo-500' : ''}`}>
+                  <div
+                    key={idx}
+                    onDoubleClick={() => tile.type === 'peer' && tile.peer?.stream && sendReaction('👏')}
+                    className={`relative sm:aspect-video rounded-3xl sm:rounded-tl-[40px] sm:rounded-br-[40px] sm:rounded-tr-none sm:rounded-bl-none overflow-hidden border-2 border-indigo-500/30 bg-[#0c0e1a] shadow-2xl transition-all duration-500 cursor-pointer ${activeSpeakerId === (tile.type === 'peer' ? tile.peer?.socketId : null) ? 'ring-4 ring-indigo-500/50 border-indigo-500 shadow-[0_0_25px_rgba(99,102,241,0.5)]' : ''}`}
+                  >
                     {tile.type === 'local' ? (
                       <video ref={localVideoRef} autoPlay muted playsInline className={`absolute inset-0 w-full h-full object-cover scale-x-[-1] transition-opacity duration-500 ${cameraOff ? 'opacity-20' : 'opacity-100'}`} style={cameraBlur ? { filter: 'blur(15px)', transform: 'scaleX(-1)' } : {}} />
                     ) : (tile.type === 'peer' && tile.peer.stream) ? (
                       <RemoteVideoTile stream={tile.peer.stream} socketId={tile.peer.socketId} />
                     ) : (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                        <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-2xl font-black text-white/10 select-none">M</div>
-                        <p className="text-[8px] font-black uppercase tracking-[0.3em] text-white/20">{tile.type === 'searching' ? 'Scanning...' : 'Empty Slot'}</p>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-4">
+                        <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-2xl font-black text-white/10 select-none">👤</div>
+                        <p className="text-[10px] font-bold text-white/40">{tile.type === 'searching' ? 'Scanning...' : 'Waiting for player...'}</p>
+                        {tile.type === 'empty' && (
+                          <button type="button" onClick={(e) => { e.stopPropagation(); copyRoomLink(); }} className="mt-2 px-3 py-1.5 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 text-[9px] font-bold uppercase tracking-wider hover:bg-indigo-500/30 transition-all">
+                            Copy Invite Link
+                          </button>
+                        )}
                       </div>
                     )}
 
@@ -1060,18 +1071,18 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
           )}
 
           {showChat && (
-            <div className="absolute inset-x-0 bottom-0 top-1/2 z-50 pointer-events-none sm:pointer-events-auto sm:static sm:flex-1 sm:w-80 sm:h-full bg-black/20 sm:bg-[#1a1d21] border-t sm:border-t-0 sm:border-l border-white/5 flex flex-col animate-slide-in-up sm:animate-slide-in-right">
-              <div className="hidden sm:flex p-4 border-b border-white/5 items-center justify-between">
-                <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">In-Meeting Chat</h2>
-                <button onClick={() => setShowChat(false)} className="text-white/20 hover:text-white">✕</button>
+            <div className="fixed sm:absolute inset-y-0 right-0 w-full max-w-sm sm:max-w-none sm:relative sm:flex-1 sm:w-80 z-50 flex flex-col bg-[#1a1d21]/98 sm:bg-[#1a1d21] border-l border-white/10 shadow-2xl sm:shadow-none animate-slide-in-right sm:static">
+              <div className="flex p-4 border-b border-white/5 items-center justify-between">
+                <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">Chat</h2>
+                <button onClick={() => setShowChat(false)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all">✕</button>
               </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-4 pointer-events-none" id="group-video-chat-messages">
+              <div className="flex-1 overflow-y-auto p-4 space-y-4" id="group-video-chat-messages">
                 {messages.map((m, i) => {
                   const isMe = m.socketId === socket.id;
                   const now = Date.now();
-                  if (m.ts && now - m.ts > 30000) return null; // 30s vanish
+                  const isOld = m.ts && now - m.ts > 30000;
                   return (
-                    <div key={i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-message-pop`}>
+                    <div key={i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-message-pop transition-opacity duration-500 ${isOld ? 'opacity-40' : 'opacity-100'}`}>
                       {!m.system && <span className="text-[8px] font-black uppercase text-white/20 mb-1 px-1">{m.nickname || 'Stranger'}</span>}
                       <div className={`px-4 py-2 rounded-2xl text-xs ${m.system ? 'bg-white/5 text-white/30 italic text-[10px]' : isMe ? 'bg-indigo-500 text-white rounded-tr-none' : 'bg-black/60 backdrop-blur-md text-white/90 rounded-tl-none border border-white/10'}`}>
                         {m.text}
@@ -1081,9 +1092,20 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
                 })}
                 <div ref={chatEndRef} />
               </div>
-              <div className="p-4 sm:bg-[#16191c] sm:border-t sm:border-white/5 pointer-events-auto bg-gradient-to-t from-black/80 to-transparent">
-                 {/* Mobile Quick Controls above input */}
-                 <div className="flex sm:hidden items-center justify-center gap-4 mb-4 scale-90">
+              <div className="p-4 sm:bg-[#16191c] sm:border-t sm:border-white/5 bg-[#16191c] border-t border-white/5">
+                 {/* Icebreaker - send conversation starter */}
+                 {icebreaker && (
+                   <div className="mb-4 p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
+                     <p className="text-[9px] font-bold uppercase tracking-widest text-indigo-400 mb-2">💡 Conversation starter</p>
+                     <p className="text-xs text-white/80 mb-2">{icebreaker}</p>
+                     <div className="flex gap-2">
+                       <button onClick={() => { setChatInput(icebreaker); inputRef.current?.focus(); }} className="px-3 py-1.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-[10px] font-bold uppercase tracking-wider transition-all">Use</button>
+                       <button onClick={() => { const t = icebreaker; const rid = roomIdRef.current || roomId; if (socket && rid && t) { socket.emit('send-message', { roomId: rid, text: t }); setToast('Conversation starter sent!'); } }} className="px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white text-[10px] font-bold uppercase tracking-wider transition-all">Send</button>
+                     </div>
+                   </div>
+                 )}
+                 {/* Mobile Quick Controls above input - hidden, use bottom bar */}
+                 <div className="hidden sm:flex sm:hidden items-center justify-center gap-4 mb-4 scale-90">
                      <button onClick={toggleMute} className={`w-9 h-9 rounded-xl flex items-center justify-center ${muted ? 'bg-rose-500' : 'bg-white/10'}`}>{muted ? '🔇' : '🎤'}</button>
                      <button onClick={toggleCamera} className={`w-9 h-9 rounded-xl flex items-center justify-center ${cameraOff ? 'bg-rose-500' : 'bg-white/10'}`}>{cameraOff ? '📷' : '📹'}</button>
                      <button onClick={toggleHandRaise} className={`w-9 h-9 rounded-xl flex items-center justify-center ${handRaised ? 'bg-amber-400' : 'bg-white/10'}`}>✋</button>
@@ -1091,7 +1113,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
                  </div>
 
                 <div className="flex gap-2">
-                  <input autoFocus value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMessage()} placeholder="Message..." className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-indigo-500/50 transition-all placeholder:text-white/20" />
+                  <input ref={inputRef} id="group-video-chat-input" autoFocus value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMessage()} placeholder="Message..." className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-indigo-500/50 transition-all placeholder:text-white/20" />
                   <button onClick={sendMessage} className="w-10 h-10 rounded-xl bg-indigo-500 text-white flex items-center justify-center active:scale-95 transition-all shadow-lg shadow-indigo-500/20">🚀</button>
                 </div>
               </div>
@@ -1125,7 +1147,13 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
              <span className="text-sm">✋</span>
           </button>
           <div className="relative group">
-            <button className="w-9 h-9 flex items-center justify-center rounded-full bg-white/5 text-white/70 hover:bg-white/10 transition-all">
+            {showReactionTooltip && (
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-indigo-600 text-white text-[10px] font-bold rounded-lg shadow-lg z-[160] animate-slide-in-up max-w-[200px] text-center">
+                👋 Tap for reactions · Double-tap video for 👏
+                <button type="button" onClick={() => { setShowReactionTooltip(false); localStorage.setItem('mm_grp_seen_reaction_tooltip', '1'); }} className="block mx-auto mt-1 text-white/70 hover:text-white text-[9px]">Got it</button>
+              </div>
+            )}
+            <button onClick={() => showReactionTooltip && (setShowReactionTooltip(false), localStorage.setItem('mm_grp_seen_reaction_tooltip', '1'))} className="w-9 h-9 flex items-center justify-center rounded-full bg-white/5 text-white/70 hover:bg-white/10 transition-all">
               <span className="text-sm">😀</span>
             </button>
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 p-2 bg-[#2a2d32]/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl flex gap-1.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all scale-75 group-hover:scale-100">
@@ -1138,9 +1166,16 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
 
         <div className="h-4 w-[1px] bg-white/5 mx-1" />
 
-        <button onClick={onLeave} className="px-4 py-1.5 rounded-full bg-rose-600/10 border border-rose-500/20 hover:bg-rose-600 text-white text-[9px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">
-          Leave
-        </button>
+        <div className="flex items-center gap-2">
+          {onFindNewPod && (
+            <button onClick={onFindNewPod} className="px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/30 hover:bg-amber-500/30 text-amber-400 text-[9px] font-black uppercase tracking-widest transition-all">
+              Find New Group
+            </button>
+          )}
+          <button onClick={onLeave} className="px-4 py-1.5 rounded-full bg-rose-600/10 border border-rose-500/20 hover:bg-rose-600 text-white text-[9px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">
+            Leave Room
+          </button>
+        </div>
       </footer>
 
       {toast && (

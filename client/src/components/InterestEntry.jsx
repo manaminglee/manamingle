@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+// Optional: pass podCounts={{ gaming: 43, music: 12, ... }} for live counts
 const REALMS = [
   { id: 'gaming', label: 'Gaming', emoji: '🎮' },
   { id: 'music', label: 'Music', emoji: '🎵' },
@@ -23,17 +24,21 @@ const VIBES = [
   { id: 'learn', label: 'Learn something', desc: 'Share knowledge' },
 ];
 
-export function InterestEntry({ onJoin, connected }) {
+export function InterestEntry({ onJoin, connected, podCounts }) {
   const [realm, setRealm] = useState('');
-  const [vibe, setVibe] = useState('');
+  const [vibe, setVibe] = useState('chill');
   const [nickname, setNickname] = useState('');
   const [customRealm, setCustomRealm] = useState('');
+  const [isJoining, setIsJoining] = useState(false);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const interest = realm || customRealm.trim().toLowerCase();
-    if (!interest) return;
+  const handleSubmit = (e, quickMatch = false) => {
+    e?.preventDefault();
+    const interest = quickMatch ? REALMS[Math.floor(Math.random() * REALMS.length)].id : (realm || customRealm.trim().toLowerCase());
+    if (!interest && !quickMatch) return;
+    setIsJoining(true);
     onJoin(interest, nickname.trim() || 'Anonymous', vibe || 'chill');
+    // Reset joining state when parent navigates (connection flow handles transition)
+    setTimeout(() => setIsJoining(false), 3000);
   };
 
   const selected = realm || customRealm;
@@ -53,8 +58,8 @@ export function InterestEntry({ onJoin, connected }) {
             <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-realm-mint via-realm-teal to-realm-gold font-display tracking-tight">
               Realm
             </h1>
-            <p className="text-realm-muted mt-2 text-sm">
-              Step into a pod. Find your vibe. Max 4 per pod.
+            <p className="text-realm-muted mt-2 text-sm max-w-md mx-auto">
+              Join a small chat pod (max 4 people) based on shared interests.
             </p>
           </div>
 
@@ -74,14 +79,17 @@ export function InterestEntry({ onJoin, connected }) {
                     key={r.id}
                     type="button"
                     onClick={() => { setRealm(r.id); setCustomRealm(''); }}
-                    className={`px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                    className={`px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:shadow-lg hover:shadow-teal-500/20 ${
                       realm === r.id
-                        ? 'bg-realm-teal/20 text-realm-mint border border-realm-teal/50 shadow-pod'
+                        ? 'bg-realm-teal/20 text-realm-mint border border-realm-teal/50 shadow-pod scale-105 shadow-lg'
                         : 'bg-realm-card text-realm-muted border border-realm-border hover:border-realm-muted/50 hover:text-white'
                     }`}
                   >
                     <span className="mr-1.5">{r.emoji}</span>
                     {r.label}
+                    {podCounts?.[r.id] != null && (
+                      <span className="ml-1.5 text-[10px] text-realm-muted font-normal">{podCounts[r.id]} pods</span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -117,7 +125,7 @@ export function InterestEntry({ onJoin, connected }) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-realm-muted mb-1">Display name</label>
+              <label className="block text-sm font-medium text-realm-muted mb-1">Display name (optional)</label>
               <input
                 type="text"
                 value={nickname}
@@ -129,12 +137,30 @@ export function InterestEntry({ onJoin, connected }) {
               />
             </div>
 
+            <p className="text-xs text-realm-muted/70 -mt-2">Pod size: 2–4 people</p>
+
             <button
               type="submit"
-              disabled={!connected || !selected}
-              className="w-full py-4 rounded-2xl font-semibold text-realm-void bg-gradient-to-r from-realm-mint to-realm-teal hover:from-realm-teal hover:to-realm-mint focus:ring-2 focus:ring-realm-mint/50 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300 shadow-pod"
+              disabled={!connected || !selected || isJoining}
+              className="w-full py-4 rounded-2xl font-semibold text-realm-void bg-gradient-to-r from-realm-mint to-realm-teal hover:from-realm-teal hover:to-realm-mint focus:ring-2 focus:ring-realm-mint/50 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300 shadow-pod flex items-center justify-center gap-2"
             >
-              Enter pod
+              {isJoining ? (
+                <>
+                  <span className="animate-pulse">🔎</span>
+                  <span>Searching pod...</span>
+                </>
+              ) : (
+                'Find My Pod'
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={(e) => handleSubmit(e, true)}
+              disabled={!connected || isJoining}
+              className="w-full py-2.5 rounded-xl text-sm font-medium text-realm-muted border border-realm-border hover:border-realm-teal/40 hover:text-realm-mint transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Quick Match — random pod
             </button>
           </form>
 

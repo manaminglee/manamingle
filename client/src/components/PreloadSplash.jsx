@@ -3,13 +3,59 @@
  */
 import { useEffect, useState, useRef } from 'react';
 
-const FALLBACK_MS = 6000;
+const FALLBACK_MS = 3500;
+const SKIP_AFTER_MS = 3000;
 
-export function PreloadSplash({ onReady, ready = false }) {
-  const [visible, setVisible] = useState(true);
+const PRELOAD_MESSAGES = [
+  'Connecting to servers',
+  'Preparing video engine',
+  'Loading chat modules',
+  'Initializing...',
+  'Almost ready...',
+];
+
+export function PreloadSplash({ onReady, ready = false, onPreload }) {
+  const alreadyShown = typeof sessionStorage !== 'undefined' && !!sessionStorage.getItem('splashShown');
+  const [visible, setVisible] = useState(!alreadyShown);
   const [progress, setProgress] = useState(0);
   const [fading, setFading] = useState(false);
+  const [messageIndex, setMessageIndex] = useState(0);
+  const [showSkip, setShowSkip] = useState(false);
   const doneRef = useRef(false);
+  const skipShownRef = useRef(false);
+
+  // Skip re-show: call onReady immediately if splash was already shown this session
+  useEffect(() => {
+    if (alreadyShown) onReady?.();
+  }, [alreadyShown, onReady]);
+
+  // Optional preload callback (e.g. socket connect, ICE fetch)
+  useEffect(() => {
+    onPreload?.();
+  }, [onPreload]);
+
+  // Show skip button after 3 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setElapsed((e) => {
+        const next = e + 200;
+        if (next >= SKIP_AFTER_MS && !skipShownRef.current) {
+          skipShownRef.current = true;
+          setShowSkip(true);
+        }
+        return next;
+      });
+    }, 200);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Rotating messages
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setMessageIndex((i) => (i + 1) % PRELOAD_MESSAGES.length);
+    }, 800);
+    return () => clearInterval(interval);
+  }, []);
 
   // Fallback: let user through after FALLBACK_MS if socket never connects
   useEffect(() => {
@@ -20,6 +66,7 @@ export function PreloadSplash({ onReady, ready = false }) {
     return () => clearTimeout(t);
   }, []);
 
+  // Progress curve: 0–70% fast, 70–90% slow, 90–100% instant
   useEffect(() => {
     if (!ready) return;
     const interval = setInterval(() => {
@@ -28,15 +75,18 @@ export function PreloadSplash({ onReady, ready = false }) {
           clearInterval(interval);
           return 100;
         }
-        return Math.min(100, p + 10);
+        if (p < 70) return Math.min(70, p + 12);
+        if (p < 90) return Math.min(90, p + 3);
+        return Math.min(100, p + 1);
       });
-    }, 35);
+    }, 50);
     return () => clearInterval(interval);
   }, [ready]);
 
   useEffect(() => {
     if (progress >= 100 && !doneRef.current) {
       doneRef.current = true;
+      if (typeof sessionStorage !== 'undefined') sessionStorage.setItem('splashShown', 'true');
       setFading(true);
       const t = setTimeout(() => {
         setVisible(false);
@@ -46,7 +96,20 @@ export function PreloadSplash({ onReady, ready = false }) {
     }
   }, [progress, onReady]);
 
+  const handleSkip = () => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    if (typeof sessionStorage !== 'undefined') sessionStorage.setItem('splashShown', 'true');
+    setProgress(100);
+    setFading(true);
+    setTimeout(() => {
+      setVisible(false);
+      onReady?.();
+    }, 400);
+  };
+
   if (!visible) return null;
+  if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('splashShown')) return null;
 
   return (
     <div
@@ -61,35 +124,46 @@ export function PreloadSplash({ onReady, ready = false }) {
         }}
       />
       <div className="absolute inset-0 overflow-hidden">
-        <div className="preload-grid" />
+        <div className="preload-grid animate-preload-grid-drift" />
       </div>
 
       {/* Logo */}
-      <div className="relative z-10 flex flex-col items-center gap-8">
-        <div className="preload-logo">
+      <div className="relative z-10 flex flex-col items-center gap-6">
+        <div className="preload-logo animate-pulse">
           <span className="text-4xl font-black text-white">M</span>
         </div>
         <div className="text-center">
           <h1 className="text-xl font-bold tracking-tight text-white">Mana Mingle</h1>
-          <p className="text-xs mt-1 text-white/40">WeConnect</p>
+          <p className="text-xs mt-1 text-white/40">Anonymous Social Discovery</p>
         </div>
 
         {/* Loading bar */}
         <div className="w-48 h-1 rounded-full bg-white/10 overflow-hidden">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-300 ease-out"
+            className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-500 ease-out"
             style={{ width: `${progress}%` }}
           />
         </div>
 
-        {/* Loading dots */}
-        <div className="flex items-center gap-2">
-          <div className="preload-dots">
-            <span /><span /><span />
+        {/* Loading dots + rotating message */}
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex items-center gap-2">
+            <div className="preload-dots">
+              <span /><span /><span />
+            </div>
+            <span className="text-xs text-white/50 min-w-[140px] text-left">
+              {progress >= 100 ? 'Ready!' : PRELOAD_MESSAGES[messageIndex]}
+            </span>
           </div>
-          <span className="text-xs text-white/50">
-            {ready ? (progress < 100 ? 'Loading...' : 'Ready!') : 'Initializing...'}
-          </span>
+          {showSkip && progress < 100 && (
+            <button
+              type="button"
+              onClick={handleSkip}
+              className="text-xs text-white/40 hover:text-indigo-400 transition-colors mt-2"
+            >
+              Continue anyway →
+            </button>
+          )}
         </div>
       </div>
     </div>

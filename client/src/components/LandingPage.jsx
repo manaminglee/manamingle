@@ -182,14 +182,19 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
       </header>
 
       {/* HERO SECTION */}
-      <section className="relative z-10 max-w-6xl mx-auto px-6 pt-10 pb-8 text-center">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-indigo-500/20 bg-indigo-500/5 text-indigo-300 text-xs font-semibold mb-5 animate-fade-in-up shadow-lg shadow-indigo-500/5 hover:border-indigo-500/40 transition-all cursor-default">
+      <section className="relative z-10 max-w-6xl mx-auto px-6 pt-6 pb-6 md:pt-10 md:pb-8 text-center">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-indigo-500/20 bg-indigo-500/5 text-indigo-300 text-xs font-semibold mb-4 animate-fade-in-up shadow-lg shadow-indigo-500/5 hover:border-indigo-500/40 transition-all cursor-default">
           <span className="relative flex h-1.5 w-1.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-indigo-500"></span>
           </span>
           No Accounts. No Tracking. Pure Social Discovery.
         </div>
+
+        {/* Live Activity - prominent */}
+        <p className="text-lg md:text-xl font-bold text-emerald-400/90 mb-4 animate-fade-in-up delay-75">
+          🌍 {onlineCount.toLocaleString()} people online now
+        </p>
 
         <h1 className="text-4xl md:text-5xl font-black leading-[1.15] tracking-tight mb-4 animate-fade-in-up delay-100">
           <span className="text-white">Mana Mingle:</span>
@@ -203,107 +208,53 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
           conversations with 100% privacy by default.
         </p>
 
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 animate-fade-in-up delay-300 mb-6">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 animate-fade-in-up delay-300 mb-4">
           <button
             id="hero-start-btn"
-            onClick={() => onJoin(getInterest(), 'Anonymous', 'video')}
-            className="btn btn-primary px-6 py-3 text-base rounded-xl w-full sm:w-auto shadow-xl shadow-indigo-600/20 group hover:scale-[1.02] active:scale-[0.98] transition-all"
+            onClick={() => onJoin('general', 'Anonymous', 'video')}
+            disabled={!connected || isJoining}
+            className="btn btn-primary px-6 py-3 text-base rounded-xl w-full sm:w-auto shadow-xl shadow-indigo-600/20 group hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Start Video Chat <span className="ml-2 group-hover:translate-x-1 transition-transform inline-block">→</span>
+            Meet Random Stranger <span className="ml-2 group-hover:translate-x-1 transition-transform inline-block">→</span>
           </button>
+          <span className="text-sm text-white/40 font-medium">OR</span>
           <button
-            id="hero-howit-btn"
-            onClick={() => setModal('safety')}
+            id="hero-interest-btn"
+            onClick={scrollToStart}
             className="btn btn-ghost px-6 py-3 text-base rounded-xl w-full sm:w-auto border border-white/5 hover:bg-white/5 transition-all"
           >
-            Safety First
+            Match by Interest
           </button>
         </div>
 
+        {/* Trust signals */}
+        <div className="flex flex-wrap justify-center gap-4 md:gap-6 text-sm text-white/70 animate-fade-in-up delay-400 mb-2">
+          <span className="flex items-center gap-1.5">✔ 100% Anonymous</span>
+          <span className="flex items-center gap-1.5">✔ No Sign-Up Required</span>
+          <span className="flex items-center gap-1.5">✔ AI Safety Monitoring</span>
+        </div>
+
+        <button
+          onClick={() => setModal('safety')}
+          className="text-xs text-white/40 hover:text-indigo-400 transition-colors mt-2"
+        >
+          Safety First →
+        </button>
       </section>
 
       <div className="section-divider" />
 
-      {/* CHOOSE MODE SECTION */}
+      {/* MODE CARDS - moved up for faster conversion */}
       <section ref={startRef} className="relative z-10 max-w-7xl mx-auto px-6 py-6 scroll-mt-20">
         <div className="text-center mb-6 max-w-2xl mx-auto">
-          <h2 className="text-4xl md:text-6xl font-black text-white mb-6 tracking-tight">Select Your Experience</h2>
-          <p className="text-lg leading-relaxed" style={{ color: 'rgba(232,234,246,0.45)' }}>
-            Jump into a private conversation instantly. Our WeConnect technology handles the
-            heavy lifting of security and speed.
+          <h2 className="text-3xl md:text-5xl font-black text-white mb-4 tracking-tight">Select Your Experience</h2>
+          <p className="text-base md:text-lg leading-relaxed" style={{ color: 'rgba(232,234,246,0.45)' }}>
+            Jump into a private conversation instantly.
           </p>
         </div>
 
-        <div className="interests-container animate-fade-in-up delay-400">
-          <h4>Match by Interest <span className="font-normal opacity-50 ml-1">(Optional)</span></h4>
-          <div className="interest-tags-wrap">
-            {INTERESTS.filter(r => !interests.find(i => i.id === r.id)).map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                id={`interest-${r.id}`}
-                onClick={() => addInterest(r.id)}
-                className="interest-tag"
-              >
-                <span>{r.label}</span>
-              </button>
-            ))}
-          </div>
-          <div className="custom-interest-box flex items-center flex-wrap gap-2">
-            {interests.map((i) => (
-              <div key={i.id} className="flex items-center gap-2 bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-lg text-sm font-medium border border-indigo-500/30">
-                {i.label}
-                <button
-                  onClick={() => removeInterest(i.id)}
-                  className="hover:text-white opacity-70 hover:opacity-100 transition-opacity flex items-center justify-center p-0.5"
-                  title="Remove"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            ))}
-            <input
-              id="custom-interest-input"
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleInputKeyDown}
-              placeholder={interests.length === 0 ? "Type a topic and press Enter..." : "Add another..."}
-              maxLength={30}
-              className="flex-1 min-w-[150px] bg-transparent border-none outline-none text-white focus:ring-0 p-1 m-0"
-              style={{ boxShadow: 'none' }}
-            />
-          </div>
-        </div>
-
-        {/* AI Suggestions */}
-        <div className="flex flex-wrap items-center gap-2 mb-8 min-h-[32px]">
-          <button
-            onClick={getAiSuggestions}
-            disabled={isSuggesting}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all text-[10px] font-bold uppercase tracking-wider ${isSuggesting ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-400 cursor-wait' : 'bg-white/5 border-white/10 text-white/30 hover:border-indigo-500/40 hover:text-indigo-400 hover:bg-indigo-500/10'}`}
-          >
-            <svg className={`w-3 h-3 ${isSuggesting ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            {isSuggesting ? 'Thinking...' : 'AI Suggestions'}
-          </button>
-          {suggestedInterests.map((s, idx) => (
-            <button
-              key={idx}
-              onClick={() => addInterest(s)}
-              className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[10px] text-white/50 hover:bg-white/10 hover:border-white/20 transition-all animate-fade-in"
-              style={{ animationDelay: `${idx * 100}ms` }}
-            >
-              #{s}
-            </button>
-          ))}
-        </div>
-
-        {/* Mode cards grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Mode cards grid - FIRST */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
           {/* TEXT CHAT */}
           <div className="mode-card group animate-fade-in-up delay-100">
             <div className="icon-wrap" style={{ background: 'rgba(99,102,241,0.15)', borderColor: 'rgba(99,102,241,0.25)' }}>
@@ -383,6 +334,95 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
             </button>
           </div>
         </div>
+
+        {/* Interest selection - SECOND */}
+        <div className="interests-container animate-fade-in-up">
+          <h4>Match by Interest <span className="font-normal opacity-50 ml-1">(Optional)</span></h4>
+          <div className="interest-tags-wrap">
+            {INTERESTS.filter(r => !interests.find(i => i.id === r.id)).map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                id={`interest-${r.id}`}
+                onClick={() => addInterest(r.id)}
+                className="interest-tag"
+              >
+                <span>{r.label}</span>
+              </button>
+            ))}
+          </div>
+          <div className="custom-interest-box flex items-center flex-wrap gap-2">
+            {interests.map((i) => (
+              <div key={i.id} className="flex items-center gap-2 bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-lg text-sm font-medium border border-indigo-500/30">
+                {i.label}
+                <button
+                  onClick={() => removeInterest(i.id)}
+                  className="hover:text-white opacity-70 hover:opacity-100 transition-opacity flex items-center justify-center p-0.5"
+                  title="Remove"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+            <input
+              id="custom-interest-input"
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleInputKeyDown}
+              placeholder={interests.length === 0 ? "Type a topic and press Enter..." : "Add another..."}
+              maxLength={30}
+              className="flex-1 min-w-[150px] bg-transparent border-none outline-none text-white focus:ring-0 p-1 m-0"
+              style={{ boxShadow: 'none' }}
+            />
+          </div>
+        </div>
+
+        {/* AI Suggestions */}
+        <div className="flex flex-wrap items-center gap-2 mt-4 mb-4 min-h-[32px]">
+          <button
+            onClick={getAiSuggestions}
+            disabled={isSuggesting}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all text-[10px] font-bold uppercase tracking-wider ${isSuggesting ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-400 cursor-wait' : 'bg-white/5 border-white/10 text-white/30 hover:border-indigo-500/40 hover:text-indigo-400 hover:bg-indigo-500/10'}`}
+          >
+            <svg className={`w-3 h-3 ${isSuggesting ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            {isSuggesting ? 'Thinking...' : '✨ Suggest Topics'}
+          </button>
+          {suggestedInterests.map((s, idx) => (
+            <button
+              key={idx}
+              onClick={() => addInterest(s)}
+              className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[10px] text-white/50 hover:bg-white/10 hover:border-white/20 transition-all animate-fade-in"
+              style={{ animationDelay: `${idx * 100}ms` }}
+            >
+              #{s}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <div className="section-divider" />
+
+      {/* WHY PEOPLE LOVE IT */}
+      <section className="relative z-10 max-w-7xl mx-auto px-6 py-10 overflow-hidden">
+        <div className="flex flex-wrap justify-center gap-6 md:gap-10 items-center animate-fade-in">
+          <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] max-w-[280px]">
+            <span className="text-amber-400 text-lg">⭐⭐⭐⭐⭐</span>
+            <p className="text-sm" style={{ color: 'rgba(232,234,246,0.8)' }}>&ldquo;I met amazing people here!&rdquo; — Alex</p>
+          </div>
+          <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] max-w-[280px]">
+            <span className="text-amber-400 text-lg">⭐⭐⭐⭐⭐</span>
+            <p className="text-sm" style={{ color: 'rgba(232,234,246,0.8)' }}>&ldquo;Best anonymous chat app!&rdquo; — Maya</p>
+          </div>
+          <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] max-w-[280px]">
+            <span className="text-amber-400 text-lg">⭐⭐⭐⭐⭐</span>
+            <p className="text-sm" style={{ color: 'rgba(232,234,246,0.8)' }}>&ldquo;So easy to connect.&rdquo; — Sam</p>
+          </div>
+        </div>
       </section>
 
       <div className="section-divider" />
@@ -429,10 +469,10 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
 
         <div className="grid md:grid-cols-2 gap-6">
           {[
-            { icon: '🔒', title: 'Ephemeral Identity', desc: 'Your session token is generated randomly and deleted the moment you close the tab. No traces left behind.' },
-            { icon: '🛡️', title: 'Direct End-to-End', desc: 'Video streams are peer-to-peer. We provide the handshake, but your conversation stays between you and your partner.' },
-            { icon: '🤖', title: 'AI-First Safety', desc: 'Our proprietary vision AI detects harmful content in real-time to keep the community welcoming for everyone.' },
-            { icon: '🌐', title: 'Global Grid', desc: 'Access an international network of users. Mana Mingle is optimized for low-latency connections worldwide.' },
+            { icon: '🤖', title: 'AI Safety', desc: 'Our proprietary vision AI detects harmful content in real-time to keep the community welcoming for everyone.' },
+            { icon: '🔒', title: 'Encrypted Chat', desc: 'Video streams are peer-to-peer. We provide the handshake, but your conversation stays between you and your partner.' },
+            { icon: '🛡️', title: 'Anonymous', desc: 'Your session token is generated randomly and deleted the moment you close the tab. No traces left behind.' },
+            { icon: '🌐', title: 'Global Network', desc: 'Access an international network of users. Mana Mingle is optimized for low-latency connections worldwide.' },
           ].map((f) => (
             <div key={f.title} className="feature-card flex flex-col md:flex-row items-start gap-6 !p-8">
               <div className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center text-2xl flex-shrink-0 group-hover:bg-indigo-500/10 transition-colors">
@@ -464,25 +504,38 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
               <div className="flex items-center gap-3">
                 <div className="online-pill" style={{ opacity: 0.8 }}>
                   <div className="live-dot" style={{ width: 6, height: 6 }} />
-                  <span>{onlineCount.toLocaleString()} Experts Online</span>
+                  <span>{onlineCount.toLocaleString()} People Online</span>
                 </div>
               </div>
             </div>
 
-            {/* Column 2: Quick Links */}
+            {/* Column 2: Quick Links - 3 main modals */}
             <div className="flex flex-col gap-4">
-              <h5 className="text-xs font-bold uppercase tracking-widest text-indigo-400">Legal & Contact</h5>
+              <h5 className="text-xs font-bold uppercase tracking-widest text-indigo-400">Privacy & Safety</h5>
               <div className="grid grid-cols-1 gap-3">
-                {Object.entries(MODALS).map(([key, m]) => (
+                {['privacy', 'guidelines', 'safety'].map((key) => (
                   <button
                     key={key}
                     onClick={() => setModal(key)}
-                    className="text-sm text-left hover:text-indigo-300 transition-colors w-fit"
+                    className="text-sm text-left hover:text-indigo-300 transition-colors w-fit font-medium"
                     style={{ color: 'rgba(232,234,246,0.55)' }}
                   >
-                    {m.title.split(' ').slice(1).join(' ')}
+                    {MODALS[key]?.title.split(' ').slice(1).join(' ')}
                   </button>
                 ))}
+                <div className="pt-2 mt-2 border-t border-white/[0.06] space-y-1">
+                  <span className="text-[10px] uppercase tracking-wider text-white/30">More legal</span>
+                  {['terms', 'monitoring', 'laws'].map((key) => (
+                    <button
+                      key={key}
+                      onClick={() => setModal(key)}
+                      className="block text-xs text-left hover:text-indigo-300 transition-colors w-fit"
+                      style={{ color: 'rgba(232,234,246,0.4)' }}
+                    >
+                      {MODALS[key]?.title.split(' ').slice(1).join(' ')}
+                    </button>
+                  ))}
+                </div>
                 <div className="pt-2 mt-2 border-t border-white/[0.06]">
                   <a
                     href="mailto:manaminglee@gmail.com"
