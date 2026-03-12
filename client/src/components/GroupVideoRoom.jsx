@@ -332,15 +332,20 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
       const track = e.track;
       if (!track) return;
 
-      const remoteStream = e.streams[0] || new MediaStream([track]);
+      const remoteStream = (e.streams && e.streams[0]) ? e.streams[0] : new MediaStream([track]);
       
       setPeers((prev) => {
         const existing = prev.find((p) => p.socketId === remoteId);
+        
+        // If we found an existing peer entry, we update its stream.
+        // We MUST preserve the stream object provided by the event if possible.
         let stream = existing?.stream || remoteStream;
         
-        // Ensure track is in the stream
-        if (!stream.getTracks().some(t => t.id === track.id)) {
-            stream.addTrack(track);
+        if (stream !== remoteStream) {
+           // If we're merging tracks into an existing stream object
+           if (!stream.getTracks().some(t => t.id === track.id)) {
+              stream.addTrack(track);
+           }
         }
 
         const nick = peerNicksRef.current.get(remoteId) || 'Stranger';
@@ -512,14 +517,20 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
 
     const onUserLeft = (data) => {
       setParticipantCount((c) => Math.max(1, (data.participantCount ?? c) - 1));
-      const sid = data.userId ?? data.socketId;
+      const sid = data.socketId; // ALWAYS use socketId for WebRTC cleanup
       if (sid) {
         const pc = peerConnectionsRef.current.get(sid);
-        if (pc) { pc.close(); peerConnectionsRef.current.delete(sid); }
+        if (pc) {
+          pc.onicecandidate = null;
+          pc.ontrack = null;
+          pc.close();
+          peerConnectionsRef.current.delete(sid);
+        }
         const leavingNick = peerNicksRef.current.get(sid);
         setPeers((p) => p.filter((x) => x.socketId !== sid));
         if (leavingNick) setMessages((m) => [...m, { id: `sys-left-${Date.now()}`, system: true, text: `${leavingNick} left the room` }]);
         playDisconnectSound();
+        audioAnalyzersRef.current.delete(sid);
       }
     };
 
@@ -1143,46 +1154,77 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
 
 function RemoteVideoTile({ stream, socketId }) {
   const ref = useRef(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const playCountRef = useRef(0);
+
   useEffect(() => {
     const el = ref.current;
     if (!el || !stream) return;
     
-    // Reset srcObject to force re-mounting and visibility
-    el.srcObject = null;
-    el.srcObject = stream;
+    // Safety check: is stream active?
+    const hasActiveVideo = stream.getVideoTracks().some(t => t.readyState === 'live');
+    if (!hasActiveVideo) {
+       // Wait for track to go live
+       const checkTracks = () => {
+          if (stream.getVideoTracks().some(t => t.readyState === 'live')) {
+             el.srcObject = stream;
+             el.play().catch(() => {});
+          } else {
+             setTimeout(checkTracks, 500);
+          }
+       };
+       checkTracks();
+    } else {
+       el.srcObject = stream;
+    }
     
-    const play = async () => {
+    const tryPlay = async () => {
        try {
-         if (el.paused) await el.play();
+         if (el.paused) {
+           await el.play();
+           setIsPlaying(true);
+         }
        } catch (e) {
-         // Silently retry
+         if (playCountRef.current < 5) {
+            playCountRef.current++;
+            setTimeout(tryPlay, 500);
+         }
        }
     };
     
-    play();
-    const t1 = setTimeout(play, 300);
-    const t2 = setTimeout(play, 1500);
+    tryPlay();
     
-    const onUnmute = () => play();
+    const onUnmute = () => {
+       setIsPlaying(true);
+       tryPlay();
+    };
+
     stream.getTracks().forEach((t) => {
       t.enabled = true;
       t.addEventListener('unmute', onUnmute);
     });
     
     return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
       stream.getTracks().forEach((t) => t.removeEventListener('unmute', onUnmute));
     };
   }, [stream]);
 
   if (!stream) return null;
+
   return (
-    <video
-      ref={ref}
-      autoPlay
-      playsInline
-      className="absolute inset-0 w-full h-full object-cover sm:rounded-tl-[40px] sm:rounded-br-[40px]"
-    />
+    <div className="absolute inset-0 w-full h-full bg-[#0c0e1a]">
+      <video
+        ref={ref}
+        autoPlay
+        playsInline
+        className={`absolute inset-0 w-full h-full object-cover sm:rounded-tl-[40px] sm:rounded-br-[40px] transition-opacity duration-700 ${isPlaying ? 'opacity-100' : 'opacity-0'}`}
+      />
+      {!isPlaying && (
+         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+            <div className="w-12 h-12 rounded-full border-2 border-indigo-500/30 border-t-indigo-500 animate-spin" />
+            <p className="text-[8px] font-black uppercase tracking-widest text-indigo-400/50">Initializing Feed...</p>
+         </div>
+      )}
+    </div>
   );
 }
