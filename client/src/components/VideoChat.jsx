@@ -924,261 +924,151 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   const formatTime = (ts) => ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
   return (
-    <div className="h-screen flex flex-col bg-[#05060b] text-slate-100 overflow-hidden relative font-sans select-none">
-      {/* 1. LAYER: HEADER */}
-      <header className="h-16 sm:h-20 px-4 sm:px-8 flex items-center justify-between border-b border-white/5 bg-black/40 backdrop-blur-2xl z-[100] shrink-0">
-        <div className="flex items-center gap-3 sm:gap-6">
-          <button onClick={handleBack} className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all active:scale-90" title="Go Back">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-500 shadow-lg shadow-indigo-500/30 flex items-center justify-center font-black text-sm">M</div>
-            <div className="hidden sm:block">
-              <h1 className="text-sm font-black uppercase tracking-[0.2em]">Mana Mingle</h1>
-              <div className="flex items-center gap-2 mt-0.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[10px] font-bold text-emerald-500/80 uppercase tracking-widest">{onlineCount?.toLocaleString()} Users Online</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 sm:gap-4">
-          <div className="hidden sm:flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/5 border border-white/5 font-black text-[10px] uppercase tracking-widest">
-            <span className="text-slate-500">Ping</span>
-            <span className={connectionQuality === 'good' ? 'text-emerald-400' : 'text-amber-400'}>{latency ?? '--'}ms</span>
-          </div>
-
-          <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-2xl bg-amber-500/10 border border-amber-500/20">
-            <span className="text-xs sm:text-sm font-black text-amber-500">🪙 {balance}</span>
-          </div>
-          <button onClick={() => setIsTranslatorActive(!isTranslatorActive)} className={`px-3 py-2 rounded-2xl border transition-all text-[10px] font-black uppercase tracking-widest ${isTranslatorActive ? 'bg-indigo-500 border-indigo-400 text-white shadow-lg shadow-indigo-500/30' : 'bg-white/5 border-white/10 text-slate-500'}`}>
-            {isTranslatorActive ? 'AI ON' : 'AI'}
-          </button>
+    <div className="h-screen flex flex-col bg-[#0a0a0a] text-white overflow-hidden font-sans select-none">
+      {/* Minimal Omegle-style header */}
+      <header className="h-12 sm:h-14 px-4 flex items-center justify-between border-b border-white/[0.06] bg-[#0a0a0a] z-[100] shrink-0">
+        <button onClick={handleBack} className="p-2 -ml-2 rounded-lg hover:bg-white/5 transition-colors" aria-label="Back">
+          <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+        </button>
+        <span className="text-sm font-medium text-white/80">Video Chat</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-white/40">{onlineCount?.toLocaleString()} online</span>
+          <span className="text-amber-500/90 font-medium text-sm">🪙 {balance}</span>
         </div>
       </header>
 
-      {/* 2. LAYER: VIDEO / SEARCH AREA */}
-      <main className="flex-1 relative flex flex-col md:flex-row min-h-0 overflow-hidden p-2 sm:p-4 gap-2 sm:gap-4">
-
-        {/* Floating AI Safety Status */}
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[110] pointer-events-none">
-          <div className="px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 backdrop-blur-xl flex items-center gap-2 animate-fade-in shadow-2xl shadow-black/50">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500">AI Safety Monitor Active</span>
-          </div>
-        </div>
-
-        {/* Video Containers Floor */}
-        <div className={`flex-1 relative flex flex-col sm:flex-row gap-2 sm:gap-4 transition-all duration-700 ${showChat ? 'md:flex-none md:w-[65%]' : 'w-full'}`}>
-
-          {/* Main Display (Remote / Searching / Idle) */}
-          <div className={`relative flex-1 bg-black/40 rounded-[2.5rem] border border-white/5 overflow-hidden transition-all duration-500 ${status === 'connected' ? 'shadow-2xl' : ''}`}>
-
-            {status === 'idle' ? (
-              /* IDLE / START SCREEN */
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-8 bg-[#0a0c16]">
+      {/* Main area - Omegle split layout */}
+      <main className="flex-1 flex min-h-0 relative">
+        {/* Split view: You | Stranger - when idle or searching show full, when connected show split */}
+        <div className={`flex-1 flex ${status === 'connected' ? 'flex-row' : 'flex-col'} min-h-0`}>
+          {/* Left: You (or full when idle/searching) */}
+          <div className={`relative bg-[#111] flex-1 flex flex-col justify-center items-center min-h-0 ${status === 'connected' ? 'border-r border-white/[0.06]' : ''}`}>
+            {status === 'idle' && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-6">
                 {cameraError && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10 p-6">
-                    <p className="text-sm text-rose-400 text-center">{cameraError}</p>
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-10 p-6">
+                    <p className="text-sm text-rose-400 text-center max-w-xs">{cameraError}</p>
                   </div>
                 )}
-                <div className="w-24 h-24 mb-8 rounded-[2rem] bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-4xl shadow-2xl animate-bounce">👋</div>
-                <h2 className="text-2xl sm:text-4xl font-black uppercase tracking-tighter text-center max-w-md">Ready to meet someone new?</h2>
-                <p className="mt-4 text-slate-500 text-sm sm:text-base text-center max-w-sm uppercase font-bold tracking-widest">Connect with verified mingle nodes globally.</p>
-
-                <div className="mt-10 w-full max-w-sm flex flex-col gap-4">
-                  <div className="flex flex-wrap justify-center gap-2">
-                    {interestTags.map(tag => (
-                      <button
-                        key={tag}
-                        onClick={() => toggleInterestTag(tag)}
-                        className={`px-4 py-2 rounded-xl border transition-all text-[10px] font-black uppercase tracking-widest ${selectedInterests.includes(tag) ? 'bg-indigo-500 border-indigo-400 text-white shadow-lg shadow-indigo-500/20' : 'bg-white/5 border-white/5 text-slate-400 hover:border-white/20'}`}
-                      >
-                        #{tag}
-                      </button>
-                    ))}
-                  </div>
-                  <button onClick={handleStart} className="w-full h-16 rounded-3xl bg-indigo-500 hover:bg-indigo-600 text-white font-black uppercase tracking-[0.2em] shadow-2xl shadow-indigo-500/40 active:scale-95 transition-all text-sm mt-4">
-                    Start Mingling
-                  </button>
-                </div>
+                <p className="text-white/60 text-sm mb-2">Talk to strangers!</p>
+                <p className="text-white/40 text-xs mb-8 max-w-xs text-center">Click Start to begin a random video chat with someone from around the world.</p>
+                <button onClick={handleStart} disabled={!connected} className="px-12 py-4 rounded-lg bg-[#1a7f37] hover:bg-[#2ea043] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-base transition-colors">
+                  Start
+                </button>
               </div>
-            ) : status === 'searching' ? (
-              /* SEARCHING SCREEN */
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#070811]">
-                <div className="relative w-48 h-48 sm:w-64 sm:h-64 flex items-center justify-center">
-                  {/* Modern Pulse Rings */}
-                  <div className="absolute inset-0 rounded-full border border-indigo-500/10 animate-ping" />
-                  <div className="absolute inset-8 rounded-full border border-indigo-500/20 animate-ping" style={{ animationDelay: '0.4s' }} />
-
-                  {/* Spinning Core */}
-                  <div className="relative w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-indigo-900/10 border border-white/5 p-2 overflow-hidden shadow-[0_0_80px_rgba(99,102,241,0.2)]">
-                    <div className="absolute inset-0 bg-[url('https://upload.wikimedia.org/wikipedia/commons/c/c3/World_map_blue_dotted.svg')] bg-[length:300%] bg-center opacity-40 animate-[spin_40s_linear_infinite]" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-indigo-500/20 to-transparent" />
-                  </div>
-
-                  {/* Moving Nodes */}
-                  <div className="absolute inset-0 animate-[spin_20s_linear_infinite]">
-                    <div className="absolute top-4 left-1/4 w-2 h-2 rounded-full bg-indigo-400 shadow-[0_0_15px_#818cf8]" />
-                    <div className="absolute bottom-8 right-1/4 w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_12px_#22d3ee]" />
-                  </div>
+            )}
+            {status === 'searching' && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-6">
+                <p className="text-white/80 text-base mb-1">Looking for someone you can chat with...</p>
+                <div className="flex gap-1.5 mt-4">
+                  <span className="w-2 h-2 rounded-full bg-white/60 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-2 h-2 rounded-full bg-white/60 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-2 h-2 rounded-full bg-white/60 animate-bounce" style={{ animationDelay: '300ms' }} />
                 </div>
-
-                <div className="mt-8 text-center">
-                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-[0.5rem] flex items-center justify-center">
-                    Searching
-                    <span className="flex items-center gap-1 ml-4">
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: '0.1s' }} />
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: '0.2s' }} />
-                    </span>
-                  </h3>
-                  <p className="mt-4 text-[9px] font-bold text-slate-500 uppercase tracking-widest">Establishing secure peer connection...</p>
-                </div>
+                <button onClick={handleStop} className="mt-8 text-sm text-white/50 hover:text-white underline">Stop</button>
               </div>
-            ) : (
-              /* CONNECTED VIEW */
+            )}
+            {(status === 'idle' || status === 'searching') && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-32 h-24 sm:w-40 sm:h-28 rounded-lg overflow-hidden border border-white/10 bg-black/50">
+                <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-30' : ''}`} />
+                <div className="absolute bottom-1 left-1 text-[10px] font-medium text-white/80 bg-black/50 px-1.5 py-0.5 rounded">You</div>
+              </div>
+            )}
+            {status === 'connected' && (
               <>
-                <RemoteVideoComponent stream={peer?.stream} muted={mutedStranger} />
-
-                {/* Stranger Info Badge */}
-                <div className="absolute top-6 left-6 z-20 flex items-center gap-3 px-4 py-2 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-xl transition-transform hover:scale-105">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]" />
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-white/90 uppercase tracking-widest leading-none mb-1">Stranger Found</span>
-                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">{countryToFlag(peer?.country)} {peer?.nickname || 'Anonymous'}</span>
-                  </div>
-                </div>
-
-                {/* Report Button */}
-                <div className="absolute top-6 right-6 z-20">
-                  <button
-                    onClick={handleReport}
-                    className="w-10 h-10 flex items-center justify-center rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white transition-all active:scale-95 shadow-xl"
-                    title="Report Inappropriate Behavior"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                  </button>
-                </div>
-
-                {/* Partner Left Overlay */}
-                {partnerLeft && (
-                  <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 backdrop-blur-md animate-fade-in">
-                    <div className="bg-[#12152a] border border-white/10 p-8 rounded-[2.5rem] shadow-2xl text-center max-w-xs scale-in">
-                      <div className="text-4xl mb-4">👋</div>
-                      <h4 className="text-lg font-black uppercase tracking-widest text-white">Partner Disconnected</h4>
-                      <p className="mt-2 text-slate-500 text-xs uppercase font-bold tracking-widest">Searching for someone new...</p>
-                    </div>
-                  </div>
-                )}
+                <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-20' : ''}`} style={cameraBlur ? { filter: 'blur(20px)' } : {}} />
+                <div className="absolute bottom-3 left-3 px-2 py-1 rounded bg-black/60 text-xs font-medium">You</div>
+                {cameraOff && <div className="absolute inset-0 flex items-center justify-center bg-black/40"><span className="text-white/60 text-sm">Camera off</span></div>}
               </>
             )}
           </div>
 
-          {/* Local Video PIP - Optimized for Mobile Thumb usage */}
-          <div className={`
-             absolute w-28 h-40 sm:w-48 sm:h-64 rounded-[2rem] border-2 border-white/10 overflow-hidden z-50 transition-all duration-700 shadow-2xl bg-black/60
-             ${status === 'connected' ? (pipPos === 'tl' ? 'top-6 left-6' : pipPos === 'tr' ? 'top-6 right-6' : pipPos === 'bl' ? 'bottom-24 left-6' : 'bottom-24 right-6') : 'relative w-full h-full border-none inset-auto sm:rounded-[2.5rem]'}
-             ${status === 'idle' ? 'sm:w-[400px]' : ''}
-          `}
-            onClick={status === 'connected' ? togglePip : undefined}
-          >
-            <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover scale-x-[-1] transition-all duration-1000 ${cameraOff ? 'opacity-20' : ''}`} />
-            <div className="absolute bottom-4 left-4 z-20 px-3 py-1.5 rounded-xl bg-black/40 border border-white/10 backdrop-blur-md">
-              <span className="text-[10px] font-black text-white/90 uppercase tracking-widest">You</span>
-            </div>
-            {cameraBlur && <div className="absolute inset-0 backdrop-blur-3xl z-10" />}
-          </div>
-        </div>
-
-        {/* Chat Panel */}
-        {showChat && (
-          <div className="flex-1 md:flex-none md:w-[35%] glass-card flex flex-col z-[40]">
-            <div className="h-14 sm:h-16 px-6 border-b border-white/5 flex items-center justify-between bg-white/5">
-              <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-slate-400">Secure Message Link</span>
-              <button onClick={() => setShowChat(false)} className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 text-slate-400 hover:text-white transition-all">✕</button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4" id="video-chat-messages">
-              {messages.length === 0 && (
-                <div className="p-6 rounded-3xl bg-indigo-500/5 border border-indigo-500/10 space-y-3">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Rules & Conduct</p>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase leading-relaxed tracking-wider">Please keep it friendly. No harassment or explicit content allowed. Our AI is monitoring.</p>
+          {/* Right: Stranger (only when connected) */}
+          {status === 'connected' && (
+            <div className="relative flex-1 bg-[#0d0d0d] min-h-0">
+              <RemoteVideoComponent stream={peer?.stream} muted={mutedStranger} />
+              <div className="absolute bottom-3 left-3 px-2 py-1 rounded bg-black/60 text-xs font-medium">
+                {countryToFlag(peer?.country)} Stranger
+              </div>
+              {partnerLeft && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70">
+                  <p className="text-white/80 text-sm">Stranger has disconnected.</p>
+                  <p className="text-white/50 text-xs mt-1">Looking for someone new...</p>
                 </div>
               )}
+              <button onClick={handleReport} className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded bg-black/50 hover:bg-rose-500/20 text-white/60 hover:text-rose-400 transition-colors" title="Report">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Chat panel - slide in from right, Omegle style */}
+        {showChat && status === 'connected' && (
+          <div className="w-72 sm:w-80 border-l border-white/[0.06] bg-[#0d0d0d] flex flex-col flex-shrink-0 animate-slide-in-right">
+            <div className="h-10 px-4 flex items-center justify-between border-b border-white/[0.06]">
+              <span className="text-xs font-medium text-white/60">Text chat</span>
+              <button onClick={() => setShowChat(false)} className="p-1 text-white/40 hover:text-white">✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-2" id="video-chat-messages">
               {messages.map((m, i) => {
                 const isMe = m.socketId === socket.id || m.fromSelf;
                 return (
-                  <div key={m.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-message-pop`}>
-                    <div className={`px-4 py-2.5 rounded-2xl text-sm font-medium ${isMe ? 'bg-indigo-500 text-white rounded-tr-none shadow-lg shadow-indigo-500/20' : 'bg-white/10 text-slate-100 rounded-tl-none border border-white/5'}`}>
-                      {m.text}
-                    </div>
-                    <span className="text-[8px] font-black uppercase text-slate-500 mt-1.5 px-1 tracking-widest">{isMe ? 'You' : 'Strange'} • {formatTime(m.ts)}</span>
+                  <div key={m.id || i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[85%] px-3 py-2 rounded-lg text-sm ${isMe ? 'bg-[#1a7f37] text-white' : 'bg-white/10 text-white/90'}`}>{m.text}</div>
                   </div>
                 );
               })}
               <div ref={chatEndRef} />
             </div>
-
-            <div className="p-4 sm:p-6 bg-white/5 border-t border-white/5">
-              <div className="relative flex items-center gap-2">
-                <input ref={inputRef} value={input} onChange={handleInputChange} onKeyDown={(e) => e.key === 'Enter' && sendMsg()} placeholder={isConnected ? "Message..." : "Waiting for match..."} disabled={!isConnected} className="flex-1 h-12 bg-black/40 border border-white/10 rounded-2xl px-5 text-sm outline-none focus:border-indigo-500/50 focus:bg-black/60 transition-all font-medium" />
-                <button onClick={sendMsg} disabled={!isConnected || !input.trim()} className="w-12 h-12 rounded-2xl bg-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30 active:scale-90 transition-all disabled:opacity-50">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-                </button>
-              </div>
+            <div className="p-3 border-t border-white/[0.06] flex gap-2">
+              <input ref={inputRef} value={input} onChange={handleInputChange} onKeyDown={(e) => e.key === 'Enter' && sendMsg()} placeholder="Type a message..." className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm outline-none focus:border-white/20 placeholder:text-white/30" />
+              <button onClick={sendMsg} disabled={!input.trim()} className="px-4 py-2 rounded-lg bg-[#1a7f37] hover:bg-[#2ea043] disabled:opacity-40 text-white text-sm font-medium">Send</button>
             </div>
           </div>
         )}
       </main>
 
-      {/* 3. LAYER: ACTION CONTROLS */}
-      <footer className="h-20 sm:h-24 px-4 sm:px-12 border-t border-white/5 bg-black/60 backdrop-blur-2xl z-[120] flex items-center justify-center shrink-0">
-        <div className="w-full max-w-2xl flex items-center justify-between gap-4 sm:gap-8">
-          {/* Main Action Block */}
-          <div className="flex-1 flex items-center gap-2 sm:gap-4 h-12 sm:h-14">
-            <button onClick={handleSkip} className="h-full px-6 sm:px-10 rounded-3xl bg-amber-500 hover:bg-amber-600 text-white font-black uppercase tracking-[0.2em] shadow-xl shadow-amber-500/20 transition-all active:scale-95 flex items-center justify-center gap-2 group">
-              <span className="text-xl group-hover:translate-x-1 transition-transform">⏭️</span>
-              <span className="hidden sm:inline text-xs">Skip Stranger</span>
-            </button>
-            <div className="w-[1px] h-8 bg-white/10 mx-2" />
-            <button onClick={toggleCamera} className={`w-12 h-12 sm:w-14 sm:h-14 rounded-3xl flex items-center justify-center transition-all border-2 active:scale-90 ${cameraOff ? 'bg-rose-500 border-rose-400 shadow-lg shadow-rose-500/30 text-white' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:border-white/20'}`} title="Toggle camera">
-              {cameraOff ? '📹' : '📸'}
-            </button>
-            <button onClick={() => setCameraBlur(!cameraBlur)} className={`w-12 h-12 sm:w-14 sm:h-14 rounded-3xl flex items-center justify-center transition-all border-2 active:scale-90 ${cameraBlur ? 'bg-indigo-500 border-indigo-400 shadow-lg shadow-indigo-500/30 text-white' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:border-white/20'}`} title="Blur background">
-              🫥
-            </button>
-            <button onClick={() => setShowChat(!showChat)} className={`w-12 h-12 sm:w-14 sm:h-14 rounded-3xl flex items-center justify-center transition-all border-2 active:scale-90 ${showChat ? 'bg-indigo-500 border-indigo-400 shadow-lg shadow-indigo-500/30 text-white' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'}`} title="Toggle chat">
-              💬
-            </button>
-          </div>
-
-          <div className="w-10 sm:w-12 h-[1px] bg-white/10" />
-
-          {/* Stop Button */}
-          <button onClick={handleStop} className="w-12 h-12 sm:w-14 sm:h-14 rounded-3xl bg-rose-500/10 border-2 border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white transition-all active:scale-90 flex items-center justify-center shadow-lg shadow-rose-500/10">
-            <span className="text-xl">🛑</span>
+      {/* Bottom controls - Omegle style: Stop, New, Mic, Cam, Chat */}
+      <footer className="h-14 sm:h-16 px-4 border-t border-white/[0.06] bg-[#0a0a0a] flex items-center justify-center gap-3 sm:gap-6 z-[120] shrink-0">
+        <button onClick={handleStop} className="px-5 py-2.5 rounded-lg bg-[#cf222e] hover:bg-[#da3633] text-white font-medium text-sm transition-colors" aria-label="Stop">
+          Stop
+        </button>
+        {(status === 'connected' || status === 'searching') && (
+          <button onClick={handleSkip} className="px-5 py-2.5 rounded-lg bg-[#9a6700] hover:bg-[#bf8700] text-white font-medium text-sm transition-colors" aria-label="New chat">
+            New
           </button>
-        </div>
+        )}
+        <div className="flex-1" />
+        <button onClick={toggleMute} className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${muted ? 'bg-[#cf222e]/20 text-[#cf222e]' : 'bg-white/10 text-white/80 hover:bg-white/20'}`} aria-label={muted ? 'Unmute' : 'Mute'} title={muted ? 'Unmute' : 'Mute'}>
+          {muted ? <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>}
+        </button>
+        <button onClick={toggleCamera} className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${cameraOff ? 'bg-[#cf222e]/20 text-[#cf222e]' : 'bg-white/10 text-white/80 hover:bg-white/20'}`} aria-label={cameraOff ? 'Turn camera on' : 'Turn camera off'} title={cameraOff ? 'Camera on' : 'Camera off'}>
+          {cameraOff ? <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3l18 18" /></svg> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>}
+        </button>
+        <button onClick={() => setCameraBlur(!cameraBlur)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${cameraBlur ? 'bg-[#1a7f37]/30 text-[#2ea043]' : 'bg-white/10 text-white/80 hover:bg-white/20'}`} aria-label="Blur background" title="Blur">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+        </button>
+        {status === 'connected' && (
+          <button onClick={() => setShowChat(!showChat)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${showChat ? 'bg-[#1a7f37]/30 text-[#2ea043]' : 'bg-white/10 text-white/80 hover:bg-white/20'}`} aria-label="Toggle chat" title="Chat">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+          </button>
+        )}
       </footer>
 
-      {/* Notifications / Toasts */}
       {toast && (
-        <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 rounded-2xl bg-black/90 border border-indigo-500/40 text-sm font-black text-white shadow-2xl animate-fade-in-up uppercase tracking-widest backdrop-blur-xl">
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[200] px-4 py-2 rounded-lg bg-black/90 border border-white/10 text-sm text-white shadow-xl animate-fade-in">
           {toast}
         </div>
       )}
 
-      {/* Emoji Picker Popover */}
       {showEmojiPicker && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[150] p-4 glass rounded-[2rem] border border-white/10 flex gap-4 shadow-2xl">
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[150] p-3 rounded-xl bg-[#1a1a1a] border border-white/10 flex gap-2 shadow-xl">
           {EMOJIS_3D.map(e => (
-            <button key={e.char} onClick={() => send3dEmoji(e.char)} className="w-12 h-12 rounded-2xl hover:bg-white/10 transition-all active:scale-90 flex items-center justify-center text-3xl">{e.char}</button>
+            <button key={e.char} onClick={() => send3dEmoji(e.char)} className="w-10 h-10 rounded-lg hover:bg-white/10 flex items-center justify-center text-2xl transition-colors">{e.char}</button>
           ))}
         </div>
       )}
-
     </div>
   );
 }
@@ -1197,7 +1087,7 @@ function RemoteVideoComponent({ stream, muted }) {
       autoPlay
       playsInline
       muted={muted}
-      className="absolute inset-0 w-full h-full object-cover scale-x-[-1]"
+      className="absolute inset-0 w-full h-full object-cover"
     />
   );
 }

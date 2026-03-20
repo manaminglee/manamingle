@@ -964,6 +964,15 @@ body::after {
   }
 }
 
+/* Speaking indicator - pulsing glow when user is talking */
+@keyframes speaking-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.5), 0 0 0 2px rgba(99, 102, 241, 0.6); }
+  50% { box-shadow: 0 0 35px rgba(99, 102, 241, 0.8), 0 0 0 3px rgba(99, 102, 241, 0.9); }
+}
+.animate-speaking-pulse {
+  animation: speaking-pulse 1s ease-in-out infinite;
+}
+
 /* ============================================================
    CHAT MESSAGES
    ============================================================ */
