@@ -5,6 +5,14 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { countryToFlag } from '../utils/countryFlag';
+
+const BlueTick = () => (
+  <span className="inline-flex items-center justify-center w-3 h-3 bg-cyan-500 rounded-full ml-1.5 shadow-[0_0_10px_#06b6d4]">
+    <svg className="w-2 h-2 text-black" fill="currentColor" viewBox="0 0 20 20">
+      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+    </svg>
+  </span>
+);
 import { useLatency } from '../hooks/useLatency';
 import { useIceServers } from '../hooks/useIceServers';
 import { CoinBadge } from './CoinBadge';
@@ -1285,8 +1293,10 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                 <div className="absolute bottom-3 left-3 flex items-center gap-1.5 z-10">
                   {isCreator ? (
                     <div className="flex items-center gap-1 px-2 py-1 rounded bg-black/60 border border-cyan-500/30">
-                      <span className="text-[10px]">⭐</span>
-                      <span className="text-[9px] font-black uppercase tracking-widest text-cyan-400">{nickname}</span>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-cyan-400">
+                        {nickname}
+                        <BlueTick />
+                      </span>
                     </div>
                   ) : (
                     <span className="px-2 py-1 rounded bg-black/60 text-[10px] font-black uppercase tracking-widest border border-white/10">You</span>
@@ -1312,8 +1322,10 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
               <div className="absolute bottom-3 left-3 px-2 py-1 rounded bg-black/60 text-[10px] font-black uppercase tracking-widest border border-white/10 flex items-center gap-2">
                 {peer?.isCreator ? (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px]">⭐</span>
-                    <span className="text-cyan-400">{countryToFlag(peer?.country)} {peer?.nickname || 'Stranger Hub'}</span>
+                    <span className="text-cyan-400">
+                      {countryToFlag(peer?.country)} {peer?.nickname || 'Stranger Hub'}
+                      <BlueTick />
+                    </span>
                   </div>
                 ) : (
                   <>

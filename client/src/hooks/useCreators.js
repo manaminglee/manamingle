@@ -12,7 +12,22 @@ export function useCreators() {
 
   const fetchStatus = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/creators/status`);
+      const storedId = window.localStorage.getItem('mm_creatorId');
+      const logoutFlag = window.localStorage.getItem('mm_logout_flag');
+      
+      let url = `${API_BASE}/api/creators/status`;
+      if (storedId) {
+        url += `?id=${storedId}`;
+        // If we have an ID, we clear the logout flag because they've explicitly logged in or resumed
+        window.localStorage.removeItem('mm_logout_flag');
+      } else if (logoutFlag) {
+        // If they manually logged out, don't auto-fetch by IP
+        setCreatorStatus(null);
+        setLoading(false);
+        return;
+      }
+
+      const res = await fetch(url);
       const data = await res.json();
       setCreatorStatus(data.data);
     } catch (e) {

@@ -4,6 +4,14 @@ import { useLatency } from '../hooks/useLatency';
 import { CoinBadge } from './CoinBadge';
 import { useCreators } from '../hooks/useCreators';
 
+const BlueTick = () => (
+  <span className="inline-flex items-center justify-center w-3 h-3 bg-cyan-500 rounded-full ml-1.5 shadow-[0_0_10px_#06b6d4]">
+    <svg className="w-2 h-2 text-black" fill="currentColor" viewBox="0 0 20 20">
+      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+    </svg>
+  </span>
+);
+
 
 const INTERESTS = [
   { id: 'telugu', label: 'Telugu', desc: 'Find Telugu peers' },
@@ -190,11 +198,21 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
           )}
           <div className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black text-white/40 uppercase tracking-widest">{(typeof onlineCount === 'object' ? onlineCount?.count : onlineCount) || 0} Live</div>
           {creatorStatus && (
-             <button 
-               onClick={() => { window.localStorage.removeItem('mm_creatorId'); window.location.reload(); }}
-               className="p-2 bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg text-[8px] font-black uppercase tracking-widest transition-all"
-               title="Terminate Node Session"
-             >Logout</button>
+             <div className="flex items-center gap-3">
+               <div className="hidden sm:flex items-center px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[9px] font-black text-white/40 uppercase tracking-tighter italic">
+                 @{creatorStatus.handle_name}
+                 {creatorStatus.status === 'approved' && <BlueTick />}
+               </div>
+               <button 
+                 onClick={() => { 
+                   window.localStorage.setItem('mm_logout_flag', 'true');
+                   window.localStorage.removeItem('mm_creatorId'); 
+                   window.location.reload(); 
+                 }}
+                 className="p-2 bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg text-[8px] font-black uppercase tracking-widest transition-all"
+                 title="Terminate Node Session"
+               >Logout</button>
+             </div>
           )}
         </div>
       </header>
@@ -551,7 +569,10 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
               <div className="space-y-8 animate-in-zoom">
                 <div className="p-8 rounded-[32px] bg-white/[0.02] border border-white/5 space-y-4 text-center">
                    <div className="text-[10px] font-black uppercase tracking-[0.4em] text-white/30">Node Identity</div>
-                   <h4 className="text-3xl font-black italic uppercase tracking-tighter text-white">@{creatorStatus.handle_name}</h4>
+                   <h4 className="text-3xl font-black italic uppercase tracking-tighter text-white">
+                     @{creatorStatus.handle_name}
+                     {creatorStatus.status === 'approved' && <BlueTick />}
+                   </h4>
                    <div className="flex justify-center gap-4">
                      {creatorStatus.status === 'approved' ? (
                        <span className="px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest shadow-[0_0_20px_#10b98130]">Portal Active</span>

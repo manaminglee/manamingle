@@ -1232,8 +1232,8 @@ io.on('connection', (socket) => {
       socket.join(room.id);
       io.sockets.sockets.get(match.socketId).join(room.id);
 
-      const myPeer = { socketId: socket.id, userId: userData.id, nickname: userData.nickname, country: userData.country };
-      const otherPeer = { socketId: match.socketId, userId: otherData.id, nickname: otherData.nickname, country: otherData.country };
+      const myPeer = { socketId: socket.id, userId: userData.id, nickname: userData.nickname, country: userData.country, isCreator: userData.isCreator };
+      const otherPeer = { socketId: match.socketId, userId: otherData.id, nickname: otherData.nickname, country: otherData.country, isCreator: otherData.isCreator };
 
       socket.emit('partner-found', { roomId: room.id, peer: otherPeer, country: userData.country });
       io.sockets.sockets.get(match.socketId).emit('partner-found', { roomId: room.id, peer: myPeer, country: otherData.country });
@@ -1278,7 +1278,7 @@ io.on('connection', (socket) => {
     if (room && room.users.size >= room.maxSize) {
       if (!groupQueues.has(key)) groupQueues.set(key, []);
       const q = groupQueues.get(key);
-      q.push({ socketId: socket.id, userData: { id: userData.id, nickname: userData.nickname, country: userData.country, rooms: userData.rooms } });
+      q.push({ socketId: socket.id, userData: { id: userData.id, nickname: userData.nickname, country: userData.country, rooms: userData.rooms, isCreator: userData.isCreator } });
       socket.emit('waiting-in-group-queue', { queuePosition: q.length, interest: room.interest });
       return;
     }
@@ -1289,9 +1289,9 @@ io.on('connection', (socket) => {
       if (room && !canJoinRoom(room)) room = null;
     }
     if (!room) {
-      room = createRoom(interest, mode, socket.id, { id: userData.id, nickname: userData.nickname, country: userData.country });
+      room = createRoom(interest, mode, socket.id, { id: userData.id, nickname: userData.nickname, country: userData.country, isCreator: userData.isCreator });
     } else {
-      const added = addUserToRoom(room, socket.id, { id: userData.id, nickname: userData.nickname, country: userData.country });
+      const added = addUserToRoom(room, socket.id, { id: userData.id, nickname: userData.nickname, country: userData.country, isCreator: userData.isCreator });
       if (!added) {
         socket.emit('room-full', { message: 'Room is full. Try again.' });
         return;
