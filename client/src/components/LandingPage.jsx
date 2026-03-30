@@ -3,6 +3,7 @@ import { useSocket } from '../hooks/useSocket';
 import { useLatency } from '../hooks/useLatency';
 import { CoinBadge } from './CoinBadge';
 import { useCreators } from '../hooks/useCreators';
+import { countryToFlag } from '../utils/countryFlag';
 
 const BlueTick = () => (
   <span className="inline-flex items-center justify-center w-3 h-3 bg-cyan-500 rounded-full ml-1.5 shadow-[0_0_10px_#06b6d4]">
@@ -69,6 +70,7 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
   const { balance, streak, canClaim, nextClaim, claimCoins, adsEnabled, adScripts } = coinState || {};
   const [interests, setInterests] = useState([]);
   const [inputValue, setInputValue] = useState('');
+  const { socket, connected, country, onlineCount: socketOnlineCount } = useSocket();
   const latency = useLatency();
   const [modal, setModal] = useState(null);
   const [isSuggesting, setIsSuggesting] = useState(false);
@@ -196,7 +198,10 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
           {connected && balance !== undefined && (
             <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} />
           )}
-          <div className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black text-white/40 uppercase tracking-widest">{(typeof onlineCount === 'object' ? onlineCount?.count : onlineCount) || 0} Live</div>
+          <div className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black text-white/40 uppercase tracking-widest flex items-center gap-1.5">
+            {country && <span className="opacity-100 grayscale hover:grayscale-0 transition-all cursor-help" title={`Localized to ${country}`}>{countryToFlag(country)}</span>}
+            <span>{(typeof onlineCount === 'object' ? onlineCount?.count : onlineCount) || 0} Live</span>
+          </div>
           {creatorStatus && (
              <div className="flex items-center gap-3">
                <div className="hidden sm:flex items-center px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[9px] font-black text-white/40 uppercase tracking-tighter italic">
