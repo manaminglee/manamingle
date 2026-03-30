@@ -133,6 +133,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   const [status, setStatus] = useState('idle'); // Start in idle mode to show preparation screen
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
+  const [strangerCameraOff, setStrangerCameraOff] = useState(false);
   const [mutedStranger, setMutedStranger] = useState(false);
   const [lowBandwidth, setLowBandwidth] = useState(false);
   const [localStream, setLocalStream] = useState(null);
@@ -485,8 +486,11 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   const toggleCamera = () => {
     if (!localStreamRef.current) return;
     const next = !cameraOff;
-    localStreamRef.current.getVideoTracks().forEach((t) => (t.enabled = !next));
+    localStreamRef.current.getVideoTracks().forEach((v) => (v.enabled = !next));
     setCameraOff(next);
+    if (socket && roomIdRef.current) {
+      socket.emit('video-style', { roomId: roomIdRef.current, cameraOff: next });
+    }
   };
 
   const handleEsc = useCallback(() => {
@@ -858,6 +862,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     const onStrangerVideoStyle = (data) => {
       setStrangerFilter(data.filter || 'none');
       setStrangerBlur(!!data.blur);
+      setStrangerCameraOff(!!data.cameraOff);
     };
 
     const onSignal = async (data) => {
@@ -1296,6 +1301,14 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
           {status === 'connected' && (
             <div className={`relative bg-[#0d0d0d] flex-grow min-h-0 ${showChat && isMobile ? 'h-full' : ''}`}>
               <RemoteVideoComponent stream={peer?.stream} muted={mutedStranger} strangerFilter={strangerFilter} strangerBlur={strangerBlur} />
+              {strangerCameraOff && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md z-10">
+                   <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-3">
+                     <span className="text-2xl opacity-20">LOGO</span>
+                   </div>
+                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40 bg-white/5 px-4 py-1.5 rounded-full border border-white/5">Video Restricted</span>
+                </div>
+              )}
               <div className="absolute bottom-3 left-3 px-2 py-1 rounded bg-black/60 text-[10px] font-black uppercase tracking-widest border border-white/10 flex items-center gap-2">
                 {peer?.isCreator ? (
                   <div className="flex items-center gap-1.5">

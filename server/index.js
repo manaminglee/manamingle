@@ -1305,34 +1305,43 @@ io.on('connection', (socket) => {
 
   socket.on('send-message', (data) => {
     const { roomId, text } = data || {};
-    if (!userData) return socket.emit('error', { message: 'Session lost. Please refresh.' });
+    const u = users.get(socket.id);
+    if (!u) return socket.emit('error', { message: 'Session lost. Please refresh.' });
     const room = rooms.get(roomId);
     if (!room) return socket.emit('error', { message: 'Chat room not found or closed.' });
     if (!room.users.has(socket.id)) return socket.emit('error', { message: 'You are no longer in this room.' });
-
     if (settings.maintenanceMode) return socket.emit('error', { message: 'Messaging disabled during maintenance.' });
 
     const msg = sanitize(String(text || ''), 500);
     if (!msg) return;
 
-    // AI SAFETY MONITORING (Offense & Abuse Filter)
+    // AI SAFETY MONITORING
     const profanities = [
       'fuck', 'shit', 'asshole', 'bitch', 'bastard', 'cunt', 'dick', 'pussy', 'nigga', 'nigger', 'faggot',
       'slut', 'whore', 'motherfucker', 'cock', 'jerk', 'dumbass', 'retard', 'scum',
       'porn', 'sex', 'nude', 'naked', 'xxx', 'horny', 'cum', 'cock', 'tit', 'boob', 'vagina', 'penis'
     ];
-    // Simple regex pattern to catch variations
     const pattern = new RegExp(`\\b(${profanities.join('|')})\\b`, 'i');
-
     if (settings.safetyAiEnabled && pattern.test(msg)) {
-      console.log(`[AI SAFETY] Blocked offensive content from ${socket.id}: ${msg}`);
-      socket.emit('content-flagged', {
-        message: '⚠️ MESSAGE BLOCKED: Our AI safety monitor detected offensive or abusive language. Please be respectful to maintain a safe community.'
-      });
+      socket.emit('content-flagged', { message: '⚠️ MESSAGE BLOCKED: Please be respectful.' });
       return;
     }
 
-    socket.on('admin-end-room', (data) => {
+    stats.totalMessages++;
+    const entry = {
+      id: generateId('msg'),
+      nickname: u.nickname,
+      text: msg,
+      ts: Date.now(),
+      socketId: socket.id,
+    };
+    room.messages = room.messages || [];
+    room.messages.push(entry);
+    if (room.messages.length > 100) room.messages = room.messages.slice(-MESSAGE_HISTORY);
+    io.to(roomId).emit('chat-message', { roomId, ...entry });
+  });
+
+  socket.on('admin-end-room', (data) => {
     const { roomId, adminKey: providedKey } = data || {};
     const adminKey = process.env.ADMIN_KEY;
     if (!adminKey || providedKey !== adminKey) return;
@@ -1348,40 +1357,25 @@ io.on('connection', (socket) => {
     }
   });
 
-  stats.totalMessages++;
-    const entry = {
-      id: generateId('msg'),
-      nickname: userData.nickname,
-      text: msg,
-      ts: Date.now(),
-      socketId: socket.id,
-    };
-    room.messages = room.messages || [];
-    room.messages.push(entry);
-    if (room.messages.length > 100) room.messages = room.messages.slice(-MESSAGE_HISTORY);
-    io.to(roomId).emit('chat-message', { roomId, ...entry });
-  });
-
   // Wave reaction
   socket.on('send-wave', (data) => {
     const { roomId } = data || {};
-    const userData = users.get(socket.id);
+    const u = users.get(socket.id);
     const room = rooms.get(roomId);
-    if (!userData || !room || !room.users.has(socket.id)) return;
-    socket.to(roomId).emit('wave-reaction', { fromSocketId: socket.id, nickname: userData.nickname });
+    if (!u || !room || !room.users.has(socket.id)) return;
+    socket.to(roomId).emit('wave-reaction', { fromSocketId: socket.id, nickname: u.nickname });
   });
 
-  // Good vibes (mutual positivity - NOT a dating feature, just conversation quality)
-  const goodVibesPending = new Map(); // roomId -> Set of socketIds
+  // Good vibes
+  const goodVibesPending = new Map();
   socket.on('send-good-vibes', (data) => {
     const { roomId } = data || {};
-    const userData = users.get(socket.id);
+    const u = users.get(socket.id);
     const room = rooms.get(roomId);
-    if (!userData || !room || !room.users.has(socket.id)) return;
+    if (!u || !room || !room.users.has(socket.id)) return;
     if (!goodVibesPending.has(roomId)) goodVibesPending.set(roomId, new Set());
     const pending = goodVibesPending.get(roomId);
     pending.add(socket.id);
-    // Check if all users in room sent good vibes
     const allSent = [...room.users].every(uid => pending.has(uid));
     if (allSent) {
       io.to(roomId).emit('good-vibes-match', { roomId });
