@@ -436,13 +436,20 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [peer]);
 
-  // --- Video Filter Sync & Payment Effect ---
+  // --- Video Filter Sync Effect ---
   useEffect(() => {
     if (socket && roomIdRef.current && status === 'connected') {
       socket.emit('video-style', { roomId: roomIdRef.current, filter: activeFilter, blur: cameraBlur });
     }
   }, [activeFilter, cameraBlur, socket, status]);
 
+  // Sync balance to a ref so we don't reset the filter interval whenever balance changes
+  const balanceRef = useRef(balance);
+  useEffect(() => {
+    balanceRef.current = balance;
+  }, [balance]);
+
+  // --- Premium Video Filter Effect ---
   useEffect(() => {
     if (activeFilter === 'none') {
       setFilterTimer(0);
@@ -454,16 +461,16 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     }, 1000);
 
     const deductionInterval = setInterval(() => {
-      if (balance >= 12) {
+      if (balanceRef.current >= 12) {
         if (socket) socket.emit('spend-coins', { amount: 12, reason: 'Premium Video Filter Maintenance' });
         if (addHistory) addHistory('Premium Filter (1 min)', -12);
       } else {
         setActiveFilter('none');
-        alert('Premium filter stopped: Insufficient coins. Needs 12 coins per minute.');
+        setToast('Premium filter auto-stopped (insufficient coins).');
       }
     }, 60000);
     return () => { clearInterval(tickInterval); clearInterval(deductionInterval); };
-  }, [activeFilter, balance, socket, addHistory]);
+  }, [activeFilter, socket, addHistory]);
 
   const handleFilterSelect = (filterId) => {
     if (filterId === 'none') {
