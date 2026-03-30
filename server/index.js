@@ -1073,8 +1073,10 @@ const server = http.createServer(app);
 const io = new Server(server, {
   path: '/socket.io',
   cors: { origin: NODE_ENV === 'production' ? process.env.FRONTEND_ORIGIN || true : true, credentials: true },
-  pingTimeout: 30000,
-  pingInterval: 15000,
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  connectTimeout: 45000,
+  allowEIO3: true
 });
 
 // Per-socket rate limit for signaling

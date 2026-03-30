@@ -23,6 +23,11 @@ export function useSocket() {
         path: '/socket.io',
         transports: ['websocket', 'polling'],
         withCredentials: true,
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 2000,
+        reconnectionDelayMax: 10000,
+        timeout: 20000
       });
 
       // Set socket immediately so components can use it even before 'connect' event
