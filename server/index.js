@@ -1,3 +1,7 @@
+require('dotenv').config(
+  process.env.DOTENV_CONFIG_PATH ? { path: process.env.DOTENV_CONFIG_PATH } : {}
+);
+
 /**
  * Mana Mingle - Secure backend: interest-based group video (max 4), WebRTC signaling, WebSockets
  */
@@ -14,8 +18,8 @@ const geoip = require('geoip-lite');
 const { createClient } = require('@supabase/supabase-js');
 
 // Persistence Strategy: Supabase (Cloud) or Local JSON (Node)
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY;
+const supabaseUrl = (process.env.SUPABASE_URL || '').trim();
+const supabaseKey = (process.env.SUPABASE_ANON_KEY || '').trim();
 let supabase = null;
 
 // Local DB State (Fallback)
@@ -38,19 +42,13 @@ function saveLocalDb() {
   } catch (e) { console.error('[MATRIX] Local DB Sync Failed', e); }
 }
 
-if (supabaseUrl && supabaseKey) {
+if (supabaseUrl && supabaseKey && supabaseUrl.startsWith('http')) {
   supabase = createClient(supabaseUrl, supabaseKey);
   console.log('[MATRIX] Supabase Uplink Initialized.');
 } else {
-  console.warn('[MATRIX] SUPABASE_URL missing. Engaging Local Node Storage.');
+  console.warn('[MATRIX] SUPABASE_URL missing or invalid. Engaging Local Node Storage.');
   loadLocalDb();
 }
-
-
-// Load env from .env (or path from DOTENV_CONFIG_PATH). Never commit .env.
-require('dotenv').config(
-  process.env.DOTENV_CONFIG_PATH ? { path: process.env.DOTENV_CONFIG_PATH } : {}
-);
 
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
