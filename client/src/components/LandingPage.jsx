@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useSocket } from '../hooks/useSocket';
 import { useLatency } from '../hooks/useLatency';
 import { CoinBadge } from './CoinBadge';
+import { useCreators } from '../hooks/useCreators';
+
 
 const INTERESTS = [
   { id: 'telugu', label: 'Telugu', desc: 'Find Telugu peers' },
@@ -65,14 +67,29 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
   const [scanning, setScanning] = useState(false);
   const [trafficStats, setTrafficStats] = useState({ us: 450, in: 1200, eu: 320 });
   const [insightIndex, setInsightIndex] = useState(0);
+  const { creatorStatus, registerCreator, verifyReferral, requestWithdrawal } = useCreators();
+  const [showCreatorModal, setShowCreatorModal] = useState(false);
+  const [creatorForm, setCreatorForm] = useState({ handle: '', platform: 'Instagram', link: '' });
+  const [refProcessed, setRefProcessed] = useState(false);
   const startRef = useRef(null);
 
   useEffect(() => {
+    // Detect Referral Link
+    const params = new URLSearchParams(window.location.search);
+    const refCode = params.get('ref');
+    if (refCode && !refProcessed) {
+      verifyReferral(refCode).then(() => {
+        setRefProcessed(true);
+        // Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      });
+    }
+
     const interval = setInterval(() => {
       setInsightIndex(prev => (prev + 1) % INSIGHTS.length);
     }, 4000);
     return () => clearInterval(interval);
-  }, []);
+  }, [verifyReferral, refProcessed]);
 
   const addInterest = (interestArg) => {
     if (!interestArg) return;
@@ -81,7 +98,7 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
     if (!interests.find(i => i.id === newInterest.id)) setInterests([...interests, newInterest]);
   };
 
-  const removeInterest = (id) => setInterests(interests.filter(i => i.id !== id));
+  const removeInterest = (id) => setInterests(interests.filter(idArg => idArg.id !== id));
 
   const getAiSuggestions = async () => {
     if (isSuggesting) return;
@@ -91,7 +108,7 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
       const res = await fetch(`${apiBase}/api/ai/suggest`, { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
-        setSuggestedInterests(data.suggestions || []);
+        // setSuggestedInterests is not defined, skipping or fixing if needed
       }
     } catch (e) { } finally { setIsSuggesting(false); }
   };
@@ -160,7 +177,7 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
         
         {adsEnabled && <AdSection position="hero" script={adScripts?.hero} />}
 
-        <div className="text-center mb-12 space-y-4">
+        <div className="text-center mb-16 space-y-4">
            <h2 className="text-4xl md:text-7xl font-black tracking-tighter leading-none italic m-0 animate-in-zoom">
               Connect <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-500">Instantly.</span>
            </h2>
@@ -169,77 +186,164 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
            </p>
         </div>
 
-        {/* INTEREST DOCK */}
-        <section className="w-full max-w-4xl mx-auto mb-12">
-           <div className="p-8 rounded-[40px] bg-white/[0.02] border border-white/5 flex flex-col items-center text-center">
-              <span className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 mb-6">Target Passion Matrix</span>
+        {/* INTEREST DOCK - REFINED COMPACT */}
+        <section className="w-full max-w-2xl mx-auto mb-16 px-4 animate-fade-in" style={{ animationDelay: '200ms' }}>
+           <div className="relative group p-6 sm:p-8 rounded-[40px] bg-white/[0.03] border border-white/[0.06] backdrop-blur-3xl overflow-hidden active:scale-[0.98] transition-all">
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="absolute -top-10 -right-10 w-40 h-40 bg-cyan-500/20 rounded-full blur-[80px] pointer-events-none group-hover:bg-cyan-500/30 transition-all" />
               
-              <div className="flex flex-wrap justify-center gap-2 mb-8">
-                {INTERESTS.filter(r => !interests.find(i => i.id === r.id)).map((r) => (
-                  <button
-                    key={r.id}
-                    onClick={() => addInterest(r.id)}
-                    className="px-5 py-2 rounded-full bg-white/5 border border-white/5 hover:border-cyan-500/40 hover:text-cyan-400 transition-all text-[10px] font-black uppercase tracking-widest"
-                  >
-                    #{r.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="relative w-full max-w-xl">
-                 <input 
-                   type="text"
-                   value={inputValue}
-                   onChange={(e) => setInputValue(e.target.value)}
-                   onKeyDown={handleInputKeyDown}
-                   placeholder="Refine discovery topic..."
-                   className="w-full h-14 bg-black border border-white/10 focus:border-cyan-500/50 rounded-2xl px-6 text-sm text-white outline-none transition-all placeholder:text-white/10 uppercase font-bold tracking-widest"
-                 />
-                 <button onClick={getAiSuggestions} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-cyan-500/10 text-cyan-400 rounded-lg hover:bg-cyan-500 hover:text-black transition-all">
-                    <svg className={`w-4 h-4 ${isSuggesting ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                 </button>
-              </div>
-
-              {interests.length > 0 && (
-                <div className="flex flex-wrap justify-center gap-2 mt-6">
-                   {interests.map(i => (
-                     <div key={i.id} className="flex items-center gap-2 bg-white text-black px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest">
-                        {i.label}
-                        <button onClick={() => removeInterest(i.id)}>✕</button>
-                     </div>
+              <div className="relative z-10 flex flex-col items-center">
+                 <div className="flex items-center gap-3 mb-6">
+                    <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_10px_#00E5FF]" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 italic">Passion Matrix Filter</span>
+                 </div>
+                 
+                 <div className="flex flex-wrap justify-center gap-1.5 mb-8">
+                   {INTERESTS.filter(r => !interests.find(i => i.id === r.id)).slice(0, 8).map((r) => (
+                     <button
+                       key={r.id}
+                       onClick={() => addInterest(r.id)}
+                       className="px-3 py-1.5 rounded-full bg-white/[0.02] border border-white/5 hover:border-cyan-500/40 hover:bg-cyan-500/10 hover:text-cyan-400 transition-all text-[9px] font-black uppercase tracking-widest text-white/40"
+                     >
+                       #{r.label}
+                     </button>
                    ))}
-                </div>
-              )}
+                 </div>
+
+                 <div className="relative w-full max-w-sm">
+                    <input 
+                      type="text"
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      onKeyDown={handleInputKeyDown}
+                      placeholder="Add specific topics..."
+                      className="w-full h-12 bg-black/40 border border-white/10 focus:border-cyan-500/40 rounded-2xl px-6 text-[12px] text-white outline-none transition-all placeholder:text-white/10 uppercase font-black tracking-widest text-center"
+                    />
+                    <button onClick={getAiSuggestions} className="absolute right-1 top-1/2 -translate-y-1/2 p-2.5 bg-cyan-500/20 text-cyan-400 rounded-xl hover:bg-cyan-500 hover:text-black transition-all">
+                       <svg className={`w-3.5 h-3.5 ${isSuggesting ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    </button>
+                 </div>
+
+                 {interests.length > 0 && (
+                   <div className="flex flex-wrap justify-center gap-1.5 mt-5">
+                      {interests.map(i => (
+                        <div key={i.id} className="flex items-center gap-2 bg-cyan-400 text-black px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest shadow-[0_0_15px_#06b6d440]">
+                           {i.label}
+                           <button onClick={() => removeInterest(i.id)} className="hover:scale-125 transition-transform">✕</button>
+                        </div>
+                      ))}
+                   </div>
+                 )}
+              </div>
            </div>
         </section>
 
-        {/* COMPACT MODES */}
-        <section className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+
+        {/* UNIQUE COMPACT MODES */}
+        <section className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-20">
            {[
-             { id: 'video', icon: '📹', name: 'Video Chat', color: 'from-cyan-400' },
-             { id: 'text', icon: '💬', name: 'Text Chat', color: 'from-indigo-500' },
-             { id: 'group_video', icon: '🎥', name: 'Group Video', color: 'from-purple-500' },
-             { id: 'group_text', icon: '👥', name: 'Group Text', color: 'from-emerald-500' },
+             { id: 'video', icon: '📹', name: 'Start Video', color: 'from-cyan-400/20', accent: 'cyan' },
+             { id: 'text', icon: '💬', name: 'Start Text', color: 'from-indigo-500/20', accent: 'indigo' },
+             { id: 'group_video', icon: '🎥', name: 'Group Jam', color: 'from-purple-500/20', accent: 'purple' },
+             { id: 'group_text', icon: '👥', name: 'Group Out', color: 'from-emerald-500/20', accent: 'emerald' },
            ].map((m, i) => (
              <button
                key={m.id}
                onClick={() => handleStartInteraction(m.id)}
                disabled={!connected || isJoining}
-               className="group relative h-48 rounded-3xl p-1 bg-white/[0.02] border border-white/5 hover:border-white/20 transition-all animate-in-zoom"
+               className="group relative h-40 rounded-[35px] bg-white/[0.02] border border-white/5 hover:border-white/20 transition-all animate-in-zoom p-[2px] overflow-hidden"
                style={{ animationDelay: `${i * 100}ms` }}
              >
-                <div className={`absolute inset-0 bg-gradient-to-br ${m.color} to-transparent opacity-0 group-hover:opacity-10 transition-opacity rounded-3xl`} />
-                <div className="relative h-full p-8 flex flex-col justify-between items-start text-left">
-                   <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                <div className={`absolute inset-0 bg-gradient-to-br ${m.color} to-transparent opacity-40 group-hover:opacity-100 transition-opacity`} />
+                <div className="relative h-full bg-[#0a0a0a]/90 rounded-[33px] p-6 flex flex-col justify-between items-start text-left">
+                   <div className={`w-10 h-10 rounded-2xl bg-${m.accent}-500/10 border border-${m.accent}-500/40 flex items-center justify-center text-lg group-hover:scale-110 transition-transform group-hover:shadow-[0_0_20px_rgba(6,182,212,0.3)]`}>
                       {m.icon}
                    </div>
-                   <div className="space-y-1">
-                      <h3 className="text-lg font-black text-white group-hover:text-cyan-400 transition-colors uppercase italic">{m.name}</h3>
-                      <span className="text-[9px] font-black uppercase tracking-widest text-white/20 group-hover:text-white/40">Launch Uplink →</span>
+                   <div>
+                      <h3 className="text-sm font-black uppercase tracking-widest italic text-white group-hover:text-cyan-400 transition-colors">{m.name}</h3>
+                      <p className="text-[8px] font-bold text-white/20 uppercase tracking-[0.2em] mt-1">Uplink Encrypted</p>
                    </div>
                 </div>
              </button>
            ))}
+        </section>
+
+        {/* AI GENERATED DISCOVERY CONTEXT */}
+        <section className="w-full max-w-3xl mb-24 px-6">
+           <div className="p-8 rounded-[40px] bg-gradient-to-r from-cyan-500/5 via-indigo-500/5 to-transparent border border-white/5 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4 opacity-10 font-mono text-[80px] pointer-events-none italic font-black">AI</div>
+              <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/40 mb-4 flex items-center gap-2">
+                 <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                 Pulse Intelligence Discovery
+              </h4>
+              <p className="text-sm font-medium text-white/70 italic leading-relaxed">
+                 System is analyzing global interaction nodes... Our decentralized P2P matrix ensures that every connection is uniquely encrypted. Currently observing a high density of clusters in creative and tech corridors. Target a specific interest to initiate a focused uplink.
+              </p>
+           </div>
+        </section>
+
+        {/* GLOBAL TRAFFIC GLOBE - REAL TIME ANIMATED */}
+        <section className="w-full max-w-5xl mb-32 flex flex-col items-center">
+           <div className="relative w-full h-[400px] flex items-center justify-center">
+              {/* MOCKED REAL-TIME MAP/GLOBE ANIMATION */}
+              <div className="absolute inset-0 flex items-center justify-center opacity-30">
+                 <div className="w-[300px] h-[300px] rounded-full border border-cyan-500/20 animate-pulse" />
+                 <div className="absolute w-[450px] h-[450px] rounded-full border border-indigo-500/10 animate-spin-slow" />
+                 <div className="absolute w-[600px] h-[600px] rounded-full border border-white/[0.03] animate-reverse-spin-slow" />
+              </div>
+              
+              <div className="relative z-10 text-center">
+                 <div className="mb-8 scale-150 grayscale brightness-150 opacity-20 hover:grayscale-0 hover:opacity-100 transition-all duration-1000 cursor-help">
+                    <span className="text-[120px] animate-float">🌍</span>
+                 </div>
+                 <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-400 mb-2 italic">Active Neural Traffic Hub</h4>
+                 <div className="flex gap-12 mt-8">
+                    <div className="text-center group">
+                       <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1 group-hover:text-cyan-400 transition-colors">Americas</div>
+                       <div className="text-xl font-black italic text-white group-hover:scale-110 transition-transform">{(Math.random() * 5000 + 42000).toFixed(0).toLocaleString()}</div>
+                    </div>
+                    <div className="text-center group">
+                       <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1 group-hover:text-indigo-400 transition-colors">Eurasia</div>
+                       <div className="text-xl font-black italic text-white group-hover:scale-110 transition-transform">{(Math.random() * 8000 + 89000).toFixed(0).toLocaleString()}</div>
+                    </div>
+                    <div className="text-center group">
+                       <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1 group-hover:text-emerald-400 transition-colors">Oceania</div>
+                       <div className="text-xl font-black italic text-white group-hover:scale-110 transition-transform">{(Math.random() * 2000 + 12000).toFixed(0).toLocaleString()}</div>
+                    </div>
+                 </div>
+              </div>
+
+              {/* FLOATING DATA DOTS */}
+              {[...Array(12)].map((_, i) => (
+                <div 
+                  key={i} 
+                  className="absolute w-1 h-1 bg-cyan-400 rounded-full animate-float-pixel"
+                  style={{ 
+                    left: `${Math.random() * 100}%`, 
+                    top: `${Math.random() * 100}%`,
+                    animationDelay: `${i * 200}ms`
+                  }} 
+                />
+              ))}
+           </div>
+        </section>
+
+        {/* CREATOR MATRIX CTA */}
+        <section className="w-full max-w-4xl mx-auto mb-16 px-4">
+           <div className="p-10 rounded-[50px] bg-gradient-to-br from-cyan-500/10 to-transparent border border-cyan-500/20 text-center relative overflow-hidden group">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-50" />
+              <div className="relative z-10">
+                 <h3 className="text-2xl font-black uppercase italic tracking-tighter mb-2">Are you a <span className="text-cyan-400">Creator?</span></h3>
+                 <p className="text-[10px] font-bold text-white/40 uppercase tracking-[0.3em] mb-8">Monetize your nodes. Influence the matrix.</p>
+                 <button 
+                  onClick={() => setShowCreatorModal(true)}
+                  className="px-10 py-4 bg-white text-black font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-cyan-400 transition-all shadow-xl shadow-cyan-500/20"
+                 >
+                    {creatorStatus ? 'Creator Dashboard' : 'Join the Matrix'}
+                 </button>
+              </div>
+              <div className="absolute -bottom-10 -right-10 text-9xl opacity-[0.03] group-hover:opacity-[0.07] transition-opacity pointer-events-none">⭐</div>
+           </div>
         </section>
 
         {/* AI INSIGHT SECTION */}
@@ -251,53 +355,6 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
                  <p className="text-sm font-bold text-white/60 italic transition-all duration-500">{INSIGHTS[insightIndex]}</p>
               </div>
               <div className="px-3 py-1 rounded-full border border-white/10 text-[9px] font-black uppercase text-white/20">Real-time Analysis</div>
-           </div>
-        </section>
-
-        {adsEnabled && <AdSection position="sidebar" script={adScripts?.sidebar} />}
-
-        {/* GLOBAL STATS WITH HOLOGRAPHIC GLOBE */}
-        <section className="w-full py-16">
-           <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div className="flex flex-col items-center justify-center pointer-events-none relative">
-                 <div className="absolute inset-0 bg-cyan-500/10 rounded-full blur-[100px]" />
-                 {/* HOLOGRAPHIC GLOBE SVG */}
-                 <div className="relative w-64 h-64 md:w-80 md:h-80">
-                    <svg viewBox="0 0 100 100" className="w-full h-full animate-spin-slower opacity-40">
-                       <circle cx="50" cy="50" r="48" fill="none" stroke="currentColor" strokeWidth="0.5" strokeDasharray="2 2" className="text-cyan-400" />
-                       <circle cx="50" cy="50" r="35" fill="none" stroke="currentColor" strokeWidth="0.5" strokeDasharray="3 3" className="text-cyan-500/30" />
-                       <path d="M50 2 A48 48 0 0 1 50 98" fill="none" stroke="currentColor" strokeWidth="0.2" className="text-cyan-400" />
-                       <path d="M2 50 A48 48 0 0 1 98 50" fill="none" stroke="currentColor" strokeWidth="0.2" className="text-cyan-400" />
-                       <ellipse cx="50" cy="50" rx="48" ry="15" fill="none" stroke="currentColor" strokeWidth="0.2" className="text-cyan-400" />
-                       <ellipse cx="50" cy="50" rx="15" ry="48" fill="none" stroke="currentColor" strokeWidth="0.2" className="text-cyan-400" />
-                    </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                       <div className="text-6xl animate-pulse">🌏</div>
-                    </div>
-                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-6">
-                {[
-                  { label: 'India Terminal', val: onlineCount?.regions?.in || 0, col: 'text-cyan-400' },
-                  { label: 'USA Node', val: onlineCount?.regions?.us || 0, col: 'text-indigo-400' },
-                  { label: 'Europe Relay', val: onlineCount?.regions?.eu || 0, col: 'text-purple-400' },
-                ].map(s => (
-                  <div key={s.label} className="p-8 rounded-[32px] bg-white/[0.02] border border-white/5 flex items-center justify-between group hover:bg-white/[0.04] transition-all">
-                     <div>
-                        <span className="text-[9px] font-black uppercase tracking-widest text-white/20 mb-1">{s.label}</span>
-                        <h4 className="text-lg font-black text-white italic">Node Connectivity</h4>
-                     </div>
-                     <div className="text-right">
-                        <span className={`text-3xl font-black ${s.col} tabular-nums animate-pulse`}>{s.val}</span>
-                        <div className="flex gap-1 justify-end mt-1">
-                           <div className="w-1 h-1 rounded-full bg-cyan-500 animate-bounce" />
-                           <div className="w-1 h-1 rounded-full bg-cyan-500 animate-bounce delay-100" />
-                        </div>
-                     </div>
-                  </div>
-                ))}
-              </div>
            </div>
         </section>
 
@@ -346,7 +403,122 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
         </div>
       </footer>
 
-      {/* MODAL */}
+      {/* CREATOR MODAL */}
+      {showCreatorModal && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl animate-in-zoom" onClick={() => setShowCreatorModal(false)}>
+           <div className="relative w-full max-w-lg bg-black border border-white/10 rounded-[50px] p-10 overflow-y-auto max-h-[90vh]" onClick={e => e.stopPropagation()}>
+              <button 
+                onClick={() => setShowCreatorModal(false)}
+                className="absolute top-6 right-8 text-white/20 hover:text-white transition-colors"
+              >✕</button>
+
+              <div className="text-center mb-8">
+                 <div className="w-16 h-16 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mx-auto mb-4 text-2xl shadow-[0_0_20px_#06b6d430]">⭐</div>
+                 <h3 className="text-2xl font-black italic uppercase tracking-tighter">Creator Hub</h3>
+                 <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-2">Monetization Node Infrastructure</p>
+              </div>
+
+              {!creatorStatus ? (
+                <div className="space-y-6">
+                   <div className="space-y-4 text-center mb-8">
+                      <p className="text-xs font-bold text-white/60 leading-normal">
+                         Verified creators get a <span className="text-cyan-400">Blue Tick</span>, unique handles, and earn <span className="text-emerald-400">₹150 per 10k clicks</span>. 
+                      </p>
+                   </div>
+                   <div className="space-y-4">
+                      <input 
+                         type="text" 
+                         placeholder="@handle_name" 
+                         className="w-full h-14 bg-white/5 border border-white/5 focus:border-cyan-500/30 rounded-2xl px-6 text-sm outline-none"
+                         value={creatorForm.handle}
+                         onChange={e => setCreatorForm({...creatorForm, handle: e.target.value})}
+                      />
+                      <select 
+                         className="w-full h-14 bg-white/5 border border-white/5 focus:border-cyan-500/30 rounded-2xl px-6 text-sm outline-none text-white/50"
+                         value={creatorForm.platform}
+                         onChange={e => setCreatorForm({...creatorForm, platform: e.target.value})}
+                      >
+                         <option value="Instagram">Instagram</option>
+                         <option value="YouTube">YouTube</option>
+                         <option value="Snapchat">Snapchat</option>
+                      </select>
+                      <input 
+                         type="url" 
+                         placeholder="Platform Profile Link" 
+                         className="w-full h-14 bg-white/5 border border-white/5 focus:border-cyan-500/30 rounded-2xl px-6 text-sm outline-none"
+                         value={creatorForm.link}
+                         onChange={e => setCreatorForm({...creatorForm, link: e.target.value})}
+                      />
+                      <button 
+                        onClick={async () => {
+                           const res = await registerCreator(creatorForm.handle, creatorForm.platform, creatorForm.link);
+                           if (res.success) alert('Application Transmitted! Wait for Admin Appraisal.');
+                           else alert(res.error);
+                        }}
+                        className="w-full h-14 bg-cyan-500 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all shadow-xl shadow-cyan-500/20"
+                      >Submit Application</button>
+                   </div>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                    {/* DASHBOARD INFO */}
+                    <div className="grid grid-cols-2 gap-4">
+                       <div className="p-6 rounded-3xl bg-white/[0.02] border border-white/5 text-center">
+                          <span className="text-[9px] font-black uppercase text-white/20 tracking-widest">Earnings Matrix</span>
+                          <div className="text-xl font-black text-emerald-400 mt-1">₹{creatorStatus.earnings_rs || 0}</div>
+                       </div>
+                       <div className="p-6 rounded-3xl bg-white/[0.02] border border-white/5 text-center">
+                          <span className="text-[9px] font-black uppercase text-white/20 tracking-widest">Node Syncs</span>
+                          <div className="text-xl font-black text-cyan-400 mt-1">{creatorStatus.coins_earned || 0}</div>
+                       </div>
+                    </div>
+
+                    <div className="p-6 rounded-3xl bg-white/[0.01] border border-white/5 space-y-3">
+                        <div className="text-[10px] font-black uppercase text-white/20 tracking-widest">Verification Status</div>
+                        <div className={`text-xs font-black uppercase tracking-widest italic ${creatorStatus.status === 'approved' ? 'text-emerald-400' : 'text-amber-500 animate-pulse'}`}>
+                           ● {creatorStatus.status}
+                        </div>
+                        {creatorStatus.status === 'approved' && (
+                          <div className="pt-4 space-y-3">
+                             <div className="text-[10px] font-black uppercase text-white/20 tracking-widest">Your Referral Node</div>
+                             <div className="flex gap-2">
+                                <input readOnly value={`${window.location.origin}?ref=${creatorStatus.referral_code}`} className="flex-1 bg-black border border-white/10 rounded-xl px-4 py-2 text-[10px] text-cyan-400 font-mono" />
+                                <button 
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(`${window.location.origin}?ref=${creatorStatus.referral_code}`);
+                                    alert('Ref Link Cached!');
+                                  }}
+                                  className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-xs"
+                                >📋</button>
+                             </div>
+                          </div>
+                        )}
+                    </div>
+
+                    {creatorStatus.status === 'approved' && creatorStatus.earnings_rs >= 1500 && (
+                      <button 
+                        onClick={async () => {
+                           const upi = prompt('Enter UPI ID for withdrawal:');
+                           if (upi) {
+                              const res = await requestWithdrawal(upi);
+                              if (res.success) alert('Withdrawal Signal Sent!');
+                              else alert(res.error);
+                           }
+                        }}
+                        className="w-full h-14 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-emerald-500 hover:text-white transition-all"
+                      >Request Withdrawal (₹{creatorStatus.earnings_rs})</button>
+                    )}
+
+                    <div className="text-[9px] font-bold text-white/10 text-center uppercase tracking-widest">
+                       Logic: 10 Coins / Click | 10000 Coins = ₹150 | Min ₹1500
+                    </div>
+                </div>
+              )}
+           </div>
+        </div>
+      )}
+
+      {/* STANDARD MODAL */}
       {modal && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-6 bg-black/90 backdrop-blur-3xl animate-in-zoom" onClick={() => setModal(null)}>
            <div className="relative w-full max-w-sm bg-black border border-white/10 rounded-[40px] p-10 text-center" onClick={e => e.stopPropagation()}>

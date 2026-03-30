@@ -15,7 +15,9 @@ export function AdminDashboard() {
   const [announcement, setAnnouncement] = useState('');
   const [isKillswitchConfirm, setIsKillswitchConfirm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('overview'); // overview, users, room-monitoring, economy, security, ads, logic
+  const [activeTab, setActiveTab] = useState('overview'); // overview, users, creators, room-monitoring, economy, security, ads, logic
+  const [creators, setCreators] = useState([]);
+  const [withdrawals, setWithdrawals] = useState([]);
   const [toast, setToast] = useState(null);
   const [adForm, setAdForm] = useState({ hero: '', sidebar: '', footer: '' });
 
@@ -40,6 +42,32 @@ export function AdminDashboard() {
       setError('Connection failed');
     }
   };
+
+  const fetchCreators = async () => {
+     try {
+       const res = await fetch(`${API_BASE}/api/admin/creators/list`, {
+         headers: { 'x-admin-key': key },
+       });
+       if (res.ok) {
+         const data = await res.json();
+         setCreators(data.creators || []);
+         setWithdrawals(data.withdrawals || []);
+       }
+     } catch (e) {}
+  };
+
+  const handleCreatorApprove = async (creatorId, status) => {
+     try {
+       await fetch(`${API_BASE}/api/admin/creators/approve`, {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
+         body: JSON.stringify({ creatorId, status }),
+       });
+       fetchCreators();
+       setToast(`⭐ Creator ${status}`);
+     } catch (e) {}
+  };
+
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -204,10 +232,13 @@ export function AdminDashboard() {
 
   useEffect(() => {
     if (isLogged) {
-      const interval = setInterval(() => fetchStats(key), 5000);
+      const interval = setInterval(() => {
+        fetchStats(key);
+        if (activeTab === 'creators') fetchCreators();
+      }, 5000);
       return () => clearInterval(interval);
     }
-  }, [isLogged, key]);
+  }, [isLogged, key, activeTab]);
 
   const filteredUsers = useMemo(() => {
     if (!stats?.userList) return [];
@@ -306,6 +337,7 @@ export function AdminDashboard() {
             {[
               { id: 'overview', label: 'Overview', icon: '📊' },
               { id: 'users', label: 'User Nodes', icon: '👤' },
+              { id: 'creators', label: 'Creator Hub', icon: '⭐' },
               { id: 'room-monitoring', label: 'Live Monitoring', icon: '👁️' },
               { id: 'economy', label: 'Economy Hub', icon: '🪙' },
               { id: 'security', label: 'Security Firewall', icon: '🛡️' },
@@ -595,6 +627,73 @@ export function AdminDashboard() {
                    )}
                 </div>
              </div>
+          )}
+
+          {activeTab === 'creators' && (
+            <div className="space-y-10 animate-fade-in">
+              <div className="p-10 rounded-[50px] bg-gradient-to-br from-cyan-500/5 to-transparent border border-cyan-500/10 shadow-2xl">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 mb-8 italic">⭐ Influence Appraisal Pipeline</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="text-[10px] uppercase font-black tracking-widest text-white/20 border-b border-white/5 italic">
+                        <th className="py-4">Node Handle</th>
+                        <th className="py-4">Platform</th>
+                        <th className="py-4">Metrics (Coins/Rs)</th>
+                        <th className="py-4">Status</th>
+                        <th className="py-4 text-right">Appraisal Override</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.03]">
+                      {creators?.map(c => (
+                        <tr key={c.id} className="hover:bg-white/[0.01] transition-all group">
+                          <td className="py-6 flex flex-col">
+                            <span className="font-black text-white italic group-hover:text-cyan-400 transition-colors uppercase tracking-widest">{c.handle_name}</span>
+                            <a href={c.profile_link} target="_blank" className="text-[9px] text-white/20 hover:text-white transition-colors mt-1">Uplink Profile →</a>
+                          </td>
+                          <td className="py-6 text-xs text-white/40 font-black uppercase tracking-widest">{c.platform}</td>
+                          <td className="py-6 text-xs font-black uppercase tracking-widest">
+                            <span className="text-cyan-400 italic">🪙 {c.coins_earned}</span>
+                            <span className="mx-2 text-white/5">/</span>
+                            <span className="text-emerald-400 italic">₹{c.earnings_rs}</span>
+                          </td>
+                          <td className="py-6">
+                            <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${c.status === 'approved' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'}`}>
+                              {c.status}
+                            </span>
+                          </td>
+                          <td className="py-6 text-right">
+                            <div className="flex gap-2 justify-end">
+                              <button onClick={() => handleCreatorApprove(c.id, 'approved')} className="p-2 bg-emerald-500/20 hover:bg-emerald-500 text-emerald-400 hover:text-white rounded-lg transition-all">⭐ Approve</button>
+                              <button onClick={() => handleCreatorApprove(c.id, 'rejected')} className="p-2 bg-rose-500/20 hover:bg-rose-500 text-rose-500 hover:text-white rounded-lg transition-all">✕ Reject</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="p-10 rounded-[50px] bg-gradient-to-br from-emerald-500/5 to-transparent border border-emerald-500/10 shadow-2xl">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-400 mb-8 italic">💸 Physical Wealth Disbursement (Withdrawals)</h3>
+                <div className="space-y-4">
+                  {withdrawals?.map(w => (
+                    <div key={w.id} className="p-6 rounded-[30px] bg-white/[0.02] border border-white/5 flex items-center justify-between group">
+                      <div>
+                        <div className="text-sm font-black text-white italic uppercase tracking-widest">{w.creators?.handle_name}</div>
+                        <div className="text-[10px] text-white/20 font-black uppercase tracking-widest mt-1">UPI: {w.upi}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xl font-black text-emerald-400 italic mb-2 tracking-tighter">₹{w.amount}</div>
+                        <button className="px-6 py-2 bg-emerald-500 text-black font-black uppercase tracking-widest text-[9px] rounded-xl hover:bg-white transition-all shadow-xl shadow-emerald-500/30">Authorize Payout</button>
+                      </div>
+                    </div>
+                  ))}
+                  {withdrawals?.length === 0 && <div className="py-10 text-center opacity-10 text-xs font-black uppercase tracking-[0.5em]">No pending disbursement signals</div>}
+                </div>
+              </div>
+            </div>
           )}
 
           {activeTab === 'ads' && (

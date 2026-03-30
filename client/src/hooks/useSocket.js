@@ -6,9 +6,11 @@ export function useSocket() {
   const [socket, setSocket] = useState(null);
   const [connected, setConnected] = useState(false);
   const [country, setCountry] = useState(null);
-  const [onlineCount, setOnlineCount] = useState(0);
+  const [onlineCount, setOnlineCount] = useState({ count: 0, regions: { in: 0, us: 0, eu: 0, ot: 0 } });
   const [adsEnabled, setAdsEnabled] = useState(false);
-  const [allowDevTools, setAllowDevTools] = useState(true); // Default to true until sync
+  const [allowDevTools, setAllowDevTools] = useState(true);
+  const [nickname, setNickname] = useState('Anonymous');
+  const [isCreator, setIsCreator] = useState(false);
   const [contentFlagged, setContentFlagged] = useState(null);
 
   const [isBlocked, setIsBlocked] = useState(false);
@@ -30,6 +32,8 @@ export function useSocket() {
       s.on('disconnect', () => setConnected(false));
       s.on('connected', (data) => {
         setCountry(data?.country || null);
+        setNickname(data?.nickname || 'Anonymous');
+        setIsCreator(!!data?.isCreator);
         if (data?.settings) {
            setAdsEnabled(!!data.settings.adsEnabled);
            setAllowDevTools(!!data.settings.allowDevTools);
@@ -82,5 +86,16 @@ export function useSocket() {
     };
   }, [apiBase]);
 
-  return { socket, connected, country, onlineCount, adsEnabled, allowDevTools, isBlocked, contentFlagged };
+  return {
+    socket,
+    connected,
+    country,
+    onlineCount,
+    adsEnabled,
+    allowDevTools,
+    nickname,
+    isCreator,
+    isBlocked,
+    contentFlagged
+  };
 }

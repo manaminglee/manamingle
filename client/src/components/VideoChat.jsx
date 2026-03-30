@@ -123,7 +123,7 @@ function VanishingMessage({ m, isMe }) {
   );
 }
 
-export function VideoChat({ socket, connected, country, onlineCount, interest = 'general', nickname = 'Anonymous', adsEnabled = false, onBack, onJoined, onFindNewPartner, coinState }) {
+export function VideoChat({ socket, connected, country, onlineCount, interest = 'general', nickname = 'Anonymous', isCreator = false, adsEnabled = false, onBack, onJoined, onFindNewPartner, coinState }) {
   const { balance, streak, canClaim, nextClaim, claimCoins, history, addHistory } = coinState || {};
   const { iceServers } = useIceServers();
   const [messages, setMessages] = useState([]);
@@ -141,6 +141,9 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   const [isTranslatorActive, setIsTranslatorActive] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [active3dEmoji, setActive3dEmoji] = useState(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const recorderRef = useRef(null);
+  const chunksRef = useRef([]);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [cameraError, setCameraError] = useState(null);
   const [toast, setToast] = useState(null);
@@ -1165,6 +1168,35 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     }
   };
 
+  const startRecording = () => {
+    if (!peer?.stream) return alert('No active node stream to record.');
+    const recorder = new MediaRecorder(peer.stream, { mimeType: 'video/webm' });
+    chunksRef.current = [];
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunksRef.current.push(e.data);
+    };
+    recorder.onstop = () => {
+      const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Creator_Matrix_Clip_${Date.now()}.webm`;
+      a.click();
+    };
+    recorder.start();
+    recorderRef.current = recorder;
+    setIsRecording(true);
+    setToast('🎥 Matrix Recording Active');
+  };
+
+  const stopRecording = () => {
+    if (recorderRef.current) {
+      recorderRef.current.stop();
+      setIsRecording(false);
+      setToast('🎥 Recording Offline');
+    }
+  };
+
   const formatTime = (ts) => ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
   return (
@@ -1176,6 +1208,14 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
         </button>
         <span className="text-[11px] font-bold uppercase tracking-wider text-white/40">Mana Mingle Video</span>
         <div className="flex items-center gap-2">
+          {isCreator && status === 'connected' && (
+            <button
+              onClick={isRecording ? stopRecording : startRecording}
+              className={`px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[8px] font-black uppercase tracking-widest transition-all ${isRecording ? 'text-rose-500 animate-pulse border-rose-500/50' : 'text-white/40 hover:text-white'}`}
+            >
+              {isRecording ? 'Rec active' : 'Rec node'}
+            </button>
+          )}
           <button onClick={() => setShowFilterMenu(true)} className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition">Filters</button>
           <span className="text-[10px] text-white/30 hidden sm:inline">{onlineCount?.toLocaleString()} online</span>
           <button onClick={() => setShowCoinHistory(true)} className="text-amber-500/90 font-bold text-xs flex items-center gap-1 hover:bg-white/5 px-2 py-1 rounded transition border border-amber-500/20">🪙 {balance}</button>
@@ -1192,13 +1232,12 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
         {/* Split view: You | Stranger - when idle or searching show full, when connected show split */}
         <div className={`flex-1 flex ${status === 'connected' ? (showChat && isMobile ? 'h-[55%] flex-col' : 'flex-col sm:flex-row') : 'flex-col'} min-h-0 relative`}>
           {/* Left: You (or full when idle/searching) */}
-          <div className={`flex flex-col justify-center items-center min-h-0 bg-[#0a0a0a] ${
-            status === 'connected' 
-              ? (showChat && isMobile 
-                  ? 'absolute top-4 right-4 w-28 h-36 z-[200] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-2 border-white/30 overflow-hidden animate-in-zoom' 
-                  : 'relative flex-1 border-b sm:border-b-0 sm:border-r border-white/[0.06]') 
+          <div className={`flex flex-col justify-center items-center min-h-0 bg-[#0a0a0a] ${status === 'connected'
+              ? (showChat && isMobile
+                ? 'absolute top-4 right-4 w-28 h-36 z-[200] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-2 border-white/30 overflow-hidden animate-in-zoom'
+                : 'relative flex-1 border-b sm:border-b-0 sm:border-r border-white/[0.06]')
               : 'relative flex-1'
-          }`}>
+            }`}>
             {status === 'idle' && (
               <div className="absolute inset-0 flex flex-col items-center justify-center p-6">
                 {cameraError && (
@@ -1230,8 +1269,15 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
             {status === 'connected' && (
               <>
                 <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover scale-x-[-1] transition-opacity duration-300 ${cameraOff ? 'opacity-20' : ''}`} style={{ filter: cameraBlur && activeFilter === 'none' ? 'blur(20px)' : (activeFilter !== 'none' ? activeFilter : 'none') }} />
-                <div className="absolute bottom-3 left-3 flex items-center gap-1 z-10">
-                  <span className="px-2 py-1 rounded bg-black/60 text-[10px] font-black uppercase tracking-widest border border-white/10">You</span>
+                <div className="absolute bottom-3 left-3 flex items-center gap-1.5 z-10">
+                  {isCreator ? (
+                    <div className="flex items-center gap-1 px-2 py-1 rounded bg-black/60 border border-cyan-500/30">
+                      <span className="text-[10px]">⭐</span>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-cyan-400">{nickname}</span>
+                    </div>
+                  ) : (
+                    <span className="px-2 py-1 rounded bg-black/60 text-[10px] font-black uppercase tracking-widest border border-white/10">You</span>
+                  )}
                 </div>
                 {cameraOff && <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm"><span className="text-white/40 text-[10px] font-black uppercase tracking-widest bg-black/60 px-3 py-1.5 rounded-full">Camera Restricted</span></div>}
               </>
@@ -1243,8 +1289,17 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
             <div className={`relative bg-[#0d0d0d] flex-grow min-h-0 ${showChat && isMobile ? 'h-full' : ''}`}>
               <RemoteVideoComponent stream={peer?.stream} muted={mutedStranger} strangerFilter={strangerFilter} strangerBlur={strangerBlur} />
               <div className="absolute bottom-3 left-3 px-2 py-1 rounded bg-black/60 text-[10px] font-black uppercase tracking-widest border border-white/10 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                {countryToFlag(peer?.country)} Stranger Node
+                {peer?.isCreator ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px]">⭐</span>
+                    <span className="text-cyan-400">{countryToFlag(peer?.country)} {peer?.nickname || 'Stranger Hub'}</span>
+                  </div>
+                ) : (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    {countryToFlag(peer?.country)} Stranger Node
+                  </>
+                )}
               </div>
               {partnerLeft && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 backdrop-blur-md z-[60]">
@@ -1262,8 +1317,8 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
         {/* Chat panel - Redesigned for Mobile (Sharing space now) */}
         {showChat && status === 'connected' && (
           <div className={`transition-all duration-300 flex flex-col bg-[#0d0d0d] border-white/[0.06] ${isMobile
-              ? 'h-[45%] w-full border-t z-[150]'
-              : 'static w-80 border-l'
+            ? 'h-[45%] w-full border-t z-[150]'
+            : 'static w-80 border-l'
             }`}>
             <div className="h-10 px-4 flex items-center justify-between border-b border-white/[0.06] bg-white/[0.02]">
               <span className="text-xs font-black uppercase tracking-widest text-indigo-400">Live Chat</span>

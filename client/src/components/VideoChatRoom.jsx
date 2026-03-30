@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { countryToFlag } from '../utils/countryFlag';
 import { useIceServers } from '../hooks/useIceServers';
 
-export function VideoChatRoom({ roomId: roomIdProp, interest, nickname, myCountry, socket, isQueuing, onLeave, onFindNewPartner, onJoined }) {
+export function VideoChatRoom({ roomId: roomIdProp, interest, nickname, isCreator, myCountry, socket, isQueuing, onLeave, onFindNewPartner, onJoined }) {
   const { iceServers } = useIceServers();
   const roomIdRef = useRef(null);
   const roomId = roomIdProp ?? roomIdRef.current;
@@ -12,6 +12,10 @@ export function VideoChatRoom({ roomId: roomIdProp, interest, nickname, myCountr
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const recorderRef = useRef(null);
+  const chunksRef = useRef([]);
+
   const localVideoRef = useRef(null);
   const localStreamRef = useRef(null);
   const peerConnectionsRef = useRef(new Map());
@@ -56,6 +60,34 @@ export function VideoChatRoom({ roomId: roomIdProp, interest, nickname, myCountr
     setCameraOff(!cameraOff);
   };
 
+  const startRecording = () => {
+    if (!peers[0]?.stream) return alert('No peer stream to record.');
+    const stream = peers[0].stream;
+    const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+    chunksRef.current = [];
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunksRef.current.push(e.data);
+    };
+    recorder.onstop = () => {
+      const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ManaMingle_Clip_${Date.now()}.webm`;
+      a.click();
+    };
+    recorder.start();
+    recorderRef.current = recorder;
+    setIsRecording(true);
+  };
+
+  const stopRecording = () => {
+    if (recorderRef.current) {
+      recorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
   const createPeerConnection = (remoteSocketId) => {
     if (peerConnectionsRef.current.get(remoteSocketId)) return peerConnectionsRef.current.get(remoteSocketId);
     const pc = new RTCPeerConnection({ iceServers });
@@ -77,7 +109,7 @@ export function VideoChatRoom({ roomId: roomIdProp, interest, nickname, myCountr
       const info = peerInfoRef.current.get(remoteSocketId) || {};
       setPeers((prev) => {
         const next = prev.filter((p) => p.socketId !== remoteSocketId);
-        next.push({ socketId: remoteSocketId, stream: e.streams[0], nickname: info.nickname, country: info.country });
+        next.push({ socketId: remoteSocketId, stream: e.streams[0], nickname: info.nickname, country: info.country, isCreator: !!info.isCreator });
         return next;
       });
     };
@@ -172,7 +204,7 @@ export function VideoChatRoom({ roomId: roomIdProp, interest, nickname, myCountr
       }
       const peer = data.peer;
       if (peer?.socketId) {
-        peerInfoRef.current.set(peer.socketId, { nickname: peer.nickname, country: peer.country });
+        peerInfoRef.current.set(peer.socketId, { nickname: peer.nickname, country: peer.country, isCreator: !!peer.isCreator });
         if (socket.id < peer.socketId) {
           doOffer(peer.socketId);
         }
@@ -204,10 +236,11 @@ export function VideoChatRoom({ roomId: roomIdProp, interest, nickname, myCountr
     const onSignal = (data) => {
       const fromId = data.fromSocketId;
       if (!fromId || fromId === socket.id) return;
-      if (data.fromNickname || data.fromCountry) {
+      if (data.fromNickname || data.fromCountry || typeof data.fromIsCreator !== 'undefined') {
         peerInfoRef.current.set(fromId, {
           nickname: data.fromNickname || peerInfoRef.current.get(fromId)?.nickname,
           country: data.fromCountry || peerInfoRef.current.get(fromId)?.country,
+          isCreator: typeof data.fromIsCreator !== 'undefined' ? !!data.fromIsCreator : peerInfoRef.current.get(fromId)?.isCreator
         });
       }
       const { type, signal } = data;
@@ -245,7 +278,6 @@ export function VideoChatRoom({ roomId: roomIdProp, interest, nickname, myCountr
   }, []);
 
   const count = 1 + peers.length;
-  // Use Tailwind grid. On mobile, stack them vertically (grid-rows-2), on sm+ layout horizontally (grid-cols-2)
   const gridClass = count <= 1
     ? 'grid grid-cols-1 grid-rows-1'
     : 'grid grid-cols-1 grid-rows-2 sm:grid-cols-2 sm:grid-rows-1 gap-2 sm:gap-4';
@@ -270,6 +302,15 @@ export function VideoChatRoom({ roomId: roomIdProp, interest, nickname, myCountr
           )}
         </div>
         <div className="flex items-center gap-2">
+          {isCreator && !isQueuing && (
+            <button
+              onClick={isRecording ? stopRecording : startRecording}
+              className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}
+            >
+               <span className={`w-2 h-2 rounded-full ${isRecording ? 'bg-white' : 'bg-red-500'}`} />
+               {isRecording ? 'Recording Matrix' : 'Record Clip'}
+            </button>
+          )}
           {!isQueuing && (
             <button
               type="button"
@@ -309,10 +350,21 @@ export function VideoChatRoom({ roomId: roomIdProp, interest, nickname, myCountr
                 </div>
               )}
               <div className="absolute bottom-2 left-2 flex items-center gap-1.5 px-2 py-1.5 rounded-full bg-black/50 border border-white/10 backdrop-blur-md z-10">
-                <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-white/80">
-                  {countryToFlag(myCountry) ? `${countryToFlag(myCountry)} ` : ''}You
-                </span>
+                {isCreator ? (
+                  <div className="flex items-center gap-1.5">
+                     <span className="text-sm" title="Verified Creator">⭐</span>
+                     <span className="text-[10px] font-black uppercase tracking-widest text-cyan-400">
+                        {countryToFlag(myCountry) ? `${countryToFlag(myCountry)} ` : ''}{nickname}
+                     </span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/80">
+                      {countryToFlag(myCountry) ? `${countryToFlag(myCountry)} ` : ''}You
+                    </span>
+                  </>
+                )}
               </div>
             </div>
             {isQueuing ? (
@@ -326,7 +378,7 @@ export function VideoChatRoom({ roomId: roomIdProp, interest, nickname, myCountr
               </div>
             ) : (
               peers.map((p) => (
-                <RemoteVideo key={p.socketId} stream={p.stream} nickname={p.nickname} country={p.country} socketId={p.socketId} />
+                <RemoteVideo key={p.socketId} stream={p.stream} nickname={p.nickname} country={p.country} socketId={p.socketId} isCreator={p.isCreator} />
               ))
             )}
           </div>
@@ -406,7 +458,7 @@ export function VideoChatRoom({ roomId: roomIdProp, interest, nickname, myCountr
   );
 }
 
-function RemoteVideo({ stream, nickname, country, socketId }) {
+function RemoteVideo({ stream, nickname, country, socketId, isCreator }) {
   const ref = useRef(null);
   const flag = countryToFlag(country);
   useEffect(() => {
@@ -417,12 +469,25 @@ function RemoteVideo({ stream, nickname, country, socketId }) {
     <div className="relative min-w-0 min-h-0 rounded-2xl overflow-hidden border-2 bg-[#0c0e1a] border-indigo-500/30">
       <video ref={ref} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />
       <div className="absolute bottom-2 left-2 flex items-center gap-1.5 px-2 py-1.5 rounded-full bg-black/50 border border-white/10 backdrop-blur-md z-10">
-        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-        <span className="text-[10px] font-black uppercase tracking-widest text-white/80">
-          {flag && <span className="mr-1">{flag}</span>}
-          {nickname || 'Stranger'}
-        </span>
+        {isCreator ? (
+          <div className="flex items-center gap-1.5">
+             <span className="text-sm" title="Verified Creator">⭐</span>
+             <span className="text-[10px] font-black uppercase tracking-widest text-cyan-400">
+                {flag && <span className="mr-1">{flag}</span>}
+                {nickname || 'Stranger'}
+             </span>
+          </div>
+        ) : (
+          <>
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+            <span className="text-[10px] font-black uppercase tracking-widest text-white/80">
+              {flag && <span className="mr-1">{flag}</span>}
+              {nickname || 'Stranger'}
+            </span>
+          </>
+        )}
       </div>
     </div>
   );
 }
+

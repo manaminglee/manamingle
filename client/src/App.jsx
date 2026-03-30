@@ -26,17 +26,17 @@ export default function App() {
   const [roomId, setRoomId] = useState(null);
   const [preloadDone, setPreloadDone] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
-  const { socket, connected, country, onlineCount, adsEnabled, allowDevTools, isBlocked, contentFlagged } = useSocket();
+  const { socket, connected, country, onlineCount, adsEnabled, allowDevTools, nickname, isCreator, isBlocked, contentFlagged } = useSocket();
   const coinState = useCoins();
 
   useEffect(() => {
     if (allowDevTools) return;
     const block = (e) => e.preventDefault();
     const keyBlock = (e) => {
-       if (e.keyCode === 123 || (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) || (e.ctrlKey && e.keyCode === 85)) {
-         e.preventDefault();
-         return false;
-       }
+      if (e.keyCode === 123 || (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) || (e.ctrlKey && e.keyCode === 85)) {
+        e.preventDefault();
+        return false;
+      }
     };
     document.addEventListener('contextmenu', block);
     document.addEventListener('keydown', keyBlock);
@@ -78,7 +78,7 @@ export default function App() {
   };
 
   // Called when user selects a mode from the landing page
-  const handleJoin = (interestVal, _nickname, m) => {
+  const handleJoin = (interestVal, _nick, m) => {
     if (!socket || !connected || isJoining) return;
     setIsJoining(true);
     const intst = (interestVal || 'general').trim().toLowerCase() || 'general';
@@ -92,7 +92,7 @@ export default function App() {
     // Note: We no longer emit find-partner here. 
     // The individual components (VideoChat/TextChat) will emit it on mount 
     // to avoid race conditions where events arrive before listeners are ready.
-    
+
     setTimeout(() => setIsJoining(false), 500);
   };
 
@@ -116,14 +116,14 @@ export default function App() {
     if (!socket) return;
     if (roomId) socket.emit('leave-room', { roomId });
     setRoomId(null);
-    socket.emit('find-partner', { mode, interest, nickname: 'Anonymous' });
+    socket.emit('find-partner', { mode, interest, nickname: nickname || 'Anonymous' });
   };
 
   const handleFindNewPod = () => {
     if (!socket) return;
     if (roomId) socket.emit('leave-room', { roomId });
     setRoomId(null);
-    socket.emit('join-group-by-interest', { interest, nickname: 'Anonymous', mode });
+    socket.emit('join-group-by-interest', { interest, nickname: nickname || 'Anonymous', mode });
   };
 
   const renderContent = () => {
@@ -171,7 +171,8 @@ export default function App() {
             country={country}
             onlineCount={onlineCount}
             interest={interest}
-            nickname="Anonymous"
+            nickname={nickname}
+            isCreator={isCreator}
             adsEnabled={adsEnabled}
             onBack={handleBack}
             onJoined={handleJoined}
@@ -190,7 +191,8 @@ export default function App() {
             country={country}
             onlineCount={onlineCount}
             interest={interest}
-            nickname="Anonymous"
+            nickname={nickname}
+            isCreator={isCreator}
             adsEnabled={adsEnabled}
             onBack={handleBack}
             onJoined={handleJoined}
@@ -206,7 +208,8 @@ export default function App() {
           <GroupTextRoom
             roomId={roomId}
             interest={interest}
-            nickname="Anonymous"
+            nickname={nickname}
+            isCreator={isCreator}
             myCountry={country}
             socket={socket}
             isQueuing={!roomId}
@@ -224,7 +227,8 @@ export default function App() {
           <GroupVideoRoom
             roomId={roomId}
             interest={interest}
-            nickname="Anonymous"
+            nickname={nickname}
+            isCreator={isCreator}
             myCountry={country}
             socket={socket}
             isQueuing={!roomId}

@@ -19,7 +19,7 @@ const ICEBREAKERS = [
   "What's a show everyone should watch? 📺",
 ];
 
-function VideoTile({ stream, label, flag, isMe, isEmpty, isSearching }) {
+function VideoTile({ stream, label, flag, isMe, isEmpty, isSearching, isCreator = false }) {
   const ref = useRef(null);
   useEffect(() => {
     if (ref.current && stream) ref.current.srcObject = stream;
@@ -59,7 +59,8 @@ function VideoTile({ stream, label, flag, isMe, isEmpty, isSearching }) {
           <div className="search-dots"><span /><span /><span /></div>
         </div>
       )}
-      <div className="tile-label">
+      <div className={`tile-label ${isCreator ? 'border border-cyan-500/30 bg-cyan-950/40 text-cyan-400' : ''}`}>
+        {isCreator && <span className="mr-1">⭐</span>}
         {flag && <span>{flag}</span>}
         <span>{label}</span>
         {isMe && <span className="text-xs opacity-50 ml-1">(you)</span>}
@@ -82,7 +83,7 @@ const EMOJIS_3D = [
   { char: '👑', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f451/512.webp' },
 ];
 
-export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nickname, myCountry, socket, isQueuing, onLeave, onFindNewPod, onJoined, coinState }) {
+export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nickname, isCreator = false, myCountry, socket, isQueuing, onLeave, onFindNewPod, onJoined, coinState }) {
   const { balance, streak, canClaim, nextClaim, claimCoins } = coinState;
   const { iceServers } = useIceServers();
   const roomIdRef = useRef(null);
@@ -107,12 +108,16 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
   const pendingOffersRef = useRef([]);
   const peerNicksRef = useRef(new Map());
   const peerCountriesRef = useRef(new Map());
+  const peerCreatorsRef = useRef(new Map());
   const hasJoinedRef = useRef(false);
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [active3dEmoji, setActive3dEmoji] = useState(null);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const recorderRef = useRef(null);
+  const chunksRef = useRef([]);
   const [toast, setToast] = useState(null);
   const [cameraBlur, setCameraBlur] = useState(false);
   const [connectedSecs, setConnectedSecs] = useState(0);
@@ -144,13 +149,47 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
   const [connectionQuality, setConnectionQuality] = useState(new Map()); // socketId -> 'good'|'fair'|'poor'
   const [pinnedId, setPinnedId] = useState(null); // 'local' or peer socketId for PiP
 
+  const startRecording = () => {
+    if (peers.length === 0) return alert('No active nodes to record.');
+    // Record the first peer for now, or use a complex Canvas recorder if needed.
+    // For MVP consistency with VideoChat:
+    const targetStream = peers[0]?.stream;
+    if (!targetStream) return alert('No remote node stream available.');
+
+    const recorder = new MediaRecorder(targetStream, { mimeType: 'video/webm' });
+    chunksRef.current = [];
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunksRef.current.push(e.data);
+    };
+    recorder.onstop = () => {
+      const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Creator_Matrix_Group_Clip_${Date.now()}.webm`;
+      a.click();
+    };
+    recorder.start();
+    recorderRef.current = recorder;
+    setIsRecording(true);
+    setToast('🎥 Group Matrix Recording Active');
+  };
+
+  const stopRecording = () => {
+    if (recorderRef.current) {
+      recorderRef.current.stop();
+      setIsRecording(false);
+      setToast('🎥 Recording Offline');
+    }
+  };
+
   // Fetch active groups/interests on mount and when modal opens
   const fetchInterests = () => {
     const apiBase = import.meta.env.VITE_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
     fetch(`${apiBase}/api/rooms/active-interests?mode=group_video`)
       .then(res => res.json())
       .then(data => setActiveInterests(data.interests || []))
-      .catch(() => {});
+      .catch(() => { });
   };
 
   useEffect(() => {
@@ -379,19 +418,19 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
       if (!track) return;
 
       const remoteStream = (e.streams && e.streams[0]) ? e.streams[0] : new MediaStream([track]);
-      
+
       setPeers((prev) => {
         const existing = prev.find((p) => p.socketId === remoteId);
-        
+
         // If we found an existing peer entry, we update its stream.
         // We MUST preserve the stream object provided by the event if possible.
         let stream = existing?.stream || remoteStream;
-        
+
         if (stream !== remoteStream) {
-           // If we're merging tracks into an existing stream object
-           if (!stream.getTracks().some(t => t.id === track.id)) {
-              stream.addTrack(track);
-           }
+          // If we're merging tracks into an existing stream object
+          if (!stream.getTracks().some(t => t.id === track.id)) {
+            stream.addTrack(track);
+          }
         }
 
         const nick = peerNicksRef.current.get(remoteId) || 'Stranger';
@@ -402,7 +441,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
         }
 
         if (existing) {
-            return prev.map(p => p.socketId === remoteId ? { ...p, stream, nickname: nick, country: ctry } : p);
+          return prev.map(p => p.socketId === remoteId ? { ...p, stream, nickname: nick, country: ctry } : p);
         }
         return [...prev, { socketId: remoteId, stream, nickname: nick, country: ctry }];
       });
@@ -527,12 +566,13 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
       peerList.forEach((p) => {
         if (p.nickname) peerNicksRef.current.set(p.socketId, p.nickname);
         if (p.country) peerCountriesRef.current.set(p.socketId, p.country);
+        if (p.isCreator) peerCreatorsRef.current.set(p.socketId, true);
       });
       // Add peers immediately (stream: null) so tile exists; ontrack will add stream
       setPeers((prev) => {
         const existingIds = new Set(prev.map((p) => p.socketId));
         const toAdd = peerList.filter((p) => !existingIds.has(p.socketId)).map((p) => ({
-          socketId: p.socketId, stream: null, nickname: p.nickname || 'Anonymous', country: p.country
+          socketId: p.socketId, stream: null, nickname: p.nickname || 'Anonymous', country: p.country, isCreator: !!p.isCreator
         }));
         return toAdd.length ? [...prev, ...toAdd] : prev;
       });
@@ -558,10 +598,11 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
       setParticipantCount(data.participantCount ?? 2);
       if (data.nickname) peerNicksRef.current.set(data.socketId, data.nickname);
       if (data.country) peerCountriesRef.current.set(data.socketId, data.country);
+      if (data.isCreator) peerCreatorsRef.current.set(data.socketId, true);
       setMessages((m) => [...m, { id: `sys-${Date.now()}`, system: true, text: `${data.nickname || 'A stranger'} joined 👋` }]);
       playConnectSound();
       // Add peer immediately so tile exists; ontrack will add stream
-      setPeers((prev) => prev.some((p) => p.socketId === data.socketId) ? prev : [...prev, { socketId: data.socketId, stream: null, nickname: data.nickname || 'Anonymous', country: data.country }]);
+      setPeers((prev) => prev.some((p) => p.socketId === data.socketId) ? prev : [...prev, { socketId: data.socketId, stream: null, nickname: data.nickname || 'Anonymous', country: data.country, isCreator: !!data.isCreator }]);
       if (localStreamRef.current) {
         doOffer(data.socketId);
       } else {
@@ -593,6 +634,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
       if (!from || from === socket.id) return;
       if (data.fromNickname) peerNicksRef.current.set(from, data.fromNickname);
       if (data.fromCountry) peerCountriesRef.current.set(from, data.fromCountry);
+      if (data.fromIsCreator) peerCreatorsRef.current.set(from, true);
       if (data.type === 'offer') {
         if (localStreamRef.current) {
           doAnswer(from, data.signal);
@@ -869,10 +911,10 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
   // Adaptive layout: 1 = full, 2 = side-by-side, 3-4 = 2x2
   const filledCount = tiles.filter(t => t.type === 'local' || t.type === 'peer' || t.type === 'searching').length;
   const displayTiles = filledCount <= 2 ? tiles.filter(t => t.type !== 'empty') : tiles;
-  const gridClass = filledCount <= 1 
-    ? 'grid-cols-1 grid-rows-1' 
-    : filledCount === 2 
-      ? 'grid-cols-1 grid-rows-2 sm:grid-cols-2 sm:grid-rows-1' 
+  const gridClass = filledCount <= 1
+    ? 'grid-cols-1 grid-rows-1'
+    : filledCount === 2
+      ? 'grid-cols-1 grid-rows-2 sm:grid-cols-2 sm:grid-rows-1'
       : 'grid-cols-2 grid-rows-2';
 
   const localStream = localStreamRef.current;
@@ -933,14 +975,14 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
         <div className="absolute inset-0 z-[200] bg-[#1a1d21]/95 backdrop-blur-xl flex items-center justify-center p-4">
           <div className="w-full max-w-sm bg-[#0c0e1a] border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col gap-6 animate-slide-in-up">
             <h2 className="text-xl font-bold tracking-tight text-white text-center">Join Group Video</h2>
-            
+
             {activeInterests.length > 0 && (
               <div className="flex flex-col gap-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-emerald-400 ml-1 flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Active Groups</label>
                 <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto custom-scrollbar">
                   {activeInterests.map(ai => (
-                    <button 
-                      key={ai.interest} 
+                    <button
+                      key={ai.interest}
                       onClick={() => setLocalInterest(ai.interest)}
                       className={`px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${localInterest === ai.interest ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300 scale-105 shadow-lg shadow-indigo-500/20' : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white'}`}
                     >
@@ -953,20 +995,20 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
 
             <div className="flex flex-col gap-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-1">Select Interest (Mandatory)</label>
-              <input 
-                type="text" 
-                value={localInterest} 
+              <input
+                type="text"
+                value={localInterest}
                 onChange={(e) => setLocalInterest(e.target.value)}
-                placeholder="e.g. Anime, Gaming, Music" 
+                placeholder="e.g. Anime, Gaming, Music"
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 transition-all text-white outline-none"
               />
-              <button 
+              <button
                 onClick={() => {
-                   if(!localInterest.trim()) return alert("Interest is mandatory!");
-                   setDisplayInterest(localInterest.trim());
-                   setShowEntryModal(false);
-                   setShowPreRoomWaiting(true);
-                   socket.emit('join-group-by-interest', { interest: localInterest.trim(), nickname: 'Anonymous', mode: 'group_video' });
+                  if (!localInterest.trim()) return alert("Interest is mandatory!");
+                  setDisplayInterest(localInterest.trim());
+                  setShowEntryModal(false);
+                  setShowPreRoomWaiting(true);
+                  socket.emit('join-group-by-interest', { interest: localInterest.trim(), nickname: 'Anonymous', mode: 'group_video' });
                 }}
                 className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition-all"
               >
@@ -983,17 +1025,17 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
             <div className="flex flex-col gap-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-1">Join via Link / ID</label>
               <div className="flex gap-2">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={joinRoomIdInput}
                   onChange={(e) => setJoinRoomIdInput(e.target.value)}
                   placeholder="Paste Room ID"
                   className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 transition-all text-white outline-none"
                 />
-                <button 
+                <button
                   onClick={() => {
                     const cleanId = joinRoomIdInput.trim().split('/').pop();
-                    if(!cleanId) return alert("Enter a valid Room ID");
+                    if (!cleanId) return alert("Enter a valid Room ID");
                     socket.emit('join-specific-group', { roomId: cleanId, nickname: 'Anonymous' });
                     setShowEntryModal(false);
                   }}
@@ -1001,7 +1043,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
                 >
                   Join
                 </button>
-                <button 
+                <button
                   onClick={generateRandomRoom}
                   className="h-full px-3 bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-xl hover:bg-indigo-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest"
                   title="Generate Random ID"
@@ -1010,7 +1052,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
                 </button>
               </div>
             </div>
-            
+
             <button onClick={onLeave} className="text-[10px] font-bold text-white/30 hover:text-white uppercase tracking-widest underline mt-2">
               Cancel & Leave
             </button>
@@ -1071,90 +1113,92 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
 
           {/* Video Area - 2x2 grid fits viewport */}
           <div className="flex-1 min-h-0 relative">
-              <div className="absolute inset-0 flex items-center justify-center p-2 sm:p-3 pb-20 sm:pb-24">
-                <div className={`grid w-full h-full max-w-full max-h-full gap-2 sm:gap-3 min-h-0 ${gridClass}`}>
+            <div className="absolute inset-0 flex items-center justify-center p-2 sm:p-3 pb-20 sm:pb-24">
+              <div className={`grid w-full h-full max-w-full max-h-full gap-2 sm:gap-3 min-h-0 ${gridClass}`}>
                 {displayTiles.map((tile, idx) => {
                   const tileSpeakerId = tile.type === 'peer' ? tile.peer?.socketId : tile.type === 'local' ? 'local' : null;
                   const isSpeaking = activeSpeakerId === tileSpeakerId;
                   return (
-                  <div
-                    key={idx}
-                    className={`relative min-w-0 min-h-0 rounded-2xl sm:rounded-3xl overflow-hidden border-2 bg-[#0c0e1a] shadow-2xl transition-all duration-300 ${isSpeaking ? 'border-indigo-500 ring-4 ring-indigo-500/60 shadow-[0_0_30px_rgba(99,102,241,0.6)] animate-speaking-pulse' : 'border-indigo-500/30'}`}
-                  >
-                    {tile.type === 'local' ? (
-                      <>
-                        <video ref={localVideoRef} autoPlay muted playsInline className={`absolute inset-0 w-full h-full object-cover scale-x-[-1] transition-opacity duration-500 ${cameraOff ? 'opacity-0' : 'opacity-100'}`} style={cameraBlur ? { filter: 'blur(15px)', transform: 'scaleX(-1)' } : {}} />
-                        {cameraOff && (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-indigo-500/10">
-                            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-indigo-500/20 border-2 border-indigo-500/40 flex items-center justify-center text-3xl sm:text-4xl">🙋</div>
-                            <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Camera off</span>
-                          </div>
-                        )}
-                      </>
-                    ) : (tile.type === 'peer' && tile.peer?.stream) ? (
-                      <RemoteVideoTile stream={tile.peer.stream} socketId={tile.peer.socketId} nickname={tile.peer.nickname} />
-                    ) : (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-4 bg-[#0c0e1a]/80">
-                        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center text-3xl sm:text-4xl">👤</div>
-                        <p className="text-[10px] font-bold text-white/50">{tile.type === 'searching' ? 'Scanning...' : 'Waiting for player...'}</p>
-                        {tile.type === 'empty' && (
-                          <button type="button" onClick={(e) => { e.stopPropagation(); copyRoomLink(); }} className="mt-2 px-3 py-2 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 text-[9px] font-bold uppercase tracking-wider hover:bg-indigo-500/30 transition-all min-h-[44px]">
-                            Copy Invite Link
-                          </button>
-                        )}
-                      </div>
-                    )}
+                    <div
+                      key={idx}
+                      className={`relative min-w-0 min-h-0 rounded-2xl sm:rounded-3xl overflow-hidden border-2 bg-[#0c0e1a] shadow-2xl transition-all duration-300 ${isSpeaking ? 'border-indigo-500 ring-4 ring-indigo-500/60 shadow-[0_0_30px_rgba(99,102,241,0.6)] animate-speaking-pulse' : 'border-indigo-500/30'}`}
+                    >
+                      {tile.type === 'local' ? (
+                        <VideoTile
+                          stream={localStreamRef.current}
+                          label={nickname || 'You'}
+                          isMe={true}
+                          isCreator={isCreator}
+                        />
+                      ) : (tile.type === 'peer' && tile.peer?.stream) ? (
+                        <VideoTile
+                          stream={tile.peer.stream}
+                          label={tile.peer.nickname || 'Stranger'}
+                          flag={tile.peer.country && countryToFlag(tile.peer.country)}
+                          isCreator={tile.peer.isCreator}
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-4 bg-[#0c0e1a]/80">
+                          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center text-3xl sm:text-4xl">👤</div>
+                          <p className="text-[10px] font-bold text-white/50">{tile.type === 'searching' ? 'Scanning...' : 'Waiting for player...'}</p>
+                          {tile.type === 'empty' && (
+                            <button type="button" onClick={(e) => { e.stopPropagation(); copyRoomLink(); }} className="mt-2 px-3 py-2 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 text-[9px] font-bold uppercase tracking-wider hover:bg-indigo-500/30 transition-all min-h-[44px]">
+                              Copy Invite Link
+                            </button>
+                          )}
+                        </div>
+                      )}
 
-                    {/* Reconnecting overlay */}
-                    {tile.type === 'peer' && tile.peer && reconnectingPeers.has(tile.peer.socketId) && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm z-10">
-                        <div className="w-10 h-10 border-2 border-indigo-500/50 border-t-indigo-400 rounded-full animate-spin" />
-                        <p className="mt-2 text-xs font-bold text-indigo-300 uppercase tracking-wider">Reconnecting...</p>
-                      </div>
-                    )}
+                      {/* Reconnecting overlay */}
+                      {tile.type === 'peer' && tile.peer && reconnectingPeers.has(tile.peer.socketId) && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm z-10">
+                          <div className="w-10 h-10 border-2 border-indigo-500/50 border-t-indigo-400 rounded-full animate-spin" />
+                          <p className="mt-2 text-xs font-bold text-indigo-300 uppercase tracking-wider">Reconnecting...</p>
+                        </div>
+                      )}
 
-                    {/* Overlay Label + controls */}
-                    <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3 right-2 sm:right-3 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-full bg-black/50 border border-white/10 backdrop-blur-md">
-                        <div className={`w-1.5 h-1.5 rounded-full ${tile.type === 'local' ? 'bg-blue-500' : 'bg-emerald-500'}`} />
-                        <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-white/80">
-                          {tile.type === 'local' ? 'You' : tile.peer?.nickname || 'Stranger'}
-                        </span>
-                        {/* Connection quality bars: good=3 green, fair=2, poor=1 amber */}
-                        {tile.type === 'peer' && tile.peer && (
-                          <div className="flex gap-0.5 ml-1 items-end" title={`Connection: ${connectionQuality.get(tile.peer.socketId) || 'good'}`}>
-                            {[1, 2, 3].map(i => {
-                              const q = connectionQuality.get(tile.peer.socketId) || 'good';
-                              const filled = q === 'good' ? 3 : q === 'fair' ? 2 : 1;
-                              const isFilled = i <= filled;
-                              return <div key={i} className={`w-0.5 rounded-[1px] ${isFilled ? (q === 'poor' ? 'bg-amber-500/90' : q === 'fair' ? 'bg-amber-400/80' : 'bg-emerald-500/90') : 'bg-white/20'}`} style={{ height: 4 + i * 4 }} />;
-                            })}
-                          </div>
-                        )}
-                        {tile.type === 'local' && (
-                          <div className="flex gap-0.5 ml-1 items-end">
-                            {[1, 2, 3].map(i => (
-                              <div key={i} className="w-0.5 rounded-[1px] bg-blue-500/80" style={{ height: 4 + i * 4 }} />
-                            ))}
-                          </div>
-                        )}
-                        {(tile.type === 'local' ? muted : false) && <span className="text-rose-400 text-[10px]">🔇</span>}
+                      {/* Overlay Label + controls */}
+                      <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3 right-2 sm:right-3 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-full bg-black/50 border border-white/10 backdrop-blur-md">
+                          <div className={`w-1.5 h-1.5 rounded-full ${tile.type === 'local' ? 'bg-blue-500' : 'bg-emerald-500'}`} />
+                          <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-white/80">
+                            {tile.type === 'local' ? 'You' : tile.peer?.nickname || 'Stranger'}
+                          </span>
+                          {/* Connection quality bars: good=3 green, fair=2, poor=1 amber */}
+                          {tile.type === 'peer' && tile.peer && (
+                            <div className="flex gap-0.5 ml-1 items-end" title={`Connection: ${connectionQuality.get(tile.peer.socketId) || 'good'}`}>
+                              {[1, 2, 3].map(i => {
+                                const q = connectionQuality.get(tile.peer.socketId) || 'good';
+                                const filled = q === 'good' ? 3 : q === 'fair' ? 2 : 1;
+                                const isFilled = i <= filled;
+                                return <div key={i} className={`w-0.5 rounded-[1px] ${isFilled ? (q === 'poor' ? 'bg-amber-500/90' : q === 'fair' ? 'bg-amber-400/80' : 'bg-emerald-500/90') : 'bg-white/20'}`} style={{ height: 4 + i * 4 }} />;
+                              })}
+                            </div>
+                          )}
+                          {tile.type === 'local' && (
+                            <div className="flex gap-0.5 ml-1 items-end">
+                              {[1, 2, 3].map(i => (
+                                <div key={i} className="w-0.5 rounded-[1px] bg-blue-500/80" style={{ height: 4 + i * 4 }} />
+                              ))}
+                            </div>
+                          )}
+                          {(tile.type === 'local' ? muted : false) && <span className="text-rose-400 text-[10px]">🔇</span>}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setPinnedId(pinnedId === (tile.type === 'peer' ? tile.peer?.socketId : 'local') ? null : (tile.type === 'peer' ? tile.peer?.socketId : 'local')); }}
+                          className={`w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full transition-all min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-[#0c0e1a] ${pinnedId === (tile.type === 'peer' ? tile.peer?.socketId : 'local') ? 'bg-indigo-500 text-white' : 'bg-black/50 hover:bg-white/20 text-white/70'}`}
+                          aria-label={pinnedId === (tile.type === 'peer' ? tile.peer?.socketId : 'local') ? 'Unpin' : 'Pin to corner'}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); setPinnedId(pinnedId === (tile.type === 'peer' ? tile.peer?.socketId : 'local') ? null : (tile.type === 'peer' ? tile.peer?.socketId : 'local')); }}
-                        className={`w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full transition-all min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-[#0c0e1a] ${pinnedId === (tile.type === 'peer' ? tile.peer?.socketId : 'local') ? 'bg-indigo-500 text-white' : 'bg-black/50 hover:bg-white/20 text-white/70'}`}
-                        aria-label={pinnedId === (tile.type === 'peer' ? tile.peer?.socketId : 'local') ? 'Unpin' : 'Pin to corner'}
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                      </button>
+
                     </div>
-
-                  </div>
                   );
                 })}
-                </div>
               </div>
+            </div>
           </div>
         </div>
 
@@ -1182,6 +1226,14 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
         <button onClick={onLeave} title="Leave call" aria-label="Leave call" className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-full bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-500/30 transition-all focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 focus:ring-offset-black/60">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.683A1 1 0 008.279 3H5z" /></svg>
         </button>
+        {isCreator && (
+          <button
+            onClick={isRecording ? stopRecording : startRecording}
+            className={`min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-full transition-all ${isRecording ? 'bg-red-600 animate-pulse' : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'}`}
+          >
+            {isRecording ? '⏹️' : 'REC'}
+          </button>
+        )}
       </footer>
 
       {toast && (
@@ -1224,7 +1276,7 @@ function RemoteVideoTile({ stream, socketId }) {
         if (stream.getVideoTracks().some(t => t.readyState === 'live' && t.enabled)) {
           setHasVideo(true);
           el.srcObject = stream;
-          el.play().catch(() => {});
+          el.play().catch(() => { });
         } else setTimeout(check, 300);
       };
       setTimeout(check, 300);

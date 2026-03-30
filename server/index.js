@@ -11,6 +11,41 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
 const geoip = require('geoip-lite');
+const { createClient } = require('@supabase/supabase-js');
+
+// Persistence Strategy: Supabase (Cloud) or Local JSON (Node)
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
+let supabase = null;
+
+// Local DB State (Fallback)
+const LOCAL_DB_PATH = path.join(__dirname, 'data', 'matrix_hub.json');
+let localDb = { creators: [], referral_logs: [], withdrawals: [] };
+
+function loadLocalDb() {
+  try {
+    if (!fs.existsSync(path.dirname(LOCAL_DB_PATH))) fs.mkdirSync(path.dirname(LOCAL_DB_PATH), { recursive: true });
+    if (fs.existsSync(LOCAL_DB_PATH)) {
+      localDb = JSON.parse(fs.readFileSync(LOCAL_DB_PATH, 'utf8'));
+      console.log('[MATRIX] Local Node Storage Synchronized.');
+    }
+  } catch (e) { console.error('[MATRIX] Local DB Load Failed', e); }
+}
+
+function saveLocalDb() {
+  try {
+    fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(localDb, null, 2));
+  } catch (e) { console.error('[MATRIX] Local DB Sync Failed', e); }
+}
+
+if (supabaseUrl && supabaseKey) {
+  supabase = createClient(supabaseUrl, supabaseKey);
+  console.log('[MATRIX] Supabase Uplink Initialized.');
+} else {
+  console.warn('[MATRIX] SUPABASE_URL missing. Engaging Local Node Storage.');
+  loadLocalDb();
+}
+
 
 // Load env from .env (or path from DOTENV_CONFIG_PATH). Never commit .env.
 require('dotenv').config(
@@ -124,6 +159,7 @@ const MESSAGE_HISTORY = 50;
 function createRoom(interest, mode, socketId, userData, maxSize = GROUP_MAX) {
   const roomId = generateId('room');
   const key = interestKey(interest, mode);
+  const u = users.get(socketId);
   const room = {
     id: roomId,
     interest,
@@ -131,7 +167,7 @@ function createRoom(interest, mode, socketId, userData, maxSize = GROUP_MAX) {
     interestKey: mode === 'group_text' || mode === 'group_video' ? key : null,
     maxSize,
     users: new Set([socketId]),
-    participants: [{ socketId, userId: userData.id, nickname: userData.nickname, country: userData.country }],
+    participants: [{ socketId, userId: userData.id, nickname: userData.nickname, country: userData.country, isCreator: !!u?.isCreator }],
     messages: [],
     createdAt: Date.now(),
   };
@@ -142,8 +178,9 @@ function createRoom(interest, mode, socketId, userData, maxSize = GROUP_MAX) {
 
 function addUserToRoom(room, socketId, userData) {
   if (room.users.size >= room.maxSize) return false;
+  const u = users.get(socketId);
   room.users.add(socketId);
-  room.participants.push({ socketId, userId: userData.id, nickname: userData.nickname, country: userData.country });
+  room.participants.push({ socketId, userId: userData.id, nickname: userData.nickname, country: userData.country, isCreator: !!u?.isCreator });
   return true;
 }
 
@@ -775,6 +812,165 @@ app.post('/api/ai/translate', async (req, res) => {
   }
 });
 
+// --- CREATOR MATRIX HUB ---
+app.post('/api/creators/register', async (req, res) => {
+  const { handle, platform, link } = req.body || {};
+  const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
+  const entry = {
+    id: generateId('creator'),
+    handle_name: sanitize(handle, 30),
+    platform: sanitize(platform, 20),
+    profile_link: sanitize(link, 200),
+    ip_addr: ip,
+    referral_code: crypto.randomBytes(4).toString('hex'),
+    status: 'pending',
+    coins_earned: 0,
+    earnings_rs: 0,
+    created_at: new Date().toISOString()
+  };
+
+  try {
+    if (supabase) {
+      const { error } = await supabase.from('creators').insert(entry);
+      if (error) throw error;
+    } else {
+      const existing = localDb.creators.find(c => c.ip_addr === ip);
+      if (existing) return res.status(400).json({ error: 'Identity already registered in the matrix.' });
+      localDb.creators.push(entry);
+      saveLocalDb();
+    }
+    res.json({ success: true, message: 'Application sent for manual appraisal.' });
+  } catch (e) { res.status(500).json({ error: 'Database uplink failed' }); }
+});
+
+app.get('/api/creators/status', async (req, res) => {
+  const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
+  try {
+    if (supabase) {
+      const { data } = await supabase.from('creators').select('*').eq('ip_addr', ip).single();
+      return res.json({ data: data || null });
+    } else {
+      const creator = localDb.creators.find(c => c.ip_addr === ip);
+      return res.json({ data: creator || null });
+    }
+  } catch (e) { res.json({ data: null }); }
+});
+
+app.post('/api/creators/verify-ref', async (req, res) => {
+  const { code } = req.body || {};
+  const visitorIp = req.ip === '::1' ? '127.0.0.1' : req.ip;
+  if (!code) return res.status(400).json({ error: 'Empty Signal' });
+
+  try {
+    let creator = null;
+    if (supabase) {
+      const { data } = await supabase.from('creators').select('*').eq('referral_code', code).single();
+      creator = data;
+    } else {
+      creator = localDb.creators.find(c => c.referral_code === code);
+    }
+
+    if (!creator) return res.status(404).json({ error: 'Creator not found' });
+
+    // Check existing referral
+    let logExists = false;
+    if (supabase) {
+      const { data } = await supabase.from('referral_logs').select('*').eq('creator_id', creator.id).eq('visitor_ip', visitorIp).single();
+      logExists = !!data;
+    } else {
+      logExists = localDb.referral_logs.some(l => l.creator_id === creator.id && l.visitor_ip === visitorIp);
+    }
+
+    if (logExists) return res.json({ success: true, already_claimed: true });
+
+    // Log & Update
+    if (supabase) {
+      await supabase.from('referral_logs').insert({ creator_id: creator.id, visitor_ip: visitorIp });
+      const newCoins = (creator.coins_earned || 0) + 10;
+      const newEarnings = Math.floor(newCoins / 10000) * 150;
+      await supabase.from('creators').update({ coins_earned: newCoins, earnings_rs: newEarnings }).eq('id', creator.id);
+    } else {
+      localDb.referral_logs.push({ creator_id: creator.id, visitor_ip: visitorIp, created_at: new Date().toISOString() });
+      creator.coins_earned = (creator.coins_earned || 0) + 10;
+      creator.earnings_rs = Math.floor(creator.coins_earned / 10000) * 150;
+      saveLocalDb();
+    }
+    
+    if (!coinUsers.has(visitorIp)) coinUsers.set(visitorIp, { coins: 30, lastClaim: 0, streak: 1, lastClaimDate: null });
+    const u = coinUsers.get(visitorIp);
+    u.coins += 5;
+    coinUsers.set(visitorIp, u);
+
+    res.json({ success: true, message: 'Referral node synchronized' });
+  } catch (e) { res.status(500).json({ error: 'Sync failed' }); }
+});
+
+app.post('/api/creators/withdraw', async (req, res) => {
+  const { upi } = req.body || {};
+  const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
+  try {
+     let creator = null;
+     if (supabase) {
+       const { data } = await supabase.from('creators').select('*').eq('ip_addr', ip).single();
+       creator = data;
+     } else {
+       creator = localDb.creators.find(c => c.ip_addr === ip);
+     }
+
+     if (!creator || creator.status !== 'approved') return res.status(403).json({ error: 'Creator not approved' });
+     if (creator.earnings_rs < 1500) return res.status(400).json({ error: 'Threshold (₹1500) not reached' });
+     
+     const wdEntry = {
+       id: generateId('wd'),
+       creator_id: creator.id,
+       handle_name: creator.handle_name,
+       amount: creator.earnings_rs, 
+       upi: sanitize(upi, 100), 
+       status: 'pending',
+       created_at: new Date().toISOString()
+     };
+
+     if (supabase) {
+       await supabase.from('withdrawals').insert(wdEntry);
+       await supabase.from('creators').update({ earnings_rs: 0, coins_earned: 0 }).eq('id', creator.id);
+     } else {
+       localDb.withdrawals.push(wdEntry);
+       creator.earnings_rs = 0;
+       creator.coins_earned = 0;
+       saveLocalDb();
+     }
+     res.json({ success: true, message: 'Withdrawal request logged.' });
+  } catch(e) { res.status(500).json({ error: 'Withdrawal uplink failed' }); }
+});
+
+app.post('/api/admin/creators/approve', requireAdmin, async (req, res) => {
+  const { creatorId, status } = req.body || {};
+  try {
+    if (supabase) {
+      await supabase.from('creators').update({ status }).eq('id', creatorId);
+    } else {
+      const c = localDb.creators.find(x => x.id === creatorId);
+      if (c) {
+        c.status = status;
+        saveLocalDb();
+      }
+    }
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Approval failed' }); }
+});
+
+app.get('/api/admin/creators/list', requireAdmin, async (req, res) => {
+  try {
+    if (supabase) {
+      const { data: creators } = await supabase.from('creators').select('*');
+      const { data: withdrawals } = await supabase.from('withdrawals').select('*, creators(handle_name)');
+      return res.json({ creators: creators || [], withdrawals: withdrawals || [] });
+    } else {
+      return res.json({ creators: localDb.creators || [], withdrawals: localDb.withdrawals || [] });
+    }
+  } catch (e) { res.json({ creators: [], withdrawals: [] }); }
+});
+
 // Serve React build when client/dist exists (single-host deploy). Else API-only (Vercel frontend).
 const clientBuild = path.join(__dirname, '..', 'client', 'dist');
 const clientExists = fs.existsSync(path.join(clientBuild, 'index.html'));
@@ -840,10 +1036,29 @@ io.on('connection', (socket) => {
     country,
     nickname: 'Anonymous',
     rooms: new Set(),
+    isCreator: false,
+    creatorData: null
   });
 
-  socket.emit('connected', { userId, country, settings: { adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools } });
-  emitOnlineCount();
+  (async () => {
+    let finalNick = 'Anonymous';
+    let finalIsCreator = false;
+    if (supabase) {
+      const { data } = await supabase.from('creators').select('*').eq('ip_addr', ip).eq('status', 'approved').single();
+      if (data) {
+        const u = users.get(socket.id);
+        if (u) {
+          u.isCreator = true;
+          u.nickname = data.handle_name;
+          u.creatorData = data;
+          finalNick = u.nickname;
+          finalIsCreator = true;
+        }
+      }
+    }
+    socket.emit('connected', { userId, nickname: finalNick, isCreator: finalIsCreator, country, settings: { adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools } });
+    emitOnlineCount();
+  })();
 
   socket.on('report-user', (data) => {
     let targetIp = 'unknown';
@@ -1003,6 +1218,7 @@ io.on('connection', (socket) => {
           userId: u?.id,
           nickname: p.nickname,
           country: u?.country,
+          isCreator: !!u?.isCreator
         };
       });
 
@@ -1022,6 +1238,7 @@ io.on('connection', (socket) => {
       userId: userData.id,
       nickname: userData.nickname,
       country: userData.country,
+      isCreator: !!userData.isCreator,
       participantCount: room.users.size,
     });
   });
@@ -1055,7 +1272,7 @@ io.on('connection', (socket) => {
       .filter((p) => p.socketId !== socket.id)
       .map((p) => {
         const u = users.get(p.socketId);
-        return { socketId: p.socketId, userId: u?.id, nickname: p.nickname, country: u?.country };
+        return { socketId: p.socketId, userId: u?.id, nickname: p.nickname, country: u?.country, isCreator: !!u?.isCreator };
       });
 
     socket.emit('group-joined', {
@@ -1074,6 +1291,7 @@ io.on('connection', (socket) => {
       userId: userData.id,
       nickname: userData.nickname,
       country: userData.country,
+      isCreator: !!userData.isCreator,
       participantCount: room.users.size,
     });
   });
@@ -1257,6 +1475,7 @@ io.on('connection', (socket) => {
       fromUserId: userData.id,
       fromNickname: userData.nickname,
       fromCountry: userData.country,
+      fromIsCreator: !!userData.isCreator,
       signal,
       type,
       roomId,
