@@ -744,15 +744,21 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     return pc;
   }, [socket, iceServers]);
 
+  const makingOffer = useRef(false);
+  const ignoreOffer = useRef(false);
+
   const doOffer = useCallback(async (remoteId) => {
     const rid = roomIdRef.current;
     if (!rid || !socket) return;
     const pc = createPeerConnection(remoteId);
     try {
+      makingOffer.current = true;
       const offer = await pc.createOffer();
+      if (pc.signalingState !== 'stable') return;
       await pc.setLocalDescription(offer);
-      socket.emit('webrtc-signal', { roomId: rid, targetSocketId: remoteId, type: 'offer', signal: offer });
-    } catch (err) { console.error('offer error', err); }
+      socket.emit('webrtc-signal', { roomId: rid, targetSocketId: remoteId, type: 'offer', signal: pc.localDescription });
+    } catch (err) { console.warn('[WEBRTC] Offer collision handled:', err); }
+    finally { makingOffer.current = false; }
   }, [socket, createPeerConnection]);
 
   const doAnswer = useCallback(async (remoteId, offer) => {
@@ -760,19 +766,27 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     if (!rid || !socket) return;
     const pc = createPeerConnection(remoteId);
     try {
-      if (pc.signalingState !== 'stable' && pc.signalingState !== 'have-local-offer' && pc.signalingState !== 'have-remote-offer') {
-          return;
+      const isOffer = offer.type === 'offer';
+      const collision = isOffer && (makingOffer.current || pc.signalingState !== 'stable');
+      const polite = socket.id < remoteId;
+      ignoreOffer.current = !polite && collision;
+
+      if (ignoreOffer.current) return;
+
+      if (collision && polite) {
+          await pc.setLocalDescription({ type: 'rollback' });
+          await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      } else {
+          await pc.setRemoteDescription(new RTCSessionDescription(offer));
       }
-      await pc.setRemoteDescription(new RTCSessionDescription(offer));
-      const answer = await pc.createAnswer();
-      // Verifying state haven't changed back to stable or shifted during async ops
-      if (pc.signalingState === 'have-remote-offer') {
+
+      if (isOffer) {
+          const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
-          socket.emit('webrtc-signal', { roomId: rid, targetSocketId: remoteId, type: 'answer', signal: answer });
+          socket.emit('webrtc-signal', { roomId: rid, targetSocketId: remoteId, type: 'answer', signal: pc.localDescription });
       }
     } catch (err) { 
-      // If we are here, we handle sync issues gracefully
-      console.warn('[WEBRTC] Answer state shifted during negotiation:', err);
+      console.warn('[WEBRTC] Perfect Negotiation Error:', err);
     }
   }, [socket, createPeerConnection]);
 
