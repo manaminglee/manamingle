@@ -765,11 +765,15 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       }
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
       const answer = await pc.createAnswer();
+      // Verifying state haven't changed back to stable or shifted during async ops
       if (pc.signalingState === 'have-remote-offer') {
           await pc.setLocalDescription(answer);
           socket.emit('webrtc-signal', { roomId: rid, targetSocketId: remoteId, type: 'answer', signal: answer });
       }
-    } catch (err) { console.error('answer error', err); }
+    } catch (err) { 
+      // If we are here, we handle sync issues gracefully
+      console.warn('[WEBRTC] Answer state shifted during negotiation:', err);
+    }
   }, [socket, createPeerConnection]);
 
   // Send offer/answer once local stream is ready (fixes race when signaling before getUserMedia)

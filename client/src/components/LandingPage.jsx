@@ -66,11 +66,12 @@ const AdSection = ({ position, script }) => {
   );
 };
 
-export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJoining = false }) {
+export function LandingPage({ onJoin, coinState, isJoining = false }) {
   const { balance, streak, canClaim, nextClaim, claimCoins, adsEnabled, adScripts } = coinState || {};
   const [interests, setInterests] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const { socket, connected, country, onlineCount: socketOnlineCount } = useSocket();
+  const onlineCountNum = typeof socketOnlineCount === 'object' ? socketOnlineCount?.count : (socketOnlineCount || 0);
   const latency = useLatency();
   const [modal, setModal] = useState(null);
   const [isSuggesting, setIsSuggesting] = useState(false);
@@ -200,7 +201,7 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
           )}
           <div className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black text-white/40 uppercase tracking-widest flex items-center gap-1.5">
             {country && <span className="opacity-100 grayscale hover:grayscale-0 transition-all cursor-help" title={`Localized to ${country}`}>{countryToFlag(country)}</span>}
-            <span>{(typeof onlineCount === 'object' ? onlineCount?.count : onlineCount) || 0} Live</span>
+            <span>{(onlineCount ?? 0)} Live</span>
           </div>
           {creatorStatus && (
              <div className="flex items-center gap-3">
@@ -388,16 +389,16 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
               <div className="flex flex-wrap justify-center gap-4">
                 <button
                   onClick={() => setShowCreatorModal(true)}
-                  className="px-10 py-4 bg-white text-black font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-cyan-400 transition-all shadow-xl shadow-cyan-500/20"
+                  className="px-10 py-4 bg-white text-black font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-cyan-400 transition-all shadow-xl shadow-cyan-500/20 border-2 border-white"
                 >
-                  {creatorStatus?.handle_name ? 'Open Dashboard' : 'Apply Now'}
+                  {creatorStatus?.handle_name ? 'Open Console' : 'Apply Now'}
                 </button>
                 {!creatorStatus?.handle_name && (
                   <button
                     onClick={() => setShowLoginModal(true)}
-                    className="px-10 py-4 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-indigo-500 hover:text-white transition-all underline decoration-indigo-500/30 underline-offset-4"
+                    className="px-10 py-4 bg-indigo-500/20 border border-indigo-500/40 text-white font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-indigo-500 transition-all"
                   >
-                    Creator Login
+                    Login
                   </button>
                 )}
               </div>
