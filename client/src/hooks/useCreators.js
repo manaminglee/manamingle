@@ -83,5 +83,25 @@ export function useCreators() {
     }
   };
 
-  return { creatorStatus, loading, registerCreator, verifyReferral, requestWithdrawal, fetchStatus };
+  const login = async (handle, password) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/creators/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ handle, password })
+      });
+      const result = await res.json();
+      if (res.ok && result.success) {
+        window.localStorage.setItem('mm_creatorId', result.data.referral_code);
+        window.localStorage.removeItem('mm_logout_flag');
+        setCreatorStatus(result.data);
+        return { success: true };
+      }
+      return { success: false, error: result.error || 'Neural Key Mismatch' };
+    } catch (e) {
+      return { success: false, error: 'Network Failure' };
+    }
+  };
+
+  return { creatorStatus, loading, registerCreator, verifyReferral, requestWithdrawal, fetchStatus, login };
 }

@@ -71,14 +71,14 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
   const [interests, setInterests] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const { socket, connected, country, onlineCount: socketOnlineCount } = useSocket();
-  const onlineCountNum = typeof socketOnlineCount === 'object' ? socketOnlineCount?.count : (socketOnlineCount || 0);
+  const onlineCount = typeof socketOnlineCount === 'object' ? socketOnlineCount?.count : (socketOnlineCount || 0);
   const latency = useLatency();
   const [modal, setModal] = useState(null);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [regionalCounts, setRegionalCounts] = useState({ americas: 42639, eurasia: 89875, oceania: 13033 });
   const [insightIndex, setInsightIndex] = useState(0);
-  const { creatorStatus, registerCreator, verifyReferral, requestWithdrawal } = useCreators();
+  const { creatorStatus, registerCreator, verifyReferral, requestWithdrawal, login } = useCreators();
   const [showCreatorModal, setShowCreatorModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginForm, setLoginForm] = useState({ handle: '', password: '' });
@@ -89,7 +89,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
   const startRef = useRef(null);
 
   useEffect(() => {
-    const rawCount = onlineCount?.count || onlineCount || 0;
+    const rawCount = onlineCount || 0;
     const baseAmericas = Math.floor(rawCount * 0.32) || 42639;
     const baseEurasia = Math.floor(rawCount * 0.58) || 89875;
     const baseOceania = Math.floor(rawCount * 0.10) || 13033;
@@ -139,7 +139,6 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
       const res = await fetch(`${apiBase}/api/ai/suggest`, { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
-        // setSuggestedInterests is not defined, skipping or fixing if needed
       }
     } catch (e) { } finally { setIsSuggesting(false); }
   };
@@ -229,7 +228,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
         {adsEnabled && <AdSection position="hero" script={adScripts?.hero} />}
 
         <div className="text-center mb-16 space-y-4">
-          <h2 className="text-4xl md:text-7xl font-black tracking-tighter leading-none italic m-0 animate-in-zoom">
+          <h2 className="text-4xl md:text-7xl font-black tracking-tighter leading-none italic m-0 animate-in-zoom text-white">
             Connect <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-500">Instantly.</span>
           </h2>
           <p className="text-[11px] text-white/30 max-w-lg mx-auto font-bold uppercase tracking-widest leading-relaxed">
@@ -279,8 +278,8 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                 <div className="flex flex-wrap justify-center gap-1.5 mt-5">
                   {interests.map(i => (
                     <div key={i.id} className="flex items-center gap-2 bg-cyan-400 text-black px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest shadow-[0_0_15px_#06b6d440]">
-                      {i.label}
-                      <button onClick={() => removeInterest(i.id)} className="hover:scale-125 transition-transform">✕</button>
+                       {i.label}
+                       <button onClick={() => removeInterest(i.id)} className="hover:scale-125 transition-transform">✕</button>
                     </div>
                   ))}
                 </div>
@@ -307,12 +306,12 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
             >
               <div className={`absolute inset-0 bg-gradient-to-br ${m.color} to-transparent opacity-40 group-hover:opacity-100 transition-opacity`} />
               <div className="relative h-full bg-[#0a0a0a]/90 rounded-[33px] p-6 flex flex-col justify-between items-start text-left">
-                <div className={`w-10 h-10 rounded-2xl bg-${m.accent}-500/10 border border-${m.accent}-500/40 flex items-center justify-center text-lg group-hover:scale-110 transition-transform group-hover:shadow-[0_0_20px_rgba(6,182,212,0.3)]`}>
+                <div className={`w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/40 flex items-center justify-center text-lg group-hover:scale-110 transition-transform group-hover:shadow-[0_0_20px_rgba(6,182,212,0.3)]`}>
                   {m.icon}
                 </div>
                 <div>
-                  <h3 className="text-sm font-black uppercase tracking-widest italic text-white group-hover:text-cyan-400 transition-colors">{m.name}</h3>
-                  <p className="text-[8px] font-bold text-white/20 uppercase tracking-[0.2em] mt-1">Uplink Encrypted</p>
+                   <h3 className="text-sm font-black uppercase tracking-widest italic text-white group-hover:text-cyan-400 transition-colors">{m.name}</h3>
+                   <p className="text-[8px] font-bold text-white/20 uppercase tracking-[0.2em] mt-1">Uplink Encrypted</p>
                 </div>
               </div>
             </button>
@@ -338,72 +337,94 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
           <div className="relative w-full h-[400px] flex items-center justify-center">
             {/* MOCKED REAL-TIME MAP/GLOBE ANIMATION */}
             <div className="absolute inset-0 flex items-center justify-center opacity-30">
-              <div className="w-[300px] h-[300px] rounded-full border border-cyan-500/20 animate-pulse" />
-              <div className="absolute w-[450px] h-[450px] rounded-full border border-indigo-500/10 animate-spin-slow" />
-              <div className="absolute w-[600px] h-[600px] rounded-full border border-white/[0.03] animate-reverse-spin-slow" />
+               <div className="w-[300px] h-[300px] rounded-full border border-cyan-500/20 animate-pulse" />
+               <div className="absolute w-[450px] h-[450px] rounded-full border border-indigo-500/10 animate-spin-slow" />
+               <div className="absolute w-[600px] h-[600px] rounded-full border border-white/[0.03] animate-reverse-spin-slow" />
             </div>
 
             <div className="relative z-10 text-center">
-              <div className="mb-8 scale-150 grayscale brightness-150 opacity-20 hover:grayscale-0 hover:opacity-100 transition-all duration-1000 cursor-help">
-                <span className="text-[120px] animate-float">🌍</span>
-              </div>
-              <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-400 mb-2 italic">Active Neural Traffic Hub</h4>
-              <div className="flex gap-12 mt-8">
-                <div className="text-center group">
-                  <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1 group-hover:text-cyan-400 transition-colors">Americas</div>
-                  <div className="text-xl font-black italic text-white group-hover:scale-110 transition-transform tabular-nums">{regionalCounts.americas.toLocaleString()}</div>
-                </div>
-                <div className="text-center group">
-                  <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1 group-hover:text-indigo-400 transition-colors">Eurasia</div>
-                  <div className="text-xl font-black italic text-white group-hover:scale-110 transition-transform tabular-nums">{regionalCounts.eurasia.toLocaleString()}</div>
-                </div>
-                <div className="text-center group">
-                  <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1 group-hover:text-emerald-400 transition-colors">Oceania</div>
-                  <div className="text-xl font-black italic text-white group-hover:scale-110 transition-transform tabular-nums">{regionalCounts.oceania.toLocaleString()}</div>
-                </div>
-              </div>
+               <div className="mb-8 scale-150 grayscale brightness-150 opacity-20 hover:grayscale-0 hover:opacity-100 transition-all duration-1000 cursor-help">
+                  <span className="text-[120px] animate-float">🌍</span>
+               </div>
+               <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-400 mb-2 italic">Active Neural Traffic Hub</h4>
+               <div className="flex gap-12 mt-8">
+                  <div className="text-center group">
+                    <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1 group-hover:text-cyan-400 transition-colors">Americas</div>
+                    <div className="text-xl font-black italic text-white group-hover:scale-110 transition-transform tabular-nums">{regionalCounts.americas.toLocaleString()}</div>
+                  </div>
+                  <div className="text-center group">
+                    <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1 group-hover:text-indigo-400 transition-colors">Eurasia</div>
+                    <div className="text-xl font-black italic text-white group-hover:scale-110 transition-transform tabular-nums">{regionalCounts.eurasia.toLocaleString()}</div>
+                  </div>
+                  <div className="text-center group">
+                    <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1 group-hover:text-emerald-400 transition-colors">Oceania</div>
+                    <div className="text-xl font-black italic text-white group-hover:scale-110 transition-transform tabular-nums">{regionalCounts.oceania.toLocaleString()}</div>
+                  </div>
+               </div>
             </div>
 
             {/* FLOATING DATA DOTS */}
             {[...Array(12)].map((_, i) => (
-              <div
-                key={i}
-                className="absolute w-1 h-1 bg-cyan-400 rounded-full animate-float-pixel"
-                style={{
-                  left: `${Math.random() * 100}%`,
+              <div 
+                key={i} 
+                className="absolute w-1 h-1 bg-cyan-400 rounded-full animate-float-pixel" 
+                style={{ 
+                  left: `${Math.random() * 100}%`, 
                   top: `${Math.random() * 100}%`,
                   animationDelay: `${i * 200}ms`
-                }}
+                }} 
               />
             ))}
           </div>
         </section>
 
-        {/* CREATOR MATRIX CTA */}
-        <section className="w-full max-w-4xl mx-auto mb-16 px-4">
-          <div className="p-10 rounded-[50px] bg-gradient-to-br from-cyan-500/10 to-transparent border border-cyan-500/20 text-center relative overflow-hidden group">
+        {/* CREATOR MATRIX HIGH-VELOCITY GATEWAY */}
+        <section className="w-full max-w-4xl mx-auto mb-20 px-6">
+          <div className="p-12 rounded-[60px] bg-gradient-to-br from-cyan-500/10 via-black to-indigo-500/10 border border-white/10 text-center relative overflow-hidden group shadow-[0_0_50px_rgba(6,182,212,0.1)]">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-50" />
-            <div className="relative z-10">
-              <h3 className="text-2xl font-black uppercase italic tracking-tighter mb-2">Are you a <span className="text-cyan-400">Creator?</span></h3>
-              <p className="text-[10px] font-bold text-white/40 uppercase tracking-[0.3em] mb-8">Monetize your nodes. Influence the matrix.</p>
-              <div className="flex flex-wrap justify-center gap-4">
+            <div className="relative z-10 flex flex-col items-center">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-6">
+                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_#22d3ee]" />
+                 Creator Matrix Hub
+              </div>
+              <h3 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter mb-4 leading-none text-white">Command your <span className="text-cyan-400 drop-shadow-[0_0_20px_rgba(6,182,212,0.4)]">Influence.</span></h3>
+              <p className="text-[10px] md:text-xs font-bold text-white/30 uppercase tracking-[0.4em] mb-12 max-w-md mx-auto leading-relaxed italic">Monetize every discovery node. Unify your decentralized presence.</p>
+              
+              <div className="flex flex-wrap items-center justify-center gap-6">
                 <button
                   onClick={() => setShowCreatorModal(true)}
-                  className="px-10 py-4 bg-white text-black font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-cyan-400 transition-all shadow-xl shadow-cyan-500/20 border-2 border-white"
+                  className="px-14 py-5 bg-white text-black font-black uppercase tracking-widest text-[11px] rounded-3xl hover:bg-cyan-400 hover:scale-105 transition-all shadow-2xl active:scale-95 flex items-center gap-3 group/btn"
                 >
-                  {creatorStatus?.handle_name ? 'Open Console' : 'Apply Now'}
+                  <span className="text-lg group-hover/btn:rotate-12 transition-transform">⭐</span>
+                  {creatorStatus?.handle_name ? 'Open Hub' : 'Apply Now'}
                 </button>
-                {!creatorStatus?.handle_name && (
+                
+                {(!creatorStatus || !creatorStatus.handle_name) && (
                   <button
                     onClick={() => setShowLoginModal(true)}
-                    className="px-10 py-4 bg-indigo-500/20 border border-indigo-500/40 text-white font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-indigo-500 transition-all"
+                    className="px-14 py-5 bg-black/60 border border-white/10 text-white font-black uppercase tracking-widest text-[11px] rounded-3xl hover:bg-white hover:text-black hover:scale-105 transition-all backdrop-blur-3xl shadow-xl active:scale-95"
                   >
-                    Login
+                    Neural Login
                   </button>
                 )}
               </div>
+
+              {creatorStatus?.handle_name && (
+                 <div className="mt-10 flex flex-wrap items-center justify-center gap-6 text-[10px] font-black uppercase tracking-widest text-white/20 italic">
+                    <span className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/5">
+                       <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" /> 
+                       Node Linked: {creatorStatus.handle_name}
+                    </span>
+                    <button 
+                       onClick={() => { localStorage.setItem('mm_logout_flag', '1'); localStorage.removeItem('mm_creatorId'); window.location.reload(); }} 
+                       className="px-3 py-1.5 rounded-full border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all text-rose-500/60"
+                    >
+                       De-Authorize Node →
+                    </button>
+                 </div>
+              )}
             </div>
-            <div className="absolute -bottom-10 -right-10 text-9xl opacity-[0.03] group-hover:opacity-[0.07] transition-opacity pointer-events-none">⭐</div>
+            <div className="absolute -bottom-10 -right-10 text-9xl opacity-[0.03] group-hover:opacity-[0.1] transition-all pointer-events-none rotate-12">⚡</div>
           </div>
         </section>
 
@@ -428,7 +449,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
           <div className="max-w-xs space-y-6">
             <img src="/apple-touch-icon.png" alt="Logo" className="w-12 h-12 border border-white/10 p-1 rounded-xl drop-shadow-[0_0_10px_#06b6d4]" />
             <p className="text-[10px] font-black uppercase tracking-widest text-white/20 leading-relaxed">
-              The definitive high-frequency discovery protocol.
+              The definitive high-frequency discovery protocol. 
               Optimized for zero-trace synchronization across the global matrix.
             </p>
           </div>
@@ -468,14 +489,14 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
       {showCreatorModal && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl animate-in-zoom" onClick={() => setShowCreatorModal(false)}>
           <div className="relative w-full max-w-lg bg-black border border-white/10 rounded-[50px] p-10 overflow-y-auto max-h-[90vh]" onClick={e => e.stopPropagation()}>
-            <button
-              onClick={() => setShowCreatorModal(false)}
+            <button 
+              onClick={() => setShowCreatorModal(false)} 
               className="absolute top-6 right-8 text-white/20 hover:text-white transition-colors"
             >✕</button>
 
             <div className="text-center mb-8">
               <div className="w-16 h-16 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mx-auto mb-4 text-2xl shadow-[0_0_20px_#06b6d430]">⭐</div>
-              <h3 className="text-2xl font-black italic uppercase tracking-tighter">Creator Hub</h3>
+              <h3 className="text-2xl font-black italic uppercase tracking-tighter text-white">Creator Hub</h3>
               <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-2">Monetization Node Infrastructure</p>
             </div>
 
@@ -487,12 +508,12 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                   </p>
                 </div>
                 <div className="space-y-4">
-                  <input
-                    type="text"
-                    placeholder="@handle_name"
-                    className="w-full h-14 bg-white/5 border border-white/5 focus:border-cyan-500/30 rounded-2xl px-6 text-sm outline-none"
+                  <input 
+                    type="text" 
+                    placeholder="@handle_name" 
+                    className="w-full h-14 bg-white/5 border border-white/5 focus:border-cyan-500/30 rounded-2xl px-6 text-sm outline-none text-white"
                     value={creatorForm.handle}
-                    onChange={e => setCreatorForm({ ...creatorForm, handle: e.target.value })}
+                    onChange={e => setCreatorForm({...creatorForm, handle: e.target.value})}
                   />
                   <div className="relative group">
                     <button
@@ -524,14 +545,14 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                       </div>
                     )}
                   </div>
-                  <input
-                    type="url"
-                    placeholder="Platform Profile Link"
-                    className="w-full h-14 bg-white/5 border border-white/5 focus:border-cyan-500/30 rounded-2xl px-6 text-sm outline-none"
+                  <input 
+                    type="url" 
+                    placeholder="Platform Profile Link" 
+                    className="w-full h-14 bg-white/5 border border-white/5 focus:border-cyan-500/30 rounded-2xl px-6 text-sm outline-none text-white"
                     value={creatorForm.link}
-                    onChange={e => setCreatorForm({ ...creatorForm, link: e.target.value })}
+                    onChange={e => setCreatorForm({...creatorForm, link: e.target.value})}
                   />
-                  <button
+                  <button 
                     onClick={async () => {
                       const res = await registerCreator(creatorForm.handle, creatorForm.platform, creatorForm.link);
                       if (res.success) {
@@ -544,13 +565,13 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                   >Initialize Matrix Node</button>
                   
                   <div className="pt-6 border-t border-white/5">
-                    <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest text-center mb-4 italic shadow-[0_0_10px_rgba(34,211,238,0.2)]">Returning Creator?</p>
+                    <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest text-center mb-4 italic">Returning Creator?</p>
                     <div className="flex gap-2">
                        <input 
                          type="text" 
                          id="creator-id-input"
                          placeholder="Paste Matrix ID" 
-                         className="flex-1 h-12 bg-white/5 border border-white/5 rounded-xl px-4 text-[10px] outline-none font-black tracking-widest uppercase"
+                         className="flex-1 h-12 bg-white/5 border border-white/5 rounded-xl px-4 text-[10px] outline-none font-black tracking-widest uppercase text-white"
                        />
                        <button 
                          onClick={async () => {
@@ -558,7 +579,6 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                            const res = await fetch(`${import.meta.env.VITE_SOCKET_URL || ''}/api/creators/status?id=${id}`);
                            const data = await res.json();
                            if (data.data) {
-                             // Force status refresh
                              window.localStorage.setItem('mm_creatorId', id);
                              window.location.reload();
                            } else {
@@ -594,12 +614,12 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                       <div className="p-6 rounded-[32px] bg-white/[0.03] border border-white/5">
                         <div className="text-[9px] font-black uppercase tracking-widest text-white/20 mb-1">Earned</div>
                         <div className="text-xl font-black italic text-emerald-400">₹{creatorStatus.earnings_rs || 0}</div>
-                        <div className="text-[8px] font-bold text-white/10 uppercase mt-1 italic shadow-[0_0_10px_rgba(34,211,238,0.2)]">Neural Earnings</div>
+                        <div className="text-[8px] font-bold text-white/10 uppercase mt-1 italic">Neural Earnings</div>
                       </div>
                       <div className="p-6 rounded-[32px] bg-white/[0.03] border border-white/5">
                         <div className="text-[9px] font-black uppercase tracking-widest text-white/20 mb-1">Matrix ID</div>
                         <div className="text-xl font-black italic text-indigo-400">{creatorStatus.referral_code}</div>
-                        <div className="text-[8px] font-bold text-white/10 uppercase mt-1 italic shadow-[0_0_10px_rgba(34,211,238,0.2)]">Unique Access</div>
+                        <div className="text-[8px] font-bold text-white/10 uppercase mt-1 italic">Unique Access</div>
                       </div>
                     </div>
 
@@ -643,7 +663,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                 <div className="space-y-4 pt-6 border-t border-white/5">
                   <div className="flex justify-between items-center px-4">
                     <span className="text-[10px] font-black uppercase tracking-widest text-white/30">Referral Matrix Link</span>
-                    {creatorStatus.status === 'approved' && <span className="text-[9px] font-bold text-emerald-400 uppercase italic shadow-[0_0_10px_rgba(34,211,238,0.2)] animate-pulse">Sync Enabled</span>}
+                    {creatorStatus.status === 'approved' && <span className="text-[9px] font-bold text-emerald-400 uppercase italic animate-pulse">Sync Enabled</span>}
                   </div>
                   <div className="flex gap-2">
                     <input
@@ -665,7 +685,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                 </div>
 
                 {creatorStatus.status === 'approved' && creatorStatus.earnings_rs >= 1500 && (
-                  <button
+                  <button 
                     onClick={async () => {
                       const upi = prompt('Enter UPI ID for withdrawal:');
                       if (upi) {
@@ -713,26 +733,18 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                  className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl px-6 text-sm outline-none text-white focus:border-indigo-500/30 transition-all tracking-widest"
                />
                <button 
-                 onClick={async () => {
-                   setLoginError('');
-                   try {
-                     const apiBase = import.meta.env.VITE_SOCKET_URL || '';
-                     const res = await fetch(`${apiBase}/api/creators/login`, {
-                       method: 'POST',
-                       headers: { 'Content-Type': 'application/json' },
-                       body: JSON.stringify(loginForm)
-                     });
-                     const data = await res.json();
-                     if (data.success) {
-                       window.localStorage.setItem('mm_creatorId', data.data.referral_code);
-                       window.location.reload();
-                     } else {
-                       setLoginError(data.error);
-                     }
-                   } catch (e) { setLoginError('Connection Failed'); }
-                 }}
-                 className="w-full h-14 bg-indigo-600 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white hover:text-black transition-all shadow-xl shadow-indigo-600/20"
-               >Authorize Uplink</button>
+                  onClick={async () => {
+                    setLoginError('');
+                    const res = await login(loginForm.handle, loginForm.password);
+                    if (res.success) {
+                        setShowLoginModal(false);
+                        setLoginForm({ handle: '', password: '' });
+                    } else {
+                        setLoginError(res.error);
+                    }
+                  }}
+                  className="w-full h-14 bg-indigo-600 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white hover:text-black transition-all shadow-xl shadow-indigo-600/20 active:scale-95"
+                >Authorize Neural Uplink</button>
                {loginError && <p className="text-rose-500 text-[10px] text-center font-black uppercase tracking-widest mt-4 animate-shake">{loginError}</p>}
             </div>
           </div>
