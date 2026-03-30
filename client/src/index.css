@@ -450,6 +450,29 @@ body::after {
 .animate-in-zoom { animation: in-zoom 0.8s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .animate-glow-pulse { animation: glow-pulse 3s ease-in-out infinite; }
 
+.bg-300% {
+  background-size: 300% 300%;
+}
+
+@keyframes gradient-move {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes spin-slower {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-gradient {
+  animation: gradient-move 8s ease infinite;
+}
+
+.animate-spin-slower {
+  animation: spin-slower 20s linear infinite;
+}
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
