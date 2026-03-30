@@ -251,50 +251,6 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     return `${m}:${sec.toString().padStart(2, '0')}`;
   };
 
-  // Keyboard Shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      // Don't trigger if user is typing in chat
-      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
-        return;
-      }
-
-      // SPACE + S for Stop
-      if (e.code === 'Space' && e.shiftKey) { 
-         // Implementation below in more robust listener
-      }
-
-      // ESC for Skip/New
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        handleSkip();
-      }
-    };
-
-    // More robust combo for Space + S
-    const pressedKeys = new Set();
-    const handleDown = (e) => {
-      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
-      pressedKeys.add(e.code);
-      if (pressedKeys.has('Space') && pressedKeys.has('KeyS')) {
-        e.preventDefault();
-        handleStop();
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        handleSkip();
-      }
-    };
-    const handleUp = (e) => pressedKeys.delete(e.code);
-
-    window.addEventListener('keydown', handleDown);
-    window.addEventListener('keyup', handleUp);
-    return () => {
-      window.removeEventListener('keydown', handleDown);
-      window.removeEventListener('keyup', handleUp);
-    };
-  }, [handleSkip, handleStop]);
-
   // Mood meter: analyze last message
   useEffect(() => {
     const last = messages.filter(m => !m.system && !m.fromSelf && (m.socketId !== (socket?.id))).slice(-1)[0];
@@ -506,6 +462,28 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     // Optionally auto-skip after report
     setTimeout(handleSkip, 2000);
   };
+
+  // Keyboard Shortcuts (Moved here to avoid ReferenceError)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+      if (e.key === 'Escape') { e.preventDefault(); handleSkip(); }
+    };
+    const pressedKeys = new Set();
+    const handleDown = (e) => {
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+      pressedKeys.add(e.code);
+      if (pressedKeys.has('Space') && pressedKeys.has('KeyS')) { e.preventDefault(); handleStop(); }
+      if (e.key === 'Escape') { e.preventDefault(); handleSkip(); }
+    };
+    const handleUp = (e) => pressedKeys.delete(e.code);
+    window.addEventListener('keydown', handleDown);
+    window.addEventListener('keyup', handleUp);
+    return () => {
+      window.removeEventListener('keydown', handleDown);
+      window.removeEventListener('keyup', handleUp);
+    };
+  }, [handleSkip, handleStop]);
 
   const toggleInterestTag = (tag) => {
     setSelectedInterests(prev =>
