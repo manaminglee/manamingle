@@ -47,6 +47,10 @@ const PAIR_MAX = 2;
 const settings = {
   adsEnabled: false,
   allowDevTools: false,
+  maintenanceMode: false,
+  safetyAiEnabled: true,
+  coinsEnabled: true,
+  guestRegistration: true,
 };
 
 // interestKey -> roomId (for groups: "interest_mode")
@@ -290,13 +294,14 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-// Admin: toggle settings like ads, allowDevTools
+// Admin: toggle settings like ads, allowDevTools, maintenanceMode, etc.
 app.post('/api/admin/settings', requireAdmin, (req, res) => {
-  const { adsEnabled, allowDevTools } = req.body || {};
-  if (typeof adsEnabled === 'boolean') settings.adsEnabled = adsEnabled;
-  if (typeof allowDevTools === 'boolean') settings.allowDevTools = allowDevTools;
-  io.emit('settings_updated', { adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools });
-  res.json({ adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools });
+  const body = req.body || {};
+  Object.keys(settings).forEach(key => {
+    if (typeof body[key] === 'boolean') settings[key] = body[key];
+  });
+  io.emit('settings_updated', settings);
+  res.json(settings);
 });
 
 // Admin: high-level overview of current activity
@@ -322,9 +327,13 @@ app.get('/api/admin/overview', requireAdmin, (req, res) => {
     totalCoinsInSystem: Array.from(coinUsers.values()).reduce((sum, u) => sum + (u.coins || 0), 0)
   };
 
+  const userWallets = {};
+  for (const [ip, data] of coinUsers.entries()) {
+    userWallets[ip] = data.coins || 0;
+  }
+
   res.json({
-    adsEnabled: settings.adsEnabled,
-    allowDevTools: settings.allowDevTools,
+    ...settings,
     users: users.size,
     rooms: rooms.size,
     queues: {
@@ -333,6 +342,7 @@ app.get('/api/admin/overview', requireAdmin, (req, res) => {
     },
     roomList,
     userList,
+    userWallets,
     coinStats,
     reports,
     openReportsCount: reports.length,
@@ -745,6 +755,11 @@ io.on('connection', (socket) => {
   stats.totalConnections++;
   stats.uniqueIps.add(ip);
 
+  if (settings.maintenanceMode) {
+    socket.emit('system-maintenance', { message: 'ManaMingle is currently undergoing scheduled maintenance. Please check back later!' });
+    return socket.disconnect(true);
+  }
+
   if (blockedIps.has(ip)) {
     socket.emit('blocked-ip', { message: 'Your IP has been blocked. Please pay to unblock.' });
     socket.disconnect(true);
@@ -1024,7 +1039,7 @@ io.on('connection', (socket) => {
     // Simple regex pattern to catch variations
     const pattern = new RegExp(`\\b(${profanities.join('|')})\\b`, 'i');
 
-    if (pattern.test(msg)) {
+    if (settings.safetyAiEnabled && pattern.test(msg)) {
       console.log(`[AI SAFETY] Blocked offensive content from ${socket.id}: ${msg}`);
       socket.emit('content-flagged', {
         message: '⚠️ MESSAGE BLOCKED: Our AI safety monitor detected offensive or abusive language. Please be respectful to maintain a safe community.'

@@ -828,6 +828,10 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
     const onWaiting = () => setStatus('searching');
     const onSystemMsg = (data) => setMessages((m) => [...m, { id: Date.now(), system: true, text: `📢 ADMIN: ${data.message}`, ts: Date.now() }]);
+    const onMaintenance = (data) => {
+      alert(data.message || 'System is going into maintenance mode.');
+      window.location.href = '/';
+    };
 
     const onStrangerVideoStyle = (data) => {
       setStrangerFilter(data.filter || 'none');
@@ -869,6 +873,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     socket.on('webrtc-signal', onSignal);
     socket.on('system-announcement', onSystemMsg);
     socket.on('stranger-video-style', onStrangerVideoStyle);
+    socket.on('system-maintenance', onMaintenance);
 
     // Auto-emit find-partner on mount if we're in searching state
     if (socket && status === 'searching' && !roomIdRef.current) {
@@ -884,6 +889,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       socket.off('webrtc-signal', onSignal);
       socket.off('system-announcement', onSystemMsg);
       socket.off('stranger-video-style', onStrangerVideoStyle);
+      socket.off('system-maintenance', onMaintenance);
     };
   }, [socket, interest, onJoined, onFindNewPartner, doOffer, doAnswer, addIce]);
 
