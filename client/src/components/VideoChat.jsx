@@ -500,7 +500,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     const handleDown = (e) => {
       // Don't trigger if user is typing in chat
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
-      
+
       pressedKeys.add(e.code);
 
       // SPACE + S for Stop
@@ -889,13 +889,13 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       setMessages(m => [...m, { id: Date.now(), system: true, text: `❌ ERROR: ${data.message || 'Something went wrong.'}`, ts: Date.now() }]);
     });
     socket.on('connect', () => {
-       console.log('Socket connected:', socket.id);
+      console.log('Socket connected:', socket.id);
     });
     socket.on('disconnect', (reason) => {
-       console.warn('Socket disconnected:', reason);
-       if (reason === 'io server disconnect' || reason === 'transport close' || reason === 'ping timeout') {
-         setMessages(m => [...m, { id: Date.now(), system: true, text: '⚠️ Connection lost. Trying to reconnect...', ts: Date.now() }]);
-       }
+      console.warn('Socket disconnected:', reason);
+      if (reason === 'io server disconnect' || reason === 'transport close' || reason === 'ping timeout') {
+        setMessages(m => [...m, { id: Date.now(), system: true, text: '⚠️ Connection lost. Trying to reconnect...', ts: Date.now() }]);
+      }
     });
 
     // Auto-emit find-partner on mount if we're in searching state
@@ -1185,10 +1185,12 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
         {/* Split view: You | Stranger - when idle or searching show full, when connected show split */}
         <div className={`flex-1 flex ${status === 'connected' ? (showChat && isMobile ? 'h-[55%] flex-col' : 'flex-col sm:flex-row') : 'flex-col'} min-h-0 relative`}>
           {/* Left: You (or full when idle/searching) */}
-          <div className={`relative bg-[#0a0a0a] flex-1 flex flex-col justify-center items-center min-h-0 ${
+          <div className={`flex flex-col justify-center items-center min-h-0 bg-[#0a0a0a] ${
             status === 'connected' 
-              ? (showChat && isMobile ? 'fixed top-[15%] right-4 w-28 h-36 z-[200] rounded-2xl shadow-2xl border-2 border-white/20 overflow-hidden animate-in-zoom' : 'border-b sm:border-b-0 sm:border-r border-white/[0.06]') 
-              : ''
+              ? (showChat && isMobile 
+                  ? 'absolute top-4 right-4 w-28 h-36 z-[200] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-2 border-white/30 overflow-hidden animate-in-zoom' 
+                  : 'relative flex-1 border-b sm:border-b-0 sm:border-r border-white/[0.06]') 
+              : 'relative flex-1'
           }`}>
             {status === 'idle' && (
               <div className="absolute inset-0 flex flex-col items-center justify-center p-6">
@@ -1252,21 +1254,20 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
         {/* Chat panel - Redesigned for Mobile (Sharing space now) */}
         {showChat && status === 'connected' && (
-          <div className={`transition-all duration-300 flex flex-col bg-[#0d0d0d] border-white/[0.06] ${
-            isMobile 
-              ? 'h-[45%] w-full border-t z-[150]' 
+          <div className={`transition-all duration-300 flex flex-col bg-[#0d0d0d] border-white/[0.06] ${isMobile
+              ? 'h-[45%] w-full border-t z-[150]'
               : 'static w-80 border-l'
-          }`}>
+            }`}>
             <div className="h-10 px-4 flex items-center justify-between border-b border-white/[0.06] bg-white/[0.02]">
               <span className="text-xs font-black uppercase tracking-widest text-indigo-400">Live Chat</span>
               <button onClick={() => setShowChat(false)} className="p-1 text-white/40 hover:text-white transition-colors">✕</button>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar" id="video-chat-messages">
               {messages.length === 0 && (
                 <div className="h-full flex flex-col items-center justify-center opacity-20 filter grayscale">
-                   <svg className="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-                   <span className="text-[10px] font-bold uppercase tracking-widest">No messages yet</span>
+                  <svg className="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                  <span className="text-[10px] font-bold uppercase tracking-widest">No messages yet</span>
                 </div>
               )}
               {messages.map((m, i) => {
@@ -1287,24 +1288,24 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                 </div>
               )}
               <div className="flex gap-1.5 items-center relative">
-                <button 
-                  onClick={() => setShowEmojiPicker(!showEmojiPicker)} 
-                  className={`p-2 rounded-lg transition-all ${showEmojiPicker ? 'bg-amber-500 text-black' : 'text-white/40 hover:text-amber-500 bg-white/5'}`} 
+                <button
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  className={`p-2 rounded-lg transition-all ${showEmojiPicker ? 'bg-amber-500 text-black' : 'text-white/40 hover:text-amber-500 bg-white/5'}`}
                   title="3D Emojis (5 Coins)"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </button>
-                <input 
-                  ref={inputRef} 
-                  value={input} 
-                  onChange={handleInputChange} 
-                  onKeyDown={(e) => e.key === 'Enter' && sendMsg()} 
-                  placeholder="Say something..." 
-                  className="flex-1 min-w-0 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm outline-none focus:border-white/20 placeholder:text-white/20 transition-all" 
+                <input
+                  ref={inputRef}
+                  value={input}
+                  onChange={handleInputChange}
+                  onKeyDown={(e) => e.key === 'Enter' && sendMsg()}
+                  placeholder="Say something..."
+                  className="flex-1 min-w-0 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm outline-none focus:border-white/20 placeholder:text-white/20 transition-all"
                 />
-                <button 
-                  onClick={sendMsg} 
-                  disabled={!input.trim()} 
+                <button
+                  onClick={sendMsg}
+                  disabled={!input.trim()}
                   className="p-2.5 px-4 rounded-xl bg-indigo-600 disabled:opacity-20 text-white text-[11px] font-black uppercase tracking-widest shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-500"
                 >
                   Send
@@ -1372,13 +1373,13 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       {active3dEmoji && (
         <div className="pointer-events-none fixed inset-0 z-[300] flex items-center justify-center overflow-hidden bg-black/40 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-4 animate-3d-emoji-pop">
-             <picture className="drop-shadow-[0_0_80px_rgba(255,255,255,0.3)]">
-                <source srcSet={active3dEmoji.emoji?.url} type="image/webp" />
-                <img src={active3dEmoji.emoji?.url} className="w-[180px] h-[180px] sm:w-[300px] sm:h-[300px]" alt="3D reaction" />
-             </picture>
-             <div className="bg-amber-500/90 text-black px-6 py-2 rounded-full font-black text-sm uppercase tracking-widest shadow-2xl">
-                {active3dEmoji.nickname || 'Someone'} sent a reaction!
-             </div>
+            <picture className="drop-shadow-[0_0_80px_rgba(255,255,255,0.3)]">
+              <source srcSet={active3dEmoji.emoji?.url} type="image/webp" />
+              <img src={active3dEmoji.emoji?.url} className="w-[180px] h-[180px] sm:w-[300px] sm:h-[300px]" alt="3D reaction" />
+            </picture>
+            <div className="bg-amber-500/90 text-black px-6 py-2 rounded-full font-black text-sm uppercase tracking-widest shadow-2xl">
+              {active3dEmoji.nickname || 'Someone'} sent a reaction!
+            </div>
           </div>
         </div>
       )}
@@ -1461,13 +1462,13 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
 function RemoteVideoComponent({ stream, muted, strangerFilter, strangerBlur }) {
   const ref = useRef(null);
-  
+
   useEffect(() => {
     const el = ref.current;
     if (!el || !stream) return;
 
     el.srcObject = stream;
-    
+
     const playVideo = async () => {
       try {
         await el.play();
@@ -1475,17 +1476,17 @@ function RemoteVideoComponent({ stream, muted, strangerFilter, strangerBlur }) {
         console.warn('[WEBRTC] Auto-play blocked, retrying on interaction');
       }
     };
-    
+
     playVideo();
 
     // Listen for 'stalled' or 'waiting' states which often cause black screens
     const handleStalled = () => {
-      if (el.paused && stream.active) el.play().catch(() => {});
+      if (el.paused && stream.active) el.play().catch(() => { });
     };
 
     el.addEventListener('stalled', handleStalled);
-    el.addEventListener('canplay', () => el.play().catch(() => {}));
-    
+    el.addEventListener('canplay', () => el.play().catch(() => { }));
+
     return () => {
       el.removeEventListener('stalled', handleStalled);
     };
