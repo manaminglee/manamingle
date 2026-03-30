@@ -69,6 +69,9 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
   const [insightIndex, setInsightIndex] = useState(0);
   const { creatorStatus, registerCreator, verifyReferral, requestWithdrawal } = useCreators();
   const [showCreatorModal, setShowCreatorModal] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginForm, setLoginForm] = useState({ handle: '', password: '' });
+  const [loginError, setLoginError] = useState('');
   const [creatorForm, setCreatorForm] = useState({ handle: '', platform: 'Instagram', link: '' });
   const [refProcessed, setRefProcessed] = useState(false);
   const [platformDropdownOpen, setPlatformDropdownOpen] = useState(false);
@@ -186,6 +189,13 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
             <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} />
           )}
           <div className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black text-white/40 uppercase tracking-widest">{(onlineCount?.count || onlineCount || 0).toLocaleString()} Live</div>
+          {creatorStatus && (
+             <button 
+               onClick={() => { window.localStorage.removeItem('mm_creatorId'); window.location.reload(); }}
+               className="p-2 bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg text-[8px] font-black uppercase tracking-widest transition-all"
+               title="Terminate Node Session"
+             >Logout</button>
+          )}
         </div>
       </header>
 
@@ -352,12 +362,22 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
             <div className="relative z-10">
               <h3 className="text-2xl font-black uppercase italic tracking-tighter mb-2">Are you a <span className="text-cyan-400">Creator?</span></h3>
               <p className="text-[10px] font-bold text-white/40 uppercase tracking-[0.3em] mb-8">Monetize your nodes. Influence the matrix.</p>
-              <button
-                onClick={() => setShowCreatorModal(true)}
-                className="px-10 py-4 bg-white text-black font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-cyan-400 transition-all shadow-xl shadow-cyan-500/20"
-              >
-                {creatorStatus ? 'Creator Dashboard' : 'Join the Matrix'}
-              </button>
+              <div className="flex flex-wrap justify-center gap-4">
+                <button
+                  onClick={() => setShowCreatorModal(true)}
+                  className="px-10 py-4 bg-white text-black font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-cyan-400 transition-all shadow-xl shadow-cyan-500/20"
+                >
+                  {creatorStatus ? 'Creator Dashboard' : 'Join the Matrix'}
+                </button>
+                {!creatorStatus && (
+                  <button
+                    onClick={() => setShowLoginModal(true)}
+                    className="px-10 py-4 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-indigo-500 hover:text-white transition-all"
+                  >
+                    Creator Login
+                  </button>
+                )}
+              </div>
             </div>
             <div className="absolute -bottom-10 -right-10 text-9xl opacity-[0.03] group-hover:opacity-[0.07] transition-opacity pointer-events-none">⭐</div>
           </div>
@@ -530,51 +550,88 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
             ) : (
               <div className="space-y-8 animate-in-zoom">
                 <div className="p-8 rounded-[32px] bg-white/[0.02] border border-white/5 space-y-4 text-center">
-                   <div className="text-[10px] font-black uppercase tracking-[0.4em] text-white/30">Node Persona</div>
+                   <div className="text-[10px] font-black uppercase tracking-[0.4em] text-white/30">Node Identity</div>
                    <h4 className="text-3xl font-black italic uppercase tracking-tighter text-white">@{creatorStatus.handle_name}</h4>
                    <div className="flex justify-center gap-4">
                      {creatorStatus.status === 'approved' ? (
-                       <span className="px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest shadow-[0_0_20px_#10b98130]">Active Matrix</span>
+                       <span className="px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest shadow-[0_0_20px_#10b98130]">Portal Active</span>
                      ) : (
-                       <span className="px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-black uppercase tracking-widest animate-pulse">Wait for appraisal</span>
+                       <span className="px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-black uppercase tracking-widest animate-pulse">Waiting for manual appraisal</span>
                      )}
                    </div>
                 </div>
 
                 {creatorStatus.status === 'approved' && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-6 rounded-[32px] bg-white/[0.03] border border-white/5">
-                      <div className="text-[9px] font-black uppercase tracking-widest text-white/20 mb-1">Earned</div>
-                      <div className="text-xl font-black italic text-emerald-400">₹{creatorStatus.earnings_rs || 0}</div>
-                      <div className="text-[8px] font-bold text-white/10 uppercase mt-1 italic shadow-[0_0_10px_rgba(34,211,238,0.2)]">Processed nodes</div>
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-6 rounded-[32px] bg-white/[0.03] border border-white/5">
+                        <div className="text-[9px] font-black uppercase tracking-widest text-white/20 mb-1">Earned</div>
+                        <div className="text-xl font-black italic text-emerald-400">₹{creatorStatus.earnings_rs || 0}</div>
+                        <div className="text-[8px] font-bold text-white/10 uppercase mt-1 italic shadow-[0_0_10px_rgba(34,211,238,0.2)]">Neural Earnings</div>
+                      </div>
+                      <div className="p-6 rounded-[32px] bg-white/[0.03] border border-white/5">
+                        <div className="text-[9px] font-black uppercase tracking-widest text-white/20 mb-1">Matrix ID</div>
+                        <div className="text-xl font-black italic text-indigo-400">{creatorStatus.referral_code}</div>
+                        <div className="text-[8px] font-bold text-white/10 uppercase mt-1 italic shadow-[0_0_10px_rgba(34,211,238,0.2)]">Unique Access</div>
+                      </div>
                     </div>
-                    <div className="p-6 rounded-[32px] bg-white/[0.03] border border-white/5">
-                      <div className="text-[9px] font-black uppercase tracking-widest text-white/20 mb-1">Matrix ID</div>
-                      <div className="text-xl font-black italic text-indigo-400">{creatorStatus.referral_code}</div>
-                      <div className="text-[8px] font-bold text-white/10 uppercase mt-1 italic shadow-[0_0_10px_rgba(34,211,238,0.2)]">Secret Uplink</div>
+
+                    <div className="p-8 rounded-[32px] bg-indigo-500/5 border border-indigo-500/10 space-y-4">
+                       <div className="text-center">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 italic">Neural Credentials</span>
+                          <p className="text-[8px] font-black text-white/20 uppercase mt-1">Use these to login from any IP node</p>
+                       </div>
+                       <div className="grid grid-cols-1 gap-3">
+                          <div className="bg-black/40 rounded-2xl p-4 border border-white/5 flex justify-between items-center group">
+                             <div>
+                                <div className="text-[8px] font-black uppercase text-white/20 mb-1">Universal Handle</div>
+                                <div className="text-xs font-black text-white italic uppercase">{creatorStatus.handle_name}</div>
+                             </div>
+                             <span className="text-[10px] opacity-10 group-hover:opacity-40 transition-opacity">🆔</span>
+                          </div>
+                          <div className="bg-black/40 rounded-2xl p-4 border border-white/5 flex justify-between items-center group">
+                             <div>
+                                <div className="text-[8px] font-black uppercase text-white/20 mb-1">Access Passphrase</div>
+                                <div className="text-xs font-black text-emerald-400 italic uppercase select-all">{creatorStatus.password}</div>
+                             </div>
+                             <span className="text-[10px] opacity-10 group-hover:opacity-40 transition-opacity">🔒</span>
+                          </div>
+                       </div>
+                    </div>
+
+                    <div className="p-8 rounded-[32px] bg-white/[0.01] border border-white/5">
+                       <div className="flex justify-between items-center mb-4 px-2">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-white/20">Authorized Node IPs</span>
+                          <span className="text-[8px] font-black text-emerald-400 uppercase italic animate-pulse">Synced</span>
+                       </div>
+                       <div className="flex flex-wrap gap-2">
+                          {(creatorStatus.authorized_ips || []).map(ipNode => (
+                             <span key={ipNode} className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/5 text-[9px] font-bold text-white/30 uppercase tracking-widest">{ipNode}</span>
+                          ))}
+                       </div>
                     </div>
                   </div>
                 )}
 
                 <div className="space-y-4 pt-6 border-t border-white/5">
                   <div className="flex justify-between items-center px-4">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-white/30">Referral Uplink</span>
-                    {creatorStatus.status === 'approved' && <span className="text-[9px] font-bold text-emerald-400 uppercase italic shadow-[0_0_10px_rgba(34,211,238,0.2)] animate-pulse">Sharing Enabled</span>}
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/30">Referral Matrix Link</span>
+                    {creatorStatus.status === 'approved' && <span className="text-[9px] font-bold text-emerald-400 uppercase italic shadow-[0_0_10px_rgba(34,211,238,0.2)] animate-pulse">Sync Enabled</span>}
                   </div>
                   <div className="flex gap-2">
                     <input
                       disabled
                       readOnly
-                      value={creatorStatus.status === 'approved' ? `${window.location.origin}?ref=${creatorStatus.referral_code}` : 'Awaiting manual appraisal...'}
+                      value={creatorStatus.status === 'approved' ? `${window.location.origin}?ref=${creatorStatus.referral_code}` : 'Pending Appraisal...'}
                       className="flex-1 h-14 bg-white/5 border border-white/5 rounded-2xl px-6 text-[10px] font-bold text-white/40 outline-none overflow-hidden text-ellipsis italic"
                     />
                     {creatorStatus.status === 'approved' && (
                       <button
                         onClick={() => {
                           navigator.clipboard.writeText(`${window.location.origin}?ref=${creatorStatus.referral_code}`);
-                          alert('Uplink copied to clipboard');
+                          alert('Referral Matrix Link Copied');
                         }}
-                        className="px-6 h-14 rounded-2xl bg-cyan-400 text-black font-black uppercase tracking-widest text-[10px] hover:bg-white transition-all shadow-xl shadow-cyan-500/20"
+                        className="px-8 h-14 rounded-2xl bg-cyan-400 text-black font-black uppercase tracking-widest text-[10px] hover:bg-white transition-all shadow-xl shadow-cyan-500/20"
                       >Sync</button>
                     )}
                   </div>
@@ -586,19 +643,71 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
                       const upi = prompt('Enter UPI ID for withdrawal:');
                       if (upi) {
                         const res = await requestWithdrawal(upi);
-                        if (res.success) alert('Withdrawal Signal Sent!');
+                        if (res.success) alert('Withdrawal Signal Transmitted.');
                         else alert(res.error);
                       }
                     }}
                     className="w-full h-14 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-emerald-500 hover:text-white transition-all shadow-xl shadow-emerald-500/20"
-                  >Request Withdrawal (₹{creatorStatus.earnings_rs})</button>
+                  >Authorize Withdrawal (₹{creatorStatus.earnings_rs})</button>
                 )}
 
                 <div className="text-[9px] font-bold text-white/10 text-center uppercase tracking-widest italic pt-4">
-                  Matrix Logic: 10 Coins / Sync | 10000 Coins = ₹150 | Min ₹1500
+                  Matrix Logic: 10 Coins / Click | 10000 Coins = ₹150 | Min Withdrawal ₹1500
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* CREATOR LOGIN MODAL */}
+      {showLoginModal && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl animate-in-zoom" onClick={() => setShowLoginModal(false)}>
+          <div className="relative w-full max-w-sm bg-black border border-white/10 rounded-[50px] p-10 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowLoginModal(false)} className="absolute top-6 right-8 text-white/20 hover:text-white transition-colors">✕</button>
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto mb-4 text-2xl shadow-[0_0_20px_#6366f120]">🔑</div>
+              <h3 className="text-xl font-black italic uppercase tracking-tighter text-white">Neural Portal</h3>
+              <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-2">Creator Hub Authorization</p>
+            </div>
+            <div className="space-y-4">
+               <input 
+                 type="text" 
+                 placeholder="Matrix Handle" 
+                 value={loginForm.handle}
+                 onChange={e => setLoginForm({...loginForm, handle: e.target.value})}
+                 className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl px-6 text-sm outline-none text-white focus:border-indigo-500/30 transition-all font-bold"
+               />
+               <input 
+                 type="password" 
+                 placeholder="Neural Key" 
+                 value={loginForm.password}
+                 onChange={e => setLoginForm({...loginForm, password: e.target.value})}
+                 className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl px-6 text-sm outline-none text-white focus:border-indigo-500/30 transition-all tracking-widest"
+               />
+               <button 
+                 onClick={async () => {
+                   setLoginError('');
+                   try {
+                     const apiBase = import.meta.env.VITE_SOCKET_URL || '';
+                     const res = await fetch(`${apiBase}/api/creators/login`, {
+                       method: 'POST',
+                       headers: { 'Content-Type': 'application/json' },
+                       body: JSON.stringify(loginForm)
+                     });
+                     const data = await res.json();
+                     if (data.success) {
+                       window.localStorage.setItem('mm_creatorId', data.data.referral_code);
+                       window.location.reload();
+                     } else {
+                       setLoginError(data.error);
+                     }
+                   } catch (e) { setLoginError('Connection Failed'); }
+                 }}
+                 className="w-full h-14 bg-indigo-600 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white hover:text-black transition-all shadow-xl shadow-indigo-600/20"
+               >Authorize Uplink</button>
+               {loginError && <p className="text-rose-500 text-[10px] text-center font-black uppercase tracking-widest mt-4 animate-shake">{loginError}</p>}
+            </div>
           </div>
         </div>
       )}

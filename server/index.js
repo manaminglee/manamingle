@@ -307,25 +307,53 @@ app.post('/api/creators/register', async (req, res) => {
     handle_name: sanitize(handle, 30),
     platform: sanitize(platform, 20),
     profile_link: sanitize(link, 200),
-    ip_addr: ip,
+    authorized_ips: [ip],
     referral_code,
     status: 'pending',
     coins_earned: 0,
     earnings_rs: 0,
+    password: null,
     created_at: new Date().toISOString()
   };
   try {
     if (supabase) {
-      const { error } = await supabase.from('creators').insert(entry);
-      if (error) throw error;
+      await supabase.from('creators').insert(entry);
     } else {
-      const existing = localDb.creators.find(c => c.ip_addr === ip || c.handle_name === entry.handle_name);
-      if (existing) return res.status(400).json({ error: 'Identity already registered in the matrix.' });
+      const existing = localDb.creators.find(c => c.handle_name === entry.handle_name);
+      if (existing) return res.status(400).json({ error: 'Identity handle already registered.' });
       localDb.creators.push(entry);
       saveLocalDb();
     }
-    res.json({ success: true, message: 'Application sent for appraisal.', accessKey: referral_code });
+    res.json({ success: true, message: 'Application Transmitted.', accessKey: referral_code });
   } catch (e) { res.status(500).json({ error: 'Database uplink failed' }); }
+});
+
+app.post('/api/creators/login', async (req, res) => {
+  const { handle, password } = req.body || {};
+  const currentIp = req.ip === '::1' ? '127.0.0.1' : req.ip;
+  if (!handle || !password) return res.status(400).json({ error: 'Incomplete Signal' });
+  try {
+    let creator = null;
+    if (supabase) {
+      const { data } = await supabase.from('creators').select('*').eq('handle_name', handle).eq('password', password).single();
+      creator = data;
+    } else {
+      creator = localDb.creators.find(c => c.handle_name === handle && c.password === password);
+    }
+    if (!creator) return res.status(401).json({ error: 'Neural Key Mismatch' });
+    if (creator.status !== 'approved') return res.status(403).json({ error: 'Node Pending Appraisal' });
+
+    // Link current IP if not already linked
+    if (!creator.authorized_ips.includes(currentIp)) {
+      creator.authorized_ips.push(currentIp);
+      if (supabase) {
+        await supabase.from('creators').update({ authorized_ips: creator.authorized_ips }).eq('id', creator.id);
+      } else {
+        saveLocalDb();
+      }
+    }
+    res.json({ success: true, data: creator });
+  } catch (e) { res.status(500).json({ error: 'Authentication Failed' }); }
 });
 
 app.get('/api/creators/status', async (req, res) => {
@@ -334,16 +362,20 @@ app.get('/api/creators/status', async (req, res) => {
   try {
     let creator = null;
     if (supabase) {
-      const query = supabase.from('creators').select('*');
-      if (id) query.eq('referral_code', id);
-      else if (handle) query.eq('handle_name', handle);
-      else query.eq('ip_addr', ip);
-      const { data } = await query.single();
-      creator = data;
+      if (id) {
+        const { data } = await supabase.from('creators').select('*').eq('referral_code', id).single();
+        creator = data;
+      } else if (handle) {
+        const { data } = await supabase.from('creators').select('*').eq('handle_name', handle).single();
+        creator = data;
+      } else {
+        const { data } = await supabase.from('creators').select('*').contains('authorized_ips', [ip]).single();
+        creator = data;
+      }
     } else {
       if (id) creator = localDb.creators.find(c => c.referral_code === id);
       else if (handle) creator = localDb.creators.find(c => c.handle_name === handle);
-      else creator = localDb.creators.find(c => c.ip_addr === ip);
+      else creator = localDb.creators.find(c => c.authorized_ips.includes(ip));
     }
     res.json({ data: creator || null });
   } catch (e) { res.json({ data: null }); }
@@ -367,17 +399,28 @@ app.post('/api/admin/creators/approve', async (req, res) => {
   const { key, creatorId, status } = req.body || {};
   if (key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Access Denied' });
   try {
+    let creator = null;
     if (supabase) {
-      await supabase.from('creators').update({ status }).eq('id', creatorId);
+      const { data } = await supabase.from('creators').select('*').eq('id', creatorId).single();
+      creator = data;
     } else {
-      const c = localDb.creators.find(x => x.id === creatorId);
-      if (c) { 
-        c.status = status;
-        saveLocalDb();
-      }
+      creator = localDb.creators.find(x => x.id === creatorId);
     }
-    // Broadcast to all sockets of this creator? We'll rely on periodic refresh or re-connect.
-    res.json({ success: true });
+    if (!creator) return res.status(404).json({ error: 'Node Not Found' });
+
+    let updates = { status };
+    if (status === 'approved' && !creator.password) {
+      const pin = Math.floor(1000 + Math.random() * 9000);
+      updates.password = `${creator.handle_name}@${pin}`;
+    }
+
+    if (supabase) {
+      await supabase.from('creators').update(updates).eq('id', creatorId);
+    } else {
+      Object.assign(creator, updates);
+      saveLocalDb();
+    }
+    res.json({ success: true, password: updates.password });
   } catch (e) { res.status(500).json({ error: 'Approval failed' }); }
 });
 
@@ -1081,7 +1124,19 @@ io.on('connection', (socket) => {
     let finalNick = 'Anonymous';
     let finalIsCreator = false;
     if (supabase) {
-      const { data } = await supabase.from('creators').select('*').eq('ip_addr', ip).eq('status', 'approved').single();
+      const { data } = await supabase.from('creators').select('*').contains('authorized_ips', [ip]).eq('status', 'approved').single();
+      if (data) {
+        const u = users.get(socket.id);
+        if (u) {
+          u.isCreator = true;
+          u.nickname = data.handle_name;
+          u.creatorData = data;
+          finalNick = u.nickname;
+          finalIsCreator = true;
+        }
+      }
+    } else {
+      const data = localDb.creators.find(c => c.authorized_ips.includes(ip) && c.status === 'approved');
       if (data) {
         const u = users.get(socket.id);
         if (u) {
