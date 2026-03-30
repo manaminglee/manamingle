@@ -842,8 +842,7 @@ io.on('connection', (socket) => {
     rooms: new Set(),
   });
 
-  socket.emit('connected', { userId, country });
-  socket.emit('settings_updated', { adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools });
+  socket.emit('connected', { userId, country, settings: { adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools } });
   emitOnlineCount();
 
   socket.on('report-user', (data) => {

@@ -8,6 +8,7 @@ export function useSocket() {
   const [country, setCountry] = useState(null);
   const [onlineCount, setOnlineCount] = useState(0);
   const [adsEnabled, setAdsEnabled] = useState(false);
+  const [allowDevTools, setAllowDevTools] = useState(true); // Default to true until sync
   const [contentFlagged, setContentFlagged] = useState(null);
 
   const [isBlocked, setIsBlocked] = useState(false);
@@ -27,7 +28,13 @@ export function useSocket() {
 
       s.on('connect', () => { setConnected(true); setIsBlocked(false); });
       s.on('disconnect', () => setConnected(false));
-      s.on('connected', (data) => setCountry(data?.country || null));
+      s.on('connected', (data) => {
+        setCountry(data?.country || null);
+        if (data?.settings) {
+           setAdsEnabled(!!data.settings.adsEnabled);
+           setAllowDevTools(!!data.settings.allowDevTools);
+        }
+      });
       s.on('online_count', (data) => setOnlineCount(data));
       s.on('blocked-ip', () => setIsBlocked(true));
       s.on('content-flagged', (data) => {
@@ -35,8 +42,9 @@ export function useSocket() {
         setTimeout(() => setContentFlagged(null), 6000);
       });
       s.on('settings_updated', (data) => {
-        if (data && typeof data.adsEnabled !== 'undefined') {
-          setAdsEnabled(!!data.adsEnabled);
+        if (data) {
+          if (typeof data.adsEnabled !== 'undefined') setAdsEnabled(!!data.adsEnabled);
+          if (typeof data.allowDevTools !== 'undefined') setAllowDevTools(!!data.allowDevTools);
         }
       });
     })();
@@ -62,6 +70,9 @@ export function useSocket() {
         if (!cancelled && typeof data.adsEnabled !== 'undefined') {
           setAdsEnabled(!!data.adsEnabled);
         }
+        if (!cancelled && typeof data.allowDevTools !== 'undefined') {
+          setAllowDevTools(!!data.allowDevTools);
+        }
       } catch {
         // ignore network errors; socket event will eventually update
       }
@@ -71,5 +82,5 @@ export function useSocket() {
     };
   }, [apiBase]);
 
-  return { socket, connected, country, onlineCount, adsEnabled, isBlocked, contentFlagged };
+  return { socket, connected, country, onlineCount, adsEnabled, allowDevTools, isBlocked, contentFlagged };
 }
