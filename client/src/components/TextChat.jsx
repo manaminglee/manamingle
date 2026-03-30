@@ -58,6 +58,60 @@ const SEARCHING_STATUSES = [
 
 const MAX_MEDIA_SIZE_MB = 5;
 
+function VanishingMessage({ m, isMe }) {
+  const [timeLeft, setTimeLeft] = useState(90);
+
+  useEffect(() => {
+    if (m.system) return;
+    const age = Math.floor((Date.now() - (m.ts || Date.now())) / 1000);
+    const rem = Math.max(0, 90 - age);
+    setTimeLeft(rem);
+
+    if (rem <= 0) return;
+
+    const int = setInterval(() => {
+      setTimeLeft(prev => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(int);
+  }, [m.ts, m.system]);
+
+  if (!m.system && timeLeft <= 0) return null;
+
+  if (m.system) {
+    return (
+      <div className="flex justify-center my-2">
+        <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider bg-white/5 px-2 py-0.5 rounded shadow-sm text-center">
+          {m.text}
+        </span>
+      </div>
+    );
+  }
+
+  const mStr = Math.floor(timeLeft / 60);
+  const sStr = (timeLeft % 60).toString().padStart(2, '0');
+
+  return (
+    <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-message-pop mt-2`}>
+        <div className={`msg-bubble ${isMe ? 'me' : 'them'} flex gap-2 items-end relative group min-w-[60px]`}>
+            {m.media ? (
+                <div className="max-w-[180px] rounded-lg overflow-hidden border border-white/10">
+                    {m.type === 'video' ? (
+                        <video src={m.content} controls className="w-full" autoPlay loop muted />
+                    ) : (
+                        <img src={m.content} className="w-full h-auto" alt="media" />
+                    )}
+                </div>
+            ) : (
+                <p className="break-words leading-relaxed whitespace-pre-wrap">{m.text}</p>
+            )}
+            <span className={`text-[9px] font-mono shrink-0 mb-[-2px] ${timeLeft <= 10 ? 'text-amber-400 animate-pulse font-bold' : 'opacity-40'}`}>
+                {mStr}:{sStr}
+            </span>
+        </div>
+    </div>
+  );
+}
+
 export function TextChat({ socket, connected, country, onlineCount, interest = 'general', nickname = 'Anonymous', onBack, onJoined, onFindNewPartner, adsEnabled, coinState }) {
   const { balance, streak, canClaim, nextClaim, claimCoins } = coinState;
   const [messages, setMessages] = useState([]);
@@ -615,48 +669,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
               {messages.map((m, i) => {
                 const isMe = isFromMe(m);
                 if (mutedStranger && !isMe && !m.system) return null;
-                const prev = messages[i - 1];
-                const senderChanged = i === 0 || !prev || isFromMe(prev) !== isMe;
-                const timeDiff = prev?.ts && m.ts ? (m.ts - prev.ts) / 60000 : 999;
-                const showTime = i === 0 || senderChanged || timeDiff >= 3;
-                return (
-                  <div key={m.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-message-pop`}>
-                    {showTime && (
-                      <span className="msg-time px-2">{isMe ? 'You' : 'Stranger'}</span>
-                    )}
-                    <div className={`msg-bubble ${isMe ? 'me' : 'them'}`}>
-                      {m.media ? (
-                        <div className="max-w-[180px] rounded-lg overflow-hidden border border-white/10">
-                          {m.type === 'video' ? (
-                            <video src={m.content} controls className="w-full" autoPlay loop muted />
-                          ) : (
-                            <img src={m.content} className="w-full h-auto" alt="media" />
-                          )}
-                        </div>
-                      ) : (
-                        <>
-                          {isTranslatorActive && !isMe ? (
-                            <div className="flex flex-col gap-1">
-                              {m.translated ? (
-                                <>
-                                  <span className="text-[10px] opacity-40 uppercase font-bold tracking-widest">Translated by NVIDIA AI</span>
-                                  <span className="opacity-60 text-[11px] italic line-through mb-0.5">{m.text}</span>
-                                  <span className="text-white font-medium">✨ {m.translated}</span>
-                                </>
-                              ) : (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[10px] opacity-40 uppercase font-bold tracking-widest animate-pulse">Translating...</span>
-                                  <span className="opacity-80">{m.text}</span>
-                                </div>
-                              )}
-                            </div>
-                          ) : m.text}
-                        </>
-                      )}
-                    </div>
-                    {showTime && <span className="msg-time px-2">{formatTime(m.ts)}</span>}
-                  </div>
-                );
+                return <VanishingMessage key={m.id || i} m={m} isMe={isMe} />;
               })}
               {strangerTyping && (
                 <div className="flex items-start gap-2 animate-message-pop">

@@ -58,14 +58,14 @@ function VideoEl({ stream, muted = false, mirror = false, className = '' }) {
 }
 
 const EMOJIS_3D = [
-  { char: '🔥', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.webp' },
-  { char: '💎', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f48e/512.webp' },
-  { char: '🚀', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f680/512.webp' },
-  { char: '✨', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/2728/512.webp' },
-  { char: '🎉', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f389/512.webp' },
-  { char: '❤️', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/2764_fe0f/512.webp' },
-  { char: '😂', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f602/512.webp' },
-  { char: '👑', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f451/512.webp' },
+  { char: '🔥', label: 'Fire', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.webp' },
+  { char: '💎', label: 'Gem', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f48e/512.webp' },
+  { char: '🚀', label: 'Rocket', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f680/512.webp' },
+  { char: '✨', label: 'Sparkle', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/2728/512.webp' },
+  { char: '🎉', label: 'Party', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f389/512.webp' },
+  { char: '❤️', label: 'Heart', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/2764_fe0f/512.webp' },
+  { char: '😂', label: 'Laugh', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f602/512.webp' },
+  { char: '👑', label: 'Crown', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f451/512.webp' },
 ];
 
 const API_BASE = import.meta.env.VITE_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
@@ -78,6 +78,50 @@ const VIDEO_FILTERS = [
   { id: 'invert(100%)', label: 'Negative' },
   { id: 'contrast(150%) brightness(120%)', label: 'Intense' },
 ];
+
+function VanishingMessage({ m, isMe }) {
+  const [timeLeft, setTimeLeft] = useState(90);
+
+  useEffect(() => {
+    if (m.system) return;
+    const age = Math.floor((Date.now() - (m.ts || Date.now())) / 1000);
+    const rem = Math.max(0, 90 - age);
+    setTimeLeft(rem);
+
+    if (rem <= 0) return;
+
+    const int = setInterval(() => {
+      setTimeLeft(prev => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(int);
+  }, [m.ts, m.system]);
+
+  if (!m.system && timeLeft <= 0) return null;
+
+  if (m.system) {
+    return (
+      <div className="flex justify-center my-2">
+        <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider bg-white/5 px-2 py-0.5 rounded shadow-sm">
+          {m.text}
+        </span>
+      </div>
+    );
+  }
+
+  const mStr = Math.floor(timeLeft / 60);
+  const sStr = (timeLeft % 60).toString().padStart(2, '0');
+
+  return (
+    <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-fade-in mt-2`}>
+      <div className={`relative max-w-[85%] px-3 py-2 rounded-lg text-sm flex gap-2 items-end group ${isMe ? 'bg-[#1a7f37] text-white' : 'bg-white/10 text-white/90'}`}>
+        <p className="break-words leading-relaxed">{m.text}</p>
+        <span className={`text-[9px] font-mono shrink-0 mb-0.5 ${timeLeft <= 10 ? 'text-amber-400 animate-pulse font-bold' : 'opacity-50'}`}>
+          {mStr}:{sStr}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export function VideoChat({ socket, connected, country, onlineCount, interest = 'general', nickname = 'Anonymous', adsEnabled = false, onBack, onJoined, onFindNewPartner, coinState }) {
   const { balance, streak, canClaim, nextClaim, claimCoins, history, addHistory } = coinState || {};
@@ -511,7 +555,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
         }
       } catch (e) { setSmartReplies([]); }
     };
-    
+
     const timeout = setTimeout(fetchReplies, 800);
     return () => clearTimeout(timeout);
   }, [messages, socket?.id]);
@@ -1139,11 +1183,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
             <div className="flex-1 overflow-y-auto p-3 space-y-2" id="video-chat-messages">
               {messages.map((m, i) => {
                 const isMe = m.socketId === socket.id || m.fromSelf;
-                return (
-                  <div key={m.id || i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[85%] px-3 py-2 rounded-lg text-sm ${isMe ? 'bg-[#1a7f37] text-white' : 'bg-white/10 text-white/90'}`}>{m.text}</div>
-                  </div>
-                );
+                return <VanishingMessage key={m.id || i} m={m} isMe={isMe} />;
               })}
               <div ref={chatEndRef} />
             </div>
@@ -1157,9 +1197,12 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                   ))}
                 </div>
               )}
-              <div className="flex gap-2">
-                <input ref={inputRef} value={input} onChange={handleInputChange} onKeyDown={(e) => e.key === 'Enter' && sendMsg()} placeholder="Type a message..." className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm outline-none focus:border-white/20 placeholder:text-white/30" />
-                <button onClick={sendMsg} disabled={!input.trim()} className="px-4 py-2 rounded-lg bg-[#1a7f37] hover:bg-[#2ea043] disabled:opacity-40 text-white text-sm font-medium">Send</button>
+              <div className="flex gap-2 items-center relative">
+                <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="text-white/40 hover:text-amber-500 transition-colors p-1" title="3D Animated Emojis (5 Coins)">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </button>
+                <input ref={inputRef} value={input} onChange={handleInputChange} onKeyDown={(e) => e.key === 'Enter' && sendMsg()} placeholder="Type a message..." className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm outline-none focus:border-white/20 placeholder:text-white/30 transition-all focus:bg-white/10" />
+                <button onClick={sendMsg} disabled={!input.trim()} className="px-4 py-2 rounded-lg bg-[#1a7f37] border border-[#2ea043]/50 hover:bg-[#2ea043] disabled:opacity-40 text-white text-sm font-bold shadow-lg shadow-[#1a7f37]/20 transition-all">Send</button>
               </div>
             </div>
           </div>
@@ -1199,11 +1242,32 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
         </div>
       )}
 
+      {active3dEmoji && (
+        <div className="pointer-events-none fixed inset-0 z-[300] flex items-center justify-center overflow-hidden bg-black/40 backdrop-blur-sm">
+          <div className="text-[150px] sm:text-[250px] drop-shadow-[0_0_80px_rgba(255,255,255,0.3)] animate-bounce" style={{ filter: 'drop-shadow(0px 10px 40px rgba(0,0,0,0.5))' }}>
+            {active3dEmoji.emoji}
+          </div>
+          <div className="absolute top-1/4 bg-amber-500/90 text-black px-6 py-2 rounded-full font-black text-sm uppercase tracking-widest shadow-2xl animate-fade-in-up">
+            {active3dEmoji.nickname || 'Someone'} sent a reaction!
+          </div>
+        </div>
+      )}
+
       {showEmojiPicker && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[150] p-3 rounded-xl bg-[#1a1a1a] border border-white/10 flex gap-2 shadow-xl">
-          {EMOJIS_3D.map(e => (
-            <button key={e.char} onClick={() => send3dEmoji(e.char)} className="w-10 h-10 rounded-lg hover:bg-white/10 flex items-center justify-center text-2xl transition-colors">{e.char}</button>
-          ))}
+        <div className="fixed bottom-24 right-4 sm:right-0 sm:mr-4 z-[150] p-4 rounded-2xl bg-[#111] border border-white/10 shadow-2xl shrink-0 w-[300px] animate-fade-in-up">
+          <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2">
+            <h3 className="text-xs font-black uppercase text-amber-500 tracking-wider">Premium 3D Emojis</h3>
+            <span className="text-[10px] font-bold text-white/50 bg-black/40 px-2 py-0.5 rounded">5 Coins</span>
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {EMOJIS_3D.map(e => (
+              <button key={e.char} onClick={() => send3dEmoji(e.char)} className="aspect-square rounded-xl bg-white/5 hover:bg-amber-500/20 hover:scale-110 flex flex-col items-center justify-center text-2xl transition-all border border-transparent hover:border-amber-500/30 group">
+                <span className="group-hover:animate-bounce">{e.char}</span>
+                <span className="text-[8px] text-white/30 group-hover:text-amber-500/80 mt-1 uppercase font-bold">{e.label || 'Send'}</span>
+              </button>
+            ))}
+          </div>
+          {balance < 5 && <div className="mt-3 text-[10px] text-center text-rose-400 font-medium bg-rose-500/10 py-1 rounded">Not enough coins!</div>}
         </div>
       )}
       {/* Coin History Modal */}
