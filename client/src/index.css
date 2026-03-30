@@ -2792,3 +2792,27 @@ body::after {
   background: #ffffff;
   clip-path: polygon(50% 0%, 75% 50%, 50% 100%, 25% 50%);
 }
+
+/* ============================================================
+   GLOBAL FORM ELEMENTS FIX - DARK SELECTS
+   ============================================================ */
+select, option {
+  background-color: #0d0f1c !important;
+  color: #f8fafc !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+select:focus {
+  border-color: rgba(6, 182, 212, 0.4) !important;
+  outline: none;
+}
+
+option:hover, option:focus, option:active, option:checked {
+  background-color: rgba(6, 182, 212, 0.2) !important;
+  color: #ffffff !important;
+}
+
+/* For Chrome/Safari/Edge to fix the white background on dropdowns */
+select::-webkit-listbox {
+  background-color: #0d0f1c !important;
+}

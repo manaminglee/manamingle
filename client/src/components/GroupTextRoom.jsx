@@ -121,7 +121,16 @@ export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nick
     };
 
     const onUserLeft = (data) => {
-      setParticipantCount((c) => Math.max(1, (data.participantCount ?? c) - 1));
+      setParticipantCount((c) => {
+        const next = Math.max(1, (data.participantCount ?? c) - 1);
+        if (next === 1 && !isQueuing) {
+          // AUTO-SEEK Logic: If I'm alone, find a new pod
+          setTimeout(() => {
+            if (roomIdRef.current) onFindNewPod?.();
+          }, 3000);
+        }
+        return next;
+      });
       const sid = data.userId ?? data.socketId;
       setPeers((p) => {
         const leaving = p.find((x) => x.socketId === sid);

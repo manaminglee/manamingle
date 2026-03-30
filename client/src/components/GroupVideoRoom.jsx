@@ -611,8 +611,17 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
     };
 
     const onUserLeft = (data) => {
-      setParticipantCount((c) => Math.max(1, (data.participantCount ?? c) - 1));
-      const sid = data.socketId; // ALWAYS use socketId for WebRTC cleanup
+      setParticipantCount((c) => {
+        const next = Math.max(1, (data.participantCount ?? c) - 1);
+        if (next === 1 && !isQueuing) {
+          // AUTO-SEEK: Find another room if left alone
+          setTimeout(() => {
+            if (roomIdRef.current) onLeave(); // Assuming onLeave() in group room context from props is the exit
+          }, 3000);
+        }
+        return next;
+      });
+      const sid = data.socketId; 
       if (sid) {
         const pc = peerConnectionsRef.current.get(sid);
         if (pc) {

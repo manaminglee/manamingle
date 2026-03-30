@@ -833,6 +833,13 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       setStatus('disconnected');
       setPartnerLeft(true);
       playDisconnectSound();
+      
+      // AUTO-SEEK Logic: Wait 2.5s then find new partner
+      setTimeout(() => {
+        if (roomIdRef.current) return; // Still connected?
+        handleSkip();
+      }, 2500);
+      
       setTimeout(() => setPartnerLeft(false), 5000);
     };
 

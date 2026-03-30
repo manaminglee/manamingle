@@ -192,6 +192,11 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
     const onUserLeft = () => {
       setStatus('disconnected');
       setPeer(null);
+      // AUTO-SEEK Logic: Trigger handleSkip after 2s delay
+      setTimeout(() => {
+        if (roomIdRef.current) return; // Still in a room? Skip.
+        handleSkip();
+      }, 2000);
     };
 
     const onStrangerTyping = (data) => {
@@ -205,7 +210,6 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
 
     const on3dEmoji = (data) => {
       setActive3dEmoji(data);
-      // Also add to chat as a special emoji message
       setMessages(prev => [...prev.slice(-100), {
         id: `emoji-${Date.now()}`,
         text: `Sent a 3D ${data.emoji.char || data.emoji}`,
@@ -231,11 +235,11 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
     });
     socket.on('disconnect', (reason) => {
       if (reason === 'io server disconnect' || reason === 'transport close' || reason === 'ping timeout') {
-        setMessages(m => [...m, { id: Date.now(), system: true, text: '⚠️ Connection lost. Searching for new partner...', ts: Date.now() }]);
+        setStatus('disconnected');
+        setTimeout(() => handleSkip(), 2000);
       }
     });
 
-    // Auto-emit find-partner on mount if we're in searching state
     if (socket && status === 'searching' && !roomIdRef.current) {
       socket.emit('find-partner', { mode: 'text', interest: interest || 'general', nickname: 'Anonymous' });
     }
@@ -486,213 +490,176 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#070811] text-white overflow-hidden relative">
+    <div className="min-h-screen flex flex-col bg-[#05060b] text-[#f8fafc] font-sans selection:bg-cyan-500/30 selection:text-cyan-200 overflow-hidden relative">
+      {/* NEURAL BACKGROUND DECOR */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-cyan-500/5 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-500/5 rounded-full blur-[120px]" />
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.03]" />
+      </div>
+
       {/* AI SAFETY LAYER */}
-      <div className="absolute top-[72px] left-1/2 -translate-x-1/2 z-[100] pointer-events-none px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center gap-2 animate-pulse transition-opacity duration-1000">
-         <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">AI Safety Monitor Active</span>
+      <div className="absolute top-[84px] left-1/2 -translate-x-1/2 z-[100] pointer-events-none px-6 py-2 bg-emerald-500/5 border border-emerald-500/20 rounded-full flex items-center gap-3 animate-pulse">
+         <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_10px_#34d399]" />
+         <span className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-400 italic">Neural Guard Active</span>
       </div>
 
       {/* HEADER */}
-      <header className="app-header">
-        <div className="flex items-center gap-3">
+      <header className="fixed top-0 left-0 right-0 z-[150] h-20 px-8 flex items-center justify-between bg-black/20 backdrop-blur-3xl border-b border-white/5">
+        <div className="flex items-center gap-4">
           <button
             id="text-back-btn"
             type="button"
             onClick={handleBack}
-            className="btn btn-icon"
-            title="Back to home"
+            className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/5 hover:border-white/20 transition-all flex items-center justify-center text-white/40 hover:text-white"
+            title="Disconnect"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <div className="logo-icon text-sm">M</div>
-          <div>
-            <h1 className="font-bold text-white leading-none">Mana Mingle</h1>
-            <p className="text-xs mt-0.5" style={{ color: 'rgba(232,234,246,0.45)' }}>
-              {interest && interest !== 'general' ? `#${interest}` : 'Any topic'} · Anonymous
+          <img src="/apple-touch-icon.png" alt="Logo" className="w-8 h-8 object-contain drop-shadow-[0_0_10px_#06b6d4]" />
+          <div className="hidden sm:block">
+            <h1 className="text-[10px] font-black uppercase tracking-[0.5em] text-white">Mana Mingle</h1>
+            <p className="text-[8px] font-bold text-white/20 uppercase tracking-widest mt-1">
+              # {interest || 'General'} Matrix Hub
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+
+        <div className="flex items-center gap-4">
           {connected && (
             <>
-              <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} />
-              <div className="hidden sm:flex px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-black text-emerald-400 uppercase tracking-tighter gap-1 items-center">
-                <div className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
-                {latency}ms
+              <div className="hidden lg:block">
+                 <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} />
               </div>
-              <div className="online-pill">
-                <div className="live-dot" style={{ width: 7, height: 7 }} />
-                <span>{onlineCount?.toLocaleString()} online</span>
+              <div className="flex px-3 py-1.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-[9px] font-black text-white/40 uppercase tracking-widest gap-2 items-center">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]" />
+                {onlineCount?.toLocaleString()} Nodes Live
               </div>
             </>
           )}
           {status === 'connected' && (
-            <>
-            <ProFeaturesMenu />
             <button
               onClick={() => setIsTranslatorActive(!isTranslatorActive)}
-              className={`anon-badge transition-all ${isTranslatorActive ? 'bg-indigo-500/20 border-indigo-500 text-indigo-300' : 'hover:bg-white/10'}`}
+              className={`p-2.5 rounded-xl border transition-all ${isTranslatorActive ? 'bg-cyan-500/10 border-cyan-500/50 text-cyan-400' : 'bg-white/5 border-white/5 text-white/30 hover:text-white hover:border-white/20'}`}
+              title="AI Neural Translator"
             >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
               </svg>
-              {isTranslatorActive ? 'AI Translator ON' : 'AI Translator OFF'}
             </button>
-            </>
           )}
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col max-w-3xl w-full mx-auto px-4 py-4 gap-4 min-h-0">
-        {adsEnabled && (
-          <div className="w-full bg-white/5 border border-white/10 rounded-xl p-2 text-center text-white/30 text-xs font-mono uppercase tracking-widest hidden sm:block h-20 flex items-center justify-center">
-            [Advertisement Placeholder 728x90]
-          </div>
-        )}
-
-        {/* Status / Chat area */}
-        <div className="flex-1 flex flex-col rounded-2xl overflow-hidden border border-white/[0.07] bg-[#0d0f1c] min-h-0 relative" style={{ minHeight: 400 }}>
-
+      <main className="flex-1 flex flex-col pt-24 pb-8 max-w-4xl w-full mx-auto px-6 gap-6 min-h-0 relative z-10">
+        
+        {/* CHAT CONTAINER */}
+        <div className="flex-1 flex flex-col rounded-[40px] overflow-hidden border border-white/[0.05] bg-[#0a0a0a]/60 backdrop-blur-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] min-h-0 relative">
+          
           {active3dEmoji && (
             <div className="absolute inset-0 pointer-events-none z-[100] flex items-center justify-center overflow-hidden">
-              <div className="animate-3d-emoji-pop flex flex-col items-center gap-2">
-                <picture>
-                  <source srcSet={active3dEmoji.emoji.url} type="image/webp" />
-                  <img src={active3dEmoji.emoji.url} className="w-32 h-32" alt="3d" />
-                </picture>
-                <span className="bg-black/80 px-4 py-1.5 rounded-full text-xs font-bold border border-white/10 shadow-2xl">
-                  {active3dEmoji.nickname} sent {active3dEmoji.emoji.char}
-                </span>
-              </div>
+               <div className="animate-in-zoom flex flex-col items-center gap-4">
+                  <picture className="drop-shadow-[0_0_30px_rgba(6,182,212,0.4)]">
+                    <source srcSet={active3dEmoji.emoji.url} type="image/webp" />
+                    <img src={active3dEmoji.emoji.url} className="w-40 h-40 object-contain" alt="3d" />
+                  </picture>
+                  <span className="bg-black/60 backdrop-blur-xl px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/10 text-cyan-400 shadow-2xl">
+                    Stranger Transmitted {active3dEmoji.emoji.char}
+                  </span>
+               </div>
             </div>
           )}
 
-          {/* Peer bar when connected */}
+          {/* PEER HEADER */}
           {status === 'connected' && peer && (
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.07] bg-white/[0.02]">
-              <div className="flex items-center gap-3">
-                <div className="peer-avatar">👤</div>
+            <div className="flex items-center justify-between px-8 py-5 border-b border-white/[0.05] bg-white/[0.01]">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center text-xl shadow-inner">👤</div>
                 <div>
-                  <p className="text-sm font-semibold text-white">
-                    {countryToFlag(peer?.country)} Stranger
-                  </p>
-                  <p className="text-xs" style={{ color: 'rgba(232,234,246,0.4)' }}>
-                    Anonymous · Connected • {String(Math.floor(connectedSecs / 60)).padStart(2, '0')}:{String(connectedSecs % 60).padStart(2, '0')}
-                  </p>
+                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-white">
+                    {countryToFlag(peer?.country)} Anonymous Stranger
+                  </h3>
+                  <div className="flex items-center gap-2 mt-1">
+                     <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_5px_#22d3ee]" />
+                     <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">
+                       Linked Node • {String(Math.floor(connectedSecs / 60)).padStart(2, '0')}:{String(connectedSecs % 60).padStart(2, '0')}
+                     </span>
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setMutedStranger((m) => !m)}
-                  className={`text-xs px-3 py-1.5 rounded-lg border transition ${mutedStranger ? 'border-amber-500/40 text-amber-400 bg-amber-500/10' : 'border-white/10 text-white/60 hover:bg-white/5'}`}
+                  className={`p-2.5 rounded-xl border transition-all ${mutedStranger ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-white/5 border-white/5 text-white/30 hover:text-white'}`}
                 >
-                  {mutedStranger ? 'Unmute' : 'Mute'}
+                  {mutedStranger ? '🔇' : '🔊'}
                 </button>
+                <div className="w-px h-6 bg-white/5 mx-1" />
                 <button
                   type="button"
-                  onClick={() => {
-                    if (socket) socket.emit('block-user', { targetSocketId: peer?.socketId });
-                    handleSkip();
-                    alert('User blocked. Finding someone new...');
-                  }}
-                  className="text-xs px-3 py-1.5 rounded-lg border border-rose-500/20 text-rose-400/80 hover:bg-rose-500/10 transition"
+                  onClick={() => handleSkip()}
+                  className="px-6 py-2.5 rounded-xl bg-rose-500/5 border border-rose-500/20 text-rose-400 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/10 transition-all active:scale-95"
                 >
-                  Block
-                </button>
-                <button
-                  id="report-text-btn"
-                  type="button"
-                  onClick={() => {
-                    if (socket) socket.emit('report-user', { reason: 'Inappropriate Behavior (Text)' });
-                    alert('User reported. Our Trust & Safety team has been notified.');
-                  }}
-                  className="text-xs px-3 py-1.5 rounded-lg border border-red-500/20 text-red-400/60 hover:bg-red-500/10 hover:text-red-400 transition"
-                >
-                  Report
+                  Abort Sync
                 </button>
               </div>
             </div>
           )}
 
-          {/* IDLE */}
-          {status === 'idle' && (
-            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center gap-6">
+          {/* IDLE / SEARCHING STATES */}
+          {(status === 'idle' || status === 'searching') && (
+            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center gap-8">
               <div className="relative">
-                <div className="w-24 h-24 rounded-3xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-4xl">
-                  💬
+                <div className="w-32 h-32 rounded-[40px] bg-white/[0.02] border border-cyan-500/10 flex items-center justify-center text-5xl relative z-10 animate-pulse-slow shadow-[inset_0_0_40px_rgba(6,182,212,0.05)]">
+                  {status === 'idle' ? '💬' : '🔍'}
                 </div>
-                <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center text-white text-xs font-bold">
-                  1:1
-                </div>
+                <div className="absolute inset-[-20px] border border-cyan-500/5 rounded-[60px] animate-spin-slower" />
+                <div className="absolute inset-[-40px] border border-cyan-500/[0.03] rounded-[80px] animate-reverse-spin-slow opacity-50" />
               </div>
-              <div>
-                <h2 className="text-xl font-bold text-white mb-2">Ready to Chat?</h2>
-                <p className="text-sm" style={{ color: 'rgba(232,234,246,0.5)' }}>
-                  Press Start to be matched with a random stranger worldwide.<br />
-                  No identity, no account — just pure conversation.
+              <div className="space-y-4 max-w-sm">
+                <h2 className="text-xl font-black italic uppercase tracking-tighter text-white">
+                  {status === 'idle' ? 'Initiate Text Uplink' : SEARCHING_STATUSES[searchStatusIndex]}
+                </h2>
+                <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.3em] leading-relaxed">
+                  {status === 'idle' 
+                    ? 'Synchronize across the neural network with random global nodes.' 
+                    : 'System is analyzing interaction vectors for optimal node pairing...'}
                 </p>
               </div>
+              {status === 'searching' && (
+                <div className="flex gap-2">
+                   <div className="w-2 h-2 rounded-full bg-cyan-400 animate-bounce" />
+                   <div className="w-2 h-2 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.2s]" />
+                   <div className="w-2 h-2 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.4s]" />
+                </div>
+              )}
             </div>
           )}
 
-          {/* SEARCHING */}
-          {status === 'searching' && (
-            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center gap-6">
-              <div className="relative w-24 h-24">
-                <div className="radar-ring absolute inset-0" />
-                <div className="radar-ring absolute inset-2" />
-                <div className="radar-ring absolute inset-4" />
-                <div className="absolute inset-6 rounded-full bg-indigo-500/20 flex items-center justify-center text-2xl">
-                  🔍
-                </div>
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-white mb-2">{SEARCHING_STATUSES[searchStatusIndex]}</h2>
-                <p className="text-sm" style={{ color: 'rgba(232,234,246,0.4)' }}>
-                  Press <kbd className="px-2 py-0.5 rounded bg-white/10 text-xs font-mono">Esc</kbd> or Skip to cancel
-                </p>
-              </div>
-              <div className="search-dots">
-                <span /><span /><span />
-              </div>
-            </div>
-          )}
-
-          {/* DISCONNECTED */}
+          {/* DISCONNECTED STATE (Auto-seek will trigger) */}
           {status === 'disconnected' && (
-            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-3xl">
-                👋
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-amber-400 mb-2">Stranger left the chat</h2>
-                <p className="text-sm" style={{ color: 'rgba(232,234,246,0.5)' }}>
-                  Click Skip to find someone new
+            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center gap-6">
+              <div className="w-20 h-20 rounded-3xl bg-rose-500/5 border border-rose-500/20 flex items-center justify-center text-4xl animate-pulse">👋</div>
+              <div className="space-y-3">
+                <h2 className="text-lg font-black italic uppercase text-rose-400 tracking-tighter">Sync Terminated</h2>
+                <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest leading-relaxed">
+                   Stranger left the matrix.<br />
+                   <span className="text-cyan-400 animate-pulse">Auto-Seeking new nodes in 2s...</span>
                 </p>
-              </div>
-              {/* Show last messages fadeout */}
-              <div className="w-full max-w-sm space-y-2 opacity-40">
-                {messages.slice(-2).map((m) => {
-                  const isMe = isFromMe(m);
-                  return (
-                    <div key={m.id}>
-                      <div className={`msg-bubble ${isMe ? 'me' : 'them'}`}>{m.text}</div>
-                    </div>
-                  );
-                })}
               </div>
             </div>
           )}
 
-          {/* MESSAGES */}
+          {/* CHAT MESSAGES DISPLAY */}
           {status === 'connected' && (
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0" id="text-chat-messages">
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-8 space-y-4 min-h-0" id="text-chat-messages">
               {messages.length === 0 && (
-                <div className="sys-msg">Say hello! The conversation just started 👋</div>
+                <div className="text-[10px] font-black uppercase tracking-[0.4em] text-white/10 text-center py-10 italic">
+                   Matrix Uplink Secure. Begin Transmission.
+                </div>
               )}
               {messages.map((m, i) => {
                 const isMe = isFromMe(m);
@@ -700,23 +667,13 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
                 return <VanishingMessage key={m.id || i} m={m} isMe={isMe} />;
               })}
               {strangerTyping && (
-                <div className="flex items-start gap-2 animate-message-pop">
-                  <span className="msg-time px-2">Stranger</span>
-                  <div className="typing-indicator">
-                    <span /><span /><span />
+                <div className="flex items-center gap-3 animate-message-pop opacity-50">
+                  <div className="flex gap-1 bg-white/5 py-2 px-3 rounded-2xl">
+                    <div className="w-1 h-1 bg-white rounded-full animate-bounce" />
+                    <div className="w-1 h-1 bg-white rounded-full animate-bounce [animation-delay:0.2s]" />
+                    <div className="w-1 h-1 bg-white rounded-full animate-bounce [animation-delay:0.4s]" />
                   </div>
-                  <span className="text-xs text-white/50">Stranger is typing...</span>
-                </div>
-              )}
-              {showSkipSuggestion && (
-                <div className="flex justify-center py-3">
-                  <button
-                    type="button"
-                    onClick={() => { setShowSkipSuggestion(false); handleSkip(); }}
-                    className="text-xs px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 transition-all"
-                  >
-                    No messages for 30s? Find someone new →
-                  </button>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-white/30">Node Typing...</span>
                 </div>
               )}
               <div ref={chatEndRef} />
@@ -724,174 +681,150 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
           )}
         </div>
 
-        {/* CONTROLS */}
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 sm:gap-3">
-            {/* Main action button */}
-            {status === 'idle' && (
-              <button
-                id="text-start-btn"
-                type="button"
-                disabled={!connected}
-                onClick={handleStart}
-                className="btn btn-primary shrink-0 px-6 py-3.5"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Start
-              </button>
-            )}
-            {(status === 'searching' || status === 'disconnected' || status === 'connected') && (
-              <>
+        {/* INPUT & CONTROLS */}
+        <div className="flex flex-col gap-4 relative z-10">
+           {status === 'connected' && showSkipSuggestion && (
+              <div className="absolute top-[-60px] left-1/2 -translate-x-1/2 animate-in-zoom">
                 <button
-                  id="text-skip-btn"
                   type="button"
-                  disabled={!connected}
-                  onClick={handleSkip}
-                  className="btn btn-amber shrink-0 px-6 py-3.5"
+                  onClick={() => handleSkip()}
+                  className="px-6 py-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-black uppercase tracking-widest shadow-2xl backdrop-blur-xl"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                  </svg>
-                  {status === 'searching' ? 'Cancel' : 'Skip'}
-                </button>
-                <button
-                  id="text-stop-btn"
-                  type="button"
-                  onClick={handleStop}
-                  className="btn btn-danger shrink-0 px-6 py-3.5"
-                >
-                  Stop
-                </button>
-              </>
-            )}
-
-            {/* Input + Send row - thumb reach on mobile */}
-            <div className="flex-1 min-w-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
-              <div className="flex flex-1 min-w-0 gap-1.5 items-center">
-                <input
-                  ref={inputRef}
-                  id="text-message-input"
-                  type="text"
-                  value={input}
-                  onChange={handleInputChange}
-                  onKeyDown={(e) => e.key === 'Enter' && sendMsg()}
-                  placeholder={isAiGenerating ? 'AI thinking...' : (isConnected ? 'Type a message...' : 'Connect first')}
-                  disabled={!isConnected || isAiGenerating}
-                  className={`chat-input flex-1 min-w-0 py-3 px-4 transition-all ${isAiGenerating ? 'opacity-50' : ''}`}
-                />
-                <button
-                  id="text-send-btn"
-                  type="button"
-                  onClick={sendMsg}
-                  disabled={!isConnected || !input.trim()}
-                  className="btn btn-primary shrink-0 w-11 h-11 sm:w-12 sm:h-12 p-0 rounded-xl flex items-center justify-center hover:scale-105 active:scale-95 shadow-lg shadow-indigo-500/20"
-                  title="Send"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                  </svg>
+                  Low Activity? Skip to next node →
                 </button>
               </div>
-              {/* Icons row - below on mobile */}
-              {isConnected && (
-                <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-                  {/* Quick reactions */}
-                  <div className="flex items-center gap-0.5">
-                    {QUICK_REACTIONS.map((emoji) => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        onClick={() => {
-                          if (balance >= 5) {
-                            const fullEmoji = EMOJIS_3D.find(e => e.char === emoji) || { char: emoji, url: '' };
-                            send3dEmoji(fullEmoji);
-                          } else {
-                            const r = roomIdRef.current;
-                            if (socket && r) socket.emit('send-message', { roomId: r, text: emoji });
-                          }
-                        }}
-                        className="w-9 h-9 flex items-center justify-center rounded-lg text-lg bg-white/5 hover:bg-white/10 border border-white/5 transition-all active:scale-90"
-                        title={balance >= 5 ? 'Send 3D (5🪙)' : 'Send as text'}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="p-2 sm:p-2.5 rounded-lg bg-white/5 border border-white/5 text-white/30 hover:text-emerald-400 hover:border-emerald-500/30 transition-all"
-                    title="Media (10-15 Coins)"
-                  >
-                    📂
-                  </button>
-                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*" onChange={handleMediaUpload} />
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                      className="p-2 sm:p-2.5 rounded-lg bg-white/5 border border-white/5 text-white/30 hover:text-amber-400 hover:border-amber-500/30 transition-all"
-                      title="3D Emojis (5 Coins)"
-                    >
-                      ✨
-                    </button>
-                    {showEmojiPicker && (
-                      <div className="absolute bottom-full right-0 mb-2 p-3 bg-[#151829] border border-white/10 rounded-2xl shadow-2xl w-[180px] grid grid-cols-4 gap-2 animate-slide-in-up z-[50]">
-                        <div className="col-span-4 text-[10px] font-black uppercase tracking-widest text-white/30 mb-1 px-1">3D Emojis (5🪙)</div>
-                        {EMOJIS_3D.map(e => (
-                          <button
-                            key={e.char}
-                            onClick={() => send3dEmoji(e)}
-                            className="w-8 h-8 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-lg text-lg transition-all"
-                          >
-                            {e.char}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={generateAiSpark}
+           )}
+
+           <div className="flex items-center gap-3">
+              {(status === 'idle') ? (
+                <button
+                  onClick={handleStart}
+                  className="flex-1 h-16 rounded-3xl bg-cyan-500 text-black font-black uppercase tracking-[0.3em] italic text-xs hover:bg-white transition-all shadow-[0_0_30px_rgba(6,182,212,0.3)] hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  Initiate Sync
+                </button>
+              ) : (
+                <button
+                  onClick={handleSkip}
+                  className="w-32 h-16 rounded-3xl bg-white/[0.03] border border-white/5 hover:border-cyan-500/40 text-white/40 hover:text-cyan-400 font-black uppercase tracking-widest text-[10px] transition-all italic hover:bg-cyan-500/5 shadow-inner"
+                >
+                  {status === 'searching' ? 'Abort' : 'Skip Node'}
+                </button>
+              )}
+
+              {status === 'connected' && (
+                <div className="flex-1 relative group">
+                  <div className="absolute inset-0 bg-cyan-500/5 blur-xl group-focus-within:bg-cyan-500/10 transition-all opacity-0 group-focus-within:opacity-100" />
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={input}
+                    onChange={handleInputChange}
+                    onKeyDown={(e) => e.key === 'Enter' && sendMsg()}
+                    placeholder={isAiGenerating ? 'AI Analysis in Progress...' : 'Transmit Data Package...'}
                     disabled={isAiGenerating}
-                    className={`p-2 sm:p-2.5 rounded-lg transition-all border shrink-0 ${isAiGenerating
-                      ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-400'
-                      : 'bg-white/5 border-white/5 text-white/30 hover:border-indigo-500/30 hover:text-indigo-400 hover:bg-indigo-500/10'
-                      }`}
-                  >
-                    <svg className={`w-4 h-4 ${isAiGenerating ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                  </button>
+                    className="w-full h-16 bg-white/[0.03] border border-white/10 focus:border-cyan-500/40 rounded-3xl px-8 text-sm outline-none transition-all placeholder:text-white/10 uppercase font-black tracking-widest backdrop-blur-3xl italic"
+                  />
+                  <div className="absolute right-3 top-3 flex items-center gap-2">
+                     <button
+                        onClick={sendMsg}
+                        disabled={!input.trim()}
+                        className="w-10 h-10 rounded-2xl bg-cyan-500 text-black flex items-center justify-center hover:bg-white transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] disabled:opacity-20"
+                     >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7-7 7" /></svg>
+                     </button>
+                  </div>
                 </div>
               )}
-            </div>
-          </div>
+           </div>
 
-          <p className="text-xs text-center" style={{ color: 'rgba(232,234,246,0.3)' }}>
-            🔒 Anonymous · Messages disappear when you leave · No data stored
-          </p>
+           {/* ACTION DOCK */}
+           {status === 'connected' && (
+             <div className="flex items-center justify-between px-2">
+                <div className="flex items-center gap-2">
+                   {QUICK_REACTIONS.map(emoji => (
+                     <button 
+                       key={emoji} 
+                       onClick={() => {
+                        if (balance >= 5) send3dEmoji(EMOJIS_3D.find(e => e.char === emoji) || {char: emoji, url: ''});
+                        else socket.emit('send-message', {roomId: roomIdRef.current, text: emoji});
+                       }}
+                       className="w-10 h-10 rounded-xl bg-white/[0.02] border border-white/5 hover:border-cyan-500/20 text-lg flex items-center justify-center grayscale hover:grayscale-0 transition-all"
+                     >
+                       {emoji}
+                     </button>
+                   ))}
+                   <div className="w-px h-6 bg-white/5 mx-2" />
+                   <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-10 h-10 rounded-xl bg-white/[0.02] border border-white/5 hover:border-emerald-500/40 text-emerald-400 flex items-center justify-center text-lg hover:bg-emerald-500/5 transition-all"
+                   >📂</button>
+                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*" onChange={handleMediaUpload} />
+                   
+                   <div className="relative">
+                     <button 
+                      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                      className={`w-10 h-10 rounded-xl bg-white/[0.02] border ${showEmojiPicker ? 'border-amber-500 bg-amber-500/10' : 'border-white/5'} hover:border-amber-500/40 text-amber-400 flex items-center justify-center text-lg transition-all`}
+                     >✨</button>
+                     {showEmojiPicker && (
+                       <div className="absolute bottom-full left-0 mb-4 p-5 bg-black/90 backdrop-blur-3xl border border-white/10 rounded-[40px] w-[280px] shadow-[0_0_50px_rgba(0,0,0,0.8)] animate-in-zoom z-[500]">
+                          <div className="text-[9px] font-black uppercase tracking-[0.3em] text-white/20 mb-4">Expressive Nodes (Free)</div>
+                          <div className="grid grid-cols-6 gap-2 mb-6">
+                             {['😊','😂','🔥','❤️','✨','💎','🚀','🎉','🤔','😮','👑','🍕'].map(c => (
+                               <button key={c} onClick={() => {
+                                 const rid = roomIdRef.current;
+                                 if (socket && rid) socket.emit('send-message', {roomId: rid, text: c});
+                                 setShowEmojiPicker(false);
+                               }} className="w-9 h-9 rounded-xl hover:bg-white/10 flex items-center justify-center text-lg transition-all">{c}</button>
+                             ))}
+                          </div>
+                          
+                          <div className="text-[9px] font-black uppercase tracking-[0.3em] text-cyan-400/40 mb-4">Neural Payloads (5🪙)</div>
+                          <div className="grid grid-cols-4 gap-2">
+                             {EMOJIS_3D.map(e => (
+                               <button key={e.char} onClick={() => send3dEmoji(e)} className="w-12 h-12 rounded-xl bg-white/[0.03] border border-white/5 hover:border-cyan-500/40 flex items-center justify-center text-xl transition-all shadow-inner">{e.char}</button>
+                             ))}
+                          </div>
+                       </div>
+                     )}
+                   </div>
+                </div>
+
+                <button 
+                  onClick={generateAiSpark}
+                  disabled={isAiGenerating}
+                  className={`px-5 py-2.5 rounded-2xl border transition-all text-[9px] font-black uppercase tracking-widest flex items-center gap-2 ${isAiGenerating ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 animate-pulse' : 'bg-white/5 border-white/5 text-white/30 hover:border-cyan-500/40 hover:text-cyan-400'}`}
+                >
+                  <svg className={`w-3.5 h-3.5 ${isAiGenerating ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                  {isAiGenerating ? 'AI Analyzing...' : 'AI Icebreaker'}
+                </button>
+             </div>
+           )}
+        </div>
+
+        <div className="flex justify-between items-center px-4 font-black uppercase text-[8px] tracking-[0.5em] text-white/5">
+           <span>Neural Encryption Active</span>
+           <span>Node {socket?.id?.substring(0, 8)}</span>
         </div>
       </main>
 
-      {/* Conversation rating modal */}
+      {/* RATING MODAL */}
       {showRating && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowRating(false)}>
-          <div className="bg-[#0d0f1c] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-fade-in-up" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-white mb-4">⭐ How was this conversation?</h3>
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-8 bg-black/90 backdrop-blur-3xl animate-in-zoom" onClick={() => setShowRating(false)}>
+          <div className="bg-black border border-white/10 rounded-[40px] p-10 max-w-sm w-full text-center shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
+            <div className="text-4xl mb-6 scale-125 animate-bounce">⭐</div>
+            <h3 className="text-xl font-black italic uppercase italic tracking-tighter text-white mb-4">Node Feedback</h3>
+            <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-10 leading-relaxed">System requires interaction quality assessment for neural routing optimization.</p>
             <div className="flex gap-2">
-              <button onClick={() => setShowRating(false)} className="flex-1 py-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-medium hover:bg-emerald-500/30 transition-all">
-                Good
-              </button>
-              <button onClick={() => setShowRating(false)} className="flex-1 py-3 rounded-xl bg-white/10 border border-white/10 text-white/70 font-medium hover:bg-white/15 transition-all">
-                Neutral
-              </button>
-              <button onClick={() => setShowRating(false)} className="flex-1 py-3 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 font-medium hover:bg-rose-500/30 transition-all">
-                Bad
-              </button>
+              {['Poor', 'Neutral', 'Elite'].map((label, idx) => (
+                <button 
+                  key={label}
+                  onClick={() => setShowRating(false)} 
+                  className={`flex-1 py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${idx === 2 ? 'bg-cyan-500 text-black hover:bg-white' : 'bg-white/5 border border-white/5 hover:border-white/20'}`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
         </div>
