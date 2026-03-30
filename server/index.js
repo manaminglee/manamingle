@@ -1015,12 +1015,20 @@ io.on('connection', (socket) => {
     const msg = sanitize(String(text || ''), 500);
     if (!msg) return;
 
-    // SIMULATED AI MONITORING (as requested)
-    const harmfulTerms = ['badword1', 'badword2']; // Just examples
-    const isHarmful = harmfulTerms.some(term => msg.toLowerCase().includes(term));
-    if (isHarmful) {
-      console.log(`[AI MONITOR] Harmful message blocked from ${socket.id}: ${msg}`);
-      socket.emit('content-flagged', { message: 'Our AI has flagged your message for potentially violating our safety community guidelines.' });
+    // AI SAFETY MONITORING (Offense & Abuse Filter)
+    const profanities = [
+      'fuck', 'shit', 'asshole', 'bitch', 'bastard', 'cunt', 'dick', 'pussy', 'nigga', 'nigger', 'faggot',
+      'slut', 'whore', 'motherfucker', 'cock', 'jerk', 'dumbass', 'retard', 'scum', 'idiot',
+      'porn', 'sex', 'nude', 'naked', 'xxx', 'horny', 'cum', 'cock', 'tit', 'boob', 'vagina', 'penis'
+    ];
+    // Simple regex pattern to catch variations
+    const pattern = new RegExp(`\\b(${profanities.join('|')})\\b`, 'i');
+    
+    if (pattern.test(msg)) {
+      console.log(`[AI SAFETY] Blocked offensive content from ${socket.id}: ${msg}`);
+      socket.emit('content-flagged', { 
+        message: '⚠️ MESSAGE BLOCKED: Our AI safety monitor detected offensive or abusive language. Please be respectful to maintain a safe community.' 
+      });
       return;
     }
 
