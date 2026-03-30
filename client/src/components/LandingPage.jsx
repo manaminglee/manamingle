@@ -188,7 +188,7 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
           {connected && balance !== undefined && (
             <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} />
           )}
-          <div className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black text-white/40 uppercase tracking-widest">{(onlineCount?.count || onlineCount || 0).toLocaleString()} Live</div>
+          <div className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black text-white/40 uppercase tracking-widest">{(typeof onlineCount === 'object' ? onlineCount?.count : onlineCount) || 0} Live</div>
           {creatorStatus && (
              <button 
                onClick={() => { window.localStorage.removeItem('mm_creatorId'); window.location.reload(); }}

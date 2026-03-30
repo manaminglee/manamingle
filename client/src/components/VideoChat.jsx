@@ -1230,7 +1230,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
             </button>
           )}
           <button onClick={() => setShowFilterMenu(true)} className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition">Filters</button>
-          <span className="text-[10px] text-white/30 hidden sm:inline">{onlineCount?.toLocaleString()} online</span>
+          <span className="text-[10px] text-white/30 hidden sm:inline">{(typeof onlineCount === 'object' ? onlineCount?.count : onlineCount) || 0} online</span>
           <button onClick={() => setShowCoinHistory(true)} className="text-amber-500/90 font-bold text-xs flex items-center gap-1 hover:bg-white/5 px-2 py-1 rounded transition border border-amber-500/20">🪙 {balance}</button>
           {!showChat && status === 'connected' && (
             <button onClick={() => setShowChat(true)} className="p-1.5 sm:hidden text-white/40 hover:text-white">
