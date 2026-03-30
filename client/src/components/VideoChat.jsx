@@ -465,25 +465,43 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
   // Keyboard Shortcuts (Moved here to avoid ReferenceError)
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
-      if (e.key === 'Escape') { e.preventDefault(); handleSkip(); }
-    };
     const pressedKeys = new Set();
     const handleDown = (e) => {
+      // Don't trigger if user is typing in chat
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+      
       pressedKeys.add(e.code);
-      if (pressedKeys.has('Space') && pressedKeys.has('KeyS')) { e.preventDefault(); handleStop(); }
-      if (e.key === 'Escape') { e.preventDefault(); handleSkip(); }
+
+      // SPACE + S for Stop
+      if (pressedKeys.has('Space') && pressedKeys.has('KeyS')) {
+        e.preventDefault();
+        handleStop();
+        return;
+      }
+
+      // ESC for Skip/New
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        handleSkip();
+        return;
+      }
+
+      // Individual Keys
+      if (e.code === 'KeyM') { e.preventDefault(); toggleMute(); }
+      if (e.code === 'KeyV') { e.preventDefault(); toggleCamera(); }
+      if (e.code === 'KeyB') { e.preventDefault(); setCameraBlur(prev => !prev); }
+      if (e.code === 'KeyC') { e.preventDefault(); setShowChat(prev => !prev); }
     };
+
     const handleUp = (e) => pressedKeys.delete(e.code);
+
     window.addEventListener('keydown', handleDown);
     window.addEventListener('keyup', handleUp);
     return () => {
       window.removeEventListener('keydown', handleDown);
       window.removeEventListener('keyup', handleUp);
     };
-  }, [handleSkip, handleStop]);
+  }, [handleSkip, handleStop, toggleMute, toggleCamera]);
 
   const toggleInterestTag = (tag) => {
     setSelectedInterests(prev =>
