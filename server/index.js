@@ -1070,6 +1070,16 @@ io.on('connection', (socket) => {
     socket.to(roomId).emit('stranger-typing', { isTyping, socketId: socket.id });
   });
 
+  socket.on('video-style', (data) => {
+    const { roomId, filter, blur, targetSocketId } = data || {};
+    if (!roomId) return;
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('stranger-video-style', { socketId: socket.id, filter, blur });
+    } else {
+      socket.to(roomId).emit('stranger-video-style', { socketId: socket.id, filter, blur });
+    }
+  });
+
   socket.on('send-3d-emoji', (data) => {
     const { roomId, emoji } = data || {};
     const u = users.get(socket.id);

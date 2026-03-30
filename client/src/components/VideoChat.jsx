@@ -129,6 +129,9 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [showCoinHistory, setShowCoinHistory] = useState(false);
   const [smartReplies, setSmartReplies] = useState([]);
+  const [filterTimer, setFilterTimer] = useState(0);
+  const [strangerFilter, setStrangerFilter] = useState('none');
+  const [strangerBlur, setStrangerBlur] = useState(false);
   const filterIntervalRef = useRef(null);
   const [myCountry, setMyCountry] = useState(country);
   const [partnerLeft, setPartnerLeft] = useState(false);
@@ -385,6 +388,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     clearRoom();
     setStatus('searching');
     setGoodVibesSent(false); setGoodVibesMatch(false); setCameraBlur(false);
+    setStrangerFilter('none'); setStrangerBlur(false);
     setTimeout(() => {
       if (status !== 'idle') {
         socket?.emit('find-partner', { mode: 'video', interest: interest || 'general', nickname: 'Anonymous' });
@@ -399,6 +403,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     clearRoom();
     setStatus('idle');
     setGoodVibesSent(false); setGoodVibesMatch(false); setCameraBlur(false);
+    setStrangerFilter('none'); setStrangerBlur(false);
   };
 
   const handleBack = () => { handleStop(); onBack?.(); };
@@ -431,10 +436,24 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [peer]);
 
-  // --- Premium Video Filter Effect ---
+  // --- Video Filter Sync & Payment Effect ---
   useEffect(() => {
-    if (activeFilter === 'none') return;
-    const interval = setInterval(() => {
+    if (socket && roomIdRef.current && status === 'connected') {
+      socket.emit('video-style', { roomId: roomIdRef.current, filter: activeFilter, blur: cameraBlur });
+    }
+  }, [activeFilter, cameraBlur, socket, status]);
+
+  useEffect(() => {
+    if (activeFilter === 'none') {
+      setFilterTimer(0);
+      return;
+    }
+    setFilterTimer(60);
+    const tickInterval = setInterval(() => {
+      setFilterTimer(t => (t <= 1 ? 60 : t - 1));
+    }, 1000);
+
+    const deductionInterval = setInterval(() => {
       if (balance >= 12) {
         if (socket) socket.emit('spend-coins', { amount: 12, reason: 'Premium Video Filter Maintenance' });
         if (addHistory) addHistory('Premium Filter (1 min)', -12);
@@ -443,7 +462,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
         alert('Premium filter stopped: Insufficient coins. Needs 12 coins per minute.');
       }
     }, 60000);
-    return () => clearInterval(interval);
+    return () => { clearInterval(tickInterval); clearInterval(deductionInterval); };
   }, [activeFilter, balance, socket, addHistory]);
 
   const handleFilterSelect = (filterId) => {
@@ -708,6 +727,11 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     const onWaiting = () => setStatus('searching');
     const onSystemMsg = (data) => setMessages((m) => [...m, { id: Date.now(), system: true, text: `📢 ADMIN: ${data.message}`, ts: Date.now() }]);
 
+    const onStrangerVideoStyle = (data) => {
+      setStrangerFilter(data.filter || 'none');
+      setStrangerBlur(!!data.blur);
+    };
+
     const onSignal = async (data) => {
       const from = data.fromSocketId;
       if (!from || from === socket.id) return;
@@ -742,6 +766,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     socket.on('waiting-for-partner', onWaiting);
     socket.on('webrtc-signal', onSignal);
     socket.on('system-announcement', onSystemMsg);
+    socket.on('stranger-video-style', onStrangerVideoStyle);
 
     // Auto-emit find-partner on mount if we're in searching state
     if (socket && status === 'searching' && !roomIdRef.current) {
@@ -756,6 +781,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       socket.off('waiting-for-partner', onWaiting);
       socket.off('webrtc-signal', onSignal);
       socket.off('system-announcement', onSystemMsg);
+      socket.off('stranger-video-style', onStrangerVideoStyle);
     };
   }, [socket, interest, onJoined, onFindNewPartner, doOffer, doAnswer, addIce]);
 
@@ -1050,13 +1076,27 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
             {(status === 'idle' || status === 'searching') && (
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-32 h-24 sm:w-40 sm:h-28 rounded-lg overflow-hidden border border-white/10 bg-black/50 z-10">
                 <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-30' : ''}`} style={{ filter: activeFilter !== 'none' ? activeFilter : 'none' }} />
-                <div className="absolute bottom-1 left-1 text-[10px] font-medium text-white/80 bg-black/50 px-1.5 py-0.5 rounded">You</div>
+                <div className="absolute bottom-1 left-1 flex items-center gap-1 z-10">
+                  <div className="text-[10px] font-medium text-white/80 bg-black/50 px-1.5 py-0.5 rounded">You</div>
+                  {activeFilter !== 'none' && (
+                    <span className="px-1 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-[9px] font-bold text-amber-500 animate-pulse">
+                      -{filterTimer}s
+                    </span>
+                  )}
+                </div>
               </div>
             )}
             {status === 'connected' && (
               <>
                 <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover scale-x-[-1] transition-opacity duration-300 ${cameraOff ? 'opacity-20' : ''}`} style={{ filter: cameraBlur && activeFilter === 'none' ? 'blur(20px)' : (activeFilter !== 'none' ? activeFilter : 'none') }} />
-                <div className="absolute bottom-3 left-3 px-2 py-1 rounded bg-black/60 text-xs font-medium z-10">You</div>
+                <div className="absolute bottom-3 left-3 flex items-center gap-1 z-10">
+                  <span className="px-2 py-1 rounded bg-black/60 text-xs font-medium">You</span>
+                  {activeFilter !== 'none' && (
+                    <span className="px-1.5 py-1 rounded bg-amber-500/20 border border-amber-500/40 text-[10px] font-bold text-amber-500 animate-pulse">
+                      -{filterTimer}s
+                    </span>
+                  )}
+                </div>
                 {cameraOff && <div className="absolute inset-0 flex items-center justify-center bg-black/40"><span className="text-white/60 text-sm">Camera off</span></div>}
               </>
             )}
@@ -1065,7 +1105,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
           {/* Right: Stranger (only when connected) */}
           {status === 'connected' && (
             <div className="relative flex-1 bg-[#0d0d0d] min-h-0">
-              <RemoteVideoComponent stream={peer?.stream} muted={mutedStranger} />
+              <RemoteVideoComponent stream={peer?.stream} muted={mutedStranger} strangerFilter={strangerFilter} strangerBlur={strangerBlur} />
               <div className="absolute bottom-3 left-3 px-2 py-1 rounded bg-black/60 text-xs font-medium">
                 {countryToFlag(peer?.country)} Stranger
               </div>
@@ -1218,7 +1258,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   );
 }
 
-function RemoteVideoComponent({ stream, muted }) {
+function RemoteVideoComponent({ stream, muted, strangerFilter, strangerBlur }) {
   const ref = useRef(null);
   useEffect(() => {
     if (ref.current && stream) {
@@ -1232,7 +1272,8 @@ function RemoteVideoComponent({ stream, muted }) {
       autoPlay
       playsInline
       muted={muted}
-      className="absolute inset-0 w-full h-full object-cover"
+      className="absolute inset-0 w-full h-full object-cover transition-all duration-300"
+      style={{ filter: strangerBlur && strangerFilter === 'none' ? 'blur(20px)' : (strangerFilter !== 'none' ? strangerFilter : 'none') }}
     />
   );
 }
