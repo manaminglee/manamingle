@@ -11,7 +11,18 @@ export function CoinBadge({ balance = 0, streak = 1, canClaim, nextClaim = 0, cl
   const [showPopover, setShowPopover] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
   const [showClaimFeedback, setShowClaimFeedback] = useState(false);
+  const [deduction, setDeduction] = useState(null);
+  const prevBalance = useRef(balance);
   const popoverRef = useRef(null);
+
+  useEffect(() => {
+    if (balance < prevBalance.current) {
+      const diff = prevBalance.current - balance;
+      setDeduction(diff);
+      setTimeout(() => setDeduction(null), 1500);
+    }
+    prevBalance.current = balance;
+  }, [balance]);
 
   useEffect(() => {
     if (!showPopover) return;
@@ -42,6 +53,11 @@ export function CoinBadge({ balance = 0, streak = 1, canClaim, nextClaim = 0, cl
       {showClaimFeedback && (
         <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-amber-400 font-black text-sm animate-float-up pointer-events-none z-[101]">
           🪙 +{REWARD_AMOUNT}
+        </span>
+      )}
+      {deduction && (
+        <span className="absolute top-0 left-1/2 -translate-x-1/2 text-rose-500 font-black text-sm z-[101] pointer-events-none animate-deduct-coins">
+          -{deduction} 🪙
         </span>
       )}
       <button

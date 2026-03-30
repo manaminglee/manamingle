@@ -347,6 +347,17 @@ body::after {
   animation: pulse-ring 1.8s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
 }
 
+@keyframes deduct-coins {
+  0% { transform: translate(-50%, 0); opacity: 0; }
+  20% { transform: translate(-50%, -20px); opacity: 1; }
+  80% { transform: translate(-50%, -40px); opacity: 1; }
+  100% { transform: translate(-50%, -60px); opacity: 0; }
+}
+
+.animate-deduct-coins {
+  animation: deduct-coins 1.5s ease-out forwards;
+}
+
 .animate-connecting {
   animation: connecting-pulse 2s ease infinite;
 }
