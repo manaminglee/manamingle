@@ -463,6 +463,28 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     setTimeout(handleSkip, 2000);
   };
 
+  const toggleMute = () => {
+    if (!localStreamRef.current) return;
+    const next = !muted;
+    localStreamRef.current.getAudioTracks().forEach((t) => (t.enabled = !next));
+    setMuted(next);
+  };
+
+  const toggleCamera = () => {
+    if (!localStreamRef.current) return;
+    const next = !cameraOff;
+    localStreamRef.current.getVideoTracks().forEach((t) => (t.enabled = !next));
+    setCameraOff(next);
+  };
+
+  const handleEsc = useCallback(() => {
+    if (status === 'connected' || status === 'searching') {
+      handleSkip();
+    } else {
+      handleBack();
+    }
+  }, [status, handleSkip, handleBack]);
+
   // Keyboard Shortcuts (Moved here to avoid ReferenceError)
   useEffect(() => {
     const pressedKeys = new Set();
@@ -497,11 +519,23 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
     window.addEventListener('keydown', handleDown);
     window.addEventListener('keyup', handleUp);
+
+    // Legacy handler for individual keys S and Escape
+    const legacyHandler = (e) => {
+      const target = e.target;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+
+      if (e.key.toLowerCase() === 's' && status !== 'connected') handleStart();
+      if (e.key === 'Escape') handleEsc();
+    };
+    window.addEventListener('keydown', legacyHandler);
+
     return () => {
       window.removeEventListener('keydown', handleDown);
       window.removeEventListener('keyup', handleUp);
+      window.removeEventListener('keydown', legacyHandler);
     };
-  }, [handleSkip, handleStop, toggleMute, toggleCamera]);
+  }, [handleSkip, handleStop, toggleMute, toggleCamera, handleStart, handleEsc, status]);
 
   const toggleInterestTag = (tag) => {
     setSelectedInterests(prev =>
@@ -619,30 +653,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     }
   }, [peer]);
 
-  const handleEsc = useCallback(() => {
-    if (status === 'connected' || status === 'searching') {
-      handleSkip();
-    } else {
-      handleBack();
-    }
-  }, [status, handleSkip, handleBack]);
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handler = (e) => {
-      const target = e.target;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
-
-      if (e.key.toLowerCase() === 's') handleStart();
-      if (e.key === 'Escape') handleEsc();
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        inputRef.current?.focus();
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [status, handleStart, handleSkip, handleBack, handleEsc]);
 
   // AI icebreaker when first connected
   useEffect(() => {
@@ -1044,19 +1055,6 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     }, 2000);
   };
 
-  const toggleMute = () => {
-    if (!localStreamRef.current) return;
-    const next = !muted;
-    localStreamRef.current.getAudioTracks().forEach((t) => (t.enabled = !next));
-    setMuted(next);
-  };
-
-  const toggleCamera = () => {
-    if (!localStreamRef.current) return;
-    const next = !cameraOff;
-    localStreamRef.current.getVideoTracks().forEach((t) => (t.enabled = !next));
-    setCameraOff(next);
-  };
 
   const changeDevices = async (videoDeviceId, audioDeviceId) => {
     try {
