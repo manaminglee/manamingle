@@ -245,6 +245,12 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     return () => clearInterval(connTimerRef.current);
   }, [status]);
 
+  const formatTimer = (s) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
+
   // Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -288,12 +294,6 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       window.removeEventListener('keyup', handleUp);
     };
   }, [handleSkip, handleStop]);
-
-  const formatTimer = (s) => {
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${m}:${sec.toString().padStart(2, '0')}`;
-  };
 
   // Mood meter: analyze last message
   useEffect(() => {
