@@ -299,6 +299,124 @@ app.get('/api/settings', (req, res) => {
   res.json({ adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools });
 });
 
+// --- CREATOR MATRIX HUB (High Priority) ---
+app.post('/api/creators/register', async (req, res) => {
+  const { handle, platform, link } = req.body || {};
+  const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
+  const entry = {
+    id: generateId('creator'),
+    handle_name: sanitize(handle, 30),
+    platform: sanitize(platform, 20),
+    profile_link: sanitize(link, 200),
+    ip_addr: ip,
+    referral_code: crypto.randomBytes(4).toString('hex'),
+    status: 'pending',
+    coins_earned: 0,
+    earnings_rs: 0,
+    created_at: new Date().toISOString()
+  };
+  try {
+    if (supabase) {
+      const { error } = await supabase.from('creators').insert(entry);
+      if (error) throw error;
+    } else {
+      const existing = localDb.creators.find(c => c.ip_addr === ip);
+      if (existing) return res.status(400).json({ error: 'Identity already registered in the matrix.' });
+      localDb.creators.push(entry);
+      saveLocalDb();
+    }
+    res.json({ success: true, message: 'Application sent for manual appraisal.' });
+  } catch (e) { res.status(500).json({ error: 'Database uplink failed' }); }
+});
+
+app.get('/api/creators/status', async (req, res) => {
+  const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
+  try {
+    if (supabase) {
+      const { data } = await supabase.from('creators').select('*').eq('ip_addr', ip).single();
+      return res.json({ data: data || null });
+    } else {
+      const creator = localDb.creators.find(c => c.ip_addr === ip);
+      return res.json({ data: creator || null });
+    }
+  } catch (e) { res.json({ data: null }); }
+});
+
+app.post('/api/creators/verify-ref', async (req, res) => {
+  const { code } = req.body || {};
+  const visitorIp = req.ip === '::1' ? '127.0.0.1' : req.ip;
+  if (!code) return res.status(400).json({ error: 'Empty Signal' });
+  try {
+    let creator = null;
+    if (supabase) {
+      const { data } = await supabase.from('creators').select('*').eq('referral_code', code).single();
+      creator = data;
+    } else {
+      creator = localDb.creators.find(c => c.referral_code === code);
+    }
+    if (!creator) return res.status(404).json({ error: 'Creator not found' });
+    let logExists = false;
+    if (supabase) {
+      const { data } = await supabase.from('referral_logs').select('*').eq('creator_id', creator.id).eq('visitor_ip', visitorIp).single();
+      logExists = !!data;
+    } else {
+      logExists = localDb.referral_logs.some(l => l.creator_id === creator.id && l.visitor_ip === visitorIp);
+    }
+    if (logExists) return res.json({ success: true, already_claimed: true });
+    if (supabase) {
+      await supabase.from('referral_logs').insert({ creator_id: creator.id, visitor_ip: visitorIp });
+      const newCoins = (creator.coins_earned || 0) + 10;
+      const newEarnings = Math.floor(newCoins / 10000) * 150;
+      await supabase.from('creators').update({ coins_earned: newCoins, earnings_rs: newEarnings }).eq('id', creator.id);
+    } else {
+      localDb.referral_logs.push({ creator_id: creator.id, visitor_ip: visitorIp, created_at: new Date().toISOString() });
+      creator.coins_earned = (creator.coins_earned || 0) + 10;
+      creator.earnings_rs = Math.floor(creator.coins_earned / 10000) * 150;
+      saveLocalDb();
+    }
+    if (!coinUsers.has(visitorIp)) coinUsers.set(visitorIp, { coins: 30, lastClaim: 0, streak: 1, lastClaimDate: null });
+    const u = coinUsers.get(visitorIp);
+    u.coins += 5;
+    coinUsers.set(visitorIp, u);
+    res.json({ success: true, message: 'Referral node synchronized' });
+  } catch (e) { res.status(500).json({ error: 'Sync failed' }); }
+});
+
+app.post('/api/creators/withdraw', async (req, res) => {
+  const { upi } = req.body || {};
+  const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
+  try {
+     let creator = null;
+     if (supabase) {
+       const { data } = await supabase.from('creators').select('*').eq('ip_addr', ip).single();
+       creator = data;
+     } else {
+       creator = localDb.creators.find(c => c.ip_addr === ip);
+     }
+     if (!creator || creator.status !== 'approved') return res.status(403).json({ error: 'Creator not approved' });
+     if (creator.earnings_rs < 1500) return res.status(400).json({ error: 'Threshold (₹1500) not reached' });
+     const wdEntry = {
+       id: generateId('wd'),
+       creator_id: creator.id,
+       handle_name: creator.handle_name,
+       amount: creator.earnings_rs, 
+       upi: sanitize(upi, 100), 
+       status: 'pending',
+       created_at: new Date().toISOString()
+     };
+     if (supabase) {
+       await supabase.from('withdrawals').insert(wdEntry);
+       await supabase.from('creators').update({ earnings_rs: 0, coins_earned: 0 }).eq('id', creator.id);
+     } else {
+       localDb.withdrawals.push(wdEntry);
+       creator.earnings_rs = 0;
+       creator.coins_earned = 0;
+       saveLocalDb();
+     }
+     res.json({ success: true, message: 'Withdrawal request logged.' });
+  } catch(e) { res.status(500).json({ error: 'Withdrawal uplink failed' }); }
+});
+
 app.use('/api', (req, res, next) => {
   console.log(`[API_TRACE] ${req.method} ${req.originalUrl}`);
   next();
@@ -817,136 +935,6 @@ app.post('/api/ai/translate', async (req, res) => {
   }
 });
 
-// --- CREATOR MATRIX HUB ---
-app.post('/api/creators/register', async (req, res) => {
-  const { handle, platform, link } = req.body || {};
-  const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
-  const entry = {
-    id: generateId('creator'),
-    handle_name: sanitize(handle, 30),
-    platform: sanitize(platform, 20),
-    profile_link: sanitize(link, 200),
-    ip_addr: ip,
-    referral_code: crypto.randomBytes(4).toString('hex'),
-    status: 'pending',
-    coins_earned: 0,
-    earnings_rs: 0,
-    created_at: new Date().toISOString()
-  };
-
-  try {
-    if (supabase) {
-      const { error } = await supabase.from('creators').insert(entry);
-      if (error) throw error;
-    } else {
-      const existing = localDb.creators.find(c => c.ip_addr === ip);
-      if (existing) return res.status(400).json({ error: 'Identity already registered in the matrix.' });
-      localDb.creators.push(entry);
-      saveLocalDb();
-    }
-    res.json({ success: true, message: 'Application sent for manual appraisal.' });
-  } catch (e) { res.status(500).json({ error: 'Database uplink failed' }); }
-});
-
-app.get('/api/creators/status', async (req, res) => {
-  const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
-  try {
-    if (supabase) {
-      const { data } = await supabase.from('creators').select('*').eq('ip_addr', ip).single();
-      return res.json({ data: data || null });
-    } else {
-      const creator = localDb.creators.find(c => c.ip_addr === ip);
-      return res.json({ data: creator || null });
-    }
-  } catch (e) { res.json({ data: null }); }
-});
-
-app.post('/api/creators/verify-ref', async (req, res) => {
-  const { code } = req.body || {};
-  const visitorIp = req.ip === '::1' ? '127.0.0.1' : req.ip;
-  if (!code) return res.status(400).json({ error: 'Empty Signal' });
-
-  try {
-    let creator = null;
-    if (supabase) {
-      const { data } = await supabase.from('creators').select('*').eq('referral_code', code).single();
-      creator = data;
-    } else {
-      creator = localDb.creators.find(c => c.referral_code === code);
-    }
-
-    if (!creator) return res.status(404).json({ error: 'Creator not found' });
-
-    // Check existing referral
-    let logExists = false;
-    if (supabase) {
-      const { data } = await supabase.from('referral_logs').select('*').eq('creator_id', creator.id).eq('visitor_ip', visitorIp).single();
-      logExists = !!data;
-    } else {
-      logExists = localDb.referral_logs.some(l => l.creator_id === creator.id && l.visitor_ip === visitorIp);
-    }
-
-    if (logExists) return res.json({ success: true, already_claimed: true });
-
-    // Log & Update
-    if (supabase) {
-      await supabase.from('referral_logs').insert({ creator_id: creator.id, visitor_ip: visitorIp });
-      const newCoins = (creator.coins_earned || 0) + 10;
-      const newEarnings = Math.floor(newCoins / 10000) * 150;
-      await supabase.from('creators').update({ coins_earned: newCoins, earnings_rs: newEarnings }).eq('id', creator.id);
-    } else {
-      localDb.referral_logs.push({ creator_id: creator.id, visitor_ip: visitorIp, created_at: new Date().toISOString() });
-      creator.coins_earned = (creator.coins_earned || 0) + 10;
-      creator.earnings_rs = Math.floor(creator.coins_earned / 10000) * 150;
-      saveLocalDb();
-    }
-    
-    if (!coinUsers.has(visitorIp)) coinUsers.set(visitorIp, { coins: 30, lastClaim: 0, streak: 1, lastClaimDate: null });
-    const u = coinUsers.get(visitorIp);
-    u.coins += 5;
-    coinUsers.set(visitorIp, u);
-
-    res.json({ success: true, message: 'Referral node synchronized' });
-  } catch (e) { res.status(500).json({ error: 'Sync failed' }); }
-});
-
-app.post('/api/creators/withdraw', async (req, res) => {
-  const { upi } = req.body || {};
-  const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
-  try {
-     let creator = null;
-     if (supabase) {
-       const { data } = await supabase.from('creators').select('*').eq('ip_addr', ip).single();
-       creator = data;
-     } else {
-       creator = localDb.creators.find(c => c.ip_addr === ip);
-     }
-
-     if (!creator || creator.status !== 'approved') return res.status(403).json({ error: 'Creator not approved' });
-     if (creator.earnings_rs < 1500) return res.status(400).json({ error: 'Threshold (₹1500) not reached' });
-     
-     const wdEntry = {
-       id: generateId('wd'),
-       creator_id: creator.id,
-       handle_name: creator.handle_name,
-       amount: creator.earnings_rs, 
-       upi: sanitize(upi, 100), 
-       status: 'pending',
-       created_at: new Date().toISOString()
-     };
-
-     if (supabase) {
-       await supabase.from('withdrawals').insert(wdEntry);
-       await supabase.from('creators').update({ earnings_rs: 0, coins_earned: 0 }).eq('id', creator.id);
-     } else {
-       localDb.withdrawals.push(wdEntry);
-       creator.earnings_rs = 0;
-       creator.coins_earned = 0;
-       saveLocalDb();
-     }
-     res.json({ success: true, message: 'Withdrawal request logged.' });
-  } catch(e) { res.status(500).json({ error: 'Withdrawal uplink failed' }); }
-});
 
 app.post('/api/admin/creators/approve', requireAdmin, async (req, res) => {
   const { creatorId, status } = req.body || {};
@@ -974,6 +962,11 @@ app.get('/api/admin/creators/list', requireAdmin, async (req, res) => {
       return res.json({ creators: localDb.creators || [], withdrawals: localDb.withdrawals || [] });
     }
   } catch (e) { res.json({ creators: [], withdrawals: [] }); }
+});
+
+// API 404 Fallback
+app.all('/api/*', (req, res) => {
+  res.status(404).json({ error: 'Matrix endpoint not found' });
 });
 
 // Serve React build when client/dist exists (single-host deploy). Else API-only (Vercel frontend).

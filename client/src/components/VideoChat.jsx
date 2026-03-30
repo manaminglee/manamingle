@@ -874,6 +874,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
         const pc = peerConnectionsRef.current.get(from);
         if (pc) {
           try {
+            if (pc.signalingState !== 'have-local-offer') return;
             await pc.setRemoteDescription(new RTCSessionDescription(data.signal));
             const pend = pendingCandidatesRef.current.get(from) || [];
             for (const c of pend) {
