@@ -888,9 +888,6 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     if (balance < 5) return alert('Need 5 coins for 3D Emoji!');
     if (socket && roomIdRef.current) {
       const r = roomIdRef.current;
-      // Optimistically play locally
-      setActive3dEmoji({ emoji, nickname, socketId: socket.id });
-      setTimeout(() => setActive3dEmoji(null), 3000);
       socket.emit('send-3d-emoji', { roomId: r, emoji });
       setShowEmojiPicker(false);
     }
@@ -950,6 +947,15 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       socket.on('3d-emoji', (data) => {
         if (data.roomId && data.roomId !== roomIdRef.current) return;
         setActive3dEmoji(data);
+        // Add to chat history too
+        setMessages(prev => [...prev.slice(-100), {
+          id: `emoji-${Date.now()}`,
+          text: `Sent a 3D ${data.emoji.char || data.emoji}`,
+          socketId: data.socketId,
+          nickname: data.nickname,
+          ts: Date.now(),
+          isEmoji: true
+        }]);
         setTimeout(() => setActive3dEmoji(null), 3000);
       });
       socket.on('media-message', (data) => {

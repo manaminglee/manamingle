@@ -36,14 +36,14 @@ const AI_ICEBREAKERS = {
 };
 
 const EMOJIS_3D = [
-  { char: '🔥', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.webp' },
-  { char: '💎', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f48e/512.webp' },
-  { char: '🚀', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f680/512.webp' },
-  { char: '✨', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/2728/512.webp' },
-  { char: '🎉', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f389/512.webp' },
-  { char: '❤️', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/2764_fe0f/512.webp' },
-  { char: '😂', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f602/512.webp' },
-  { char: '👑', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f451/512.webp' },
+  { char: '🔥', label: 'Fire', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.webp' },
+  { char: '💎', label: 'Gem', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f48e/512.webp' },
+  { char: '🚀', label: 'Rocket', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f680/512.webp' },
+  { char: '✨', label: 'Sparkle', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/2728/512.webp' },
+  { char: '🎉', label: 'Party', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f389/512.webp' },
+  { char: '❤️', label: 'Heart', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/2764_fe0f/512.webp' },
+  { char: '😂', label: 'Laugh', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f602/512.webp' },
+  { char: '👑', label: 'Crown', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f451/512.webp' },
 ];
 
 const QUICK_REACTIONS = ['❤️', '😂', '👍', '🔥'];
@@ -202,6 +202,21 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
     const onWaiting = () => setStatus('searching');
     const onSystemMsg = (data) => setMessages((m) => [...m, { id: Date.now(), system: true, text: `📢 ADMIN: ${data.message}`, ts: Date.now() }]);
 
+    const on3dEmoji = (data) => {
+      setActive3dEmoji(data);
+      // Also add to chat as a special emoji message
+      setMessages(prev => [...prev.slice(-100), {
+        id: `emoji-${Date.now()}`,
+        text: `Sent a 3D ${data.emoji.char || data.emoji}`,
+        system: false,
+        socketId: data.socketId,
+        nickname: data.nickname,
+        ts: Date.now(),
+        isEmoji: true
+      }]);
+      setTimeout(() => setActive3dEmoji(null), 3000);
+    };
+
     socket.on('partner-found', onPartnerFound);
     socket.on('chat-history', onHistory);
     socket.on('chat-message', onMessage);
@@ -209,6 +224,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
     socket.on('stranger-typing', onStrangerTyping);
     socket.on('waiting-for-partner', onWaiting);
     socket.on('system-announcement', onSystemMsg);
+    socket.on('3d-emoji', on3dEmoji);
 
     // Auto-emit find-partner on mount if we're in searching state
     if (socket && status === 'searching' && !roomIdRef.current) {
@@ -223,30 +239,26 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
       socket.off('stranger-typing', onStrangerTyping);
       socket.off('waiting-for-partner', onWaiting);
       socket.off('system-announcement', onSystemMsg);
+      socket.off('3d-emoji', on3dEmoji);
     };
   }, [socket, onJoined]);
 
   useEffect(() => {
     if (socket) {
-      socket.on('3d-emoji', (data) => {
-        setActive3dEmoji(data);
-        setTimeout(() => setActive3dEmoji(null), 3000);
-      });
       socket.on('media-message', (data) => {
         setMessages(prev => [...prev.slice(-100), { ...data, media: true }]);
       });
       return () => {
-        socket.off('3d-emoji');
         socket.off('media-message');
       };
     }
   }, [socket]);
 
-  const send3dEmoji = (emoji) => {
+  const send3dEmoji = (emojiObj) => {
     if (balance < 5) return alert('Need 5 coins for 3D Emoji!');
     const rid = roomIdRef.current;
     if (socket && rid) {
-      socket.emit('send-3d-emoji', { roomId: rid, emoji });
+      socket.emit('send-3d-emoji', { roomId: rid, emoji: emojiObj });
       setShowEmojiPicker(false);
     }
   };
@@ -778,7 +790,8 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
                         type="button"
                         onClick={() => {
                           if (balance >= 5) {
-                            send3dEmoji(emoji);
+                            const fullEmoji = EMOJIS_3D.find(e => e.char === emoji) || { char: emoji, url: '' };
+                            send3dEmoji(fullEmoji);
                           } else {
                             const r = roomIdRef.current;
                             if (socket && r) socket.emit('send-message', { roomId: r, text: emoji });
