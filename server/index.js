@@ -299,6 +299,11 @@ app.get('/api/settings', (req, res) => {
   res.json({ adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools });
 });
 
+app.use('/api', (req, res, next) => {
+  console.log(`[API_TRACE] ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 // Get active interests for group chats
 app.get('/api/rooms/active-interests', (req, res) => {
   const mode = req.query.mode || 'group_video';
