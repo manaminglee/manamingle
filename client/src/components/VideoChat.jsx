@@ -1018,12 +1018,16 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
   const sendMsg = () => {
     const t = input.trim();
-    const r = roomIdRef.current;
-    if (!t || !socket || !r) return;
+    const r = roomIdRef.current || roomId; // Use state fallback
+    if (!t || !socket || !r) {
+      console.warn('[VIDEO_CHAT] Cannot send: missing room or content', { t: !!t, socket: !!socket, r });
+      return;
+    }
     socket.emit('send-message', { roomId: r, text: t });
     // Clear typing indicator
     socket.emit('typing', { roomId: r, isTyping: false });
     setInput('');
+    inputRef.current?.focus();
   };
 
   const handleInputChange = (e) => {

@@ -171,6 +171,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
     if (!socket) return;
 
     const onPartnerFound = (data) => {
+      console.log('[CHAT] Partner found, room:', data.roomId);
       roomIdRef.current = data.roomId;
       setRoomId(data.roomId);
       setPeer(data.peer);
@@ -420,11 +421,15 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
 
   const sendMsg = () => {
     const t = input.trim();
-    const r = roomIdRef.current;
-    if (!t || !socket || !r) return;
+    const r = roomIdRef.current || roomId; // Fallback to state if ref is somehow out of sync
+    if (!t || !socket || !r) {
+      console.warn('[CHAT] Cannot send: missing room or content', { t: !!t, socket: !!socket, r });
+      return;
+    }
     socket.emit('typing', { roomId: r, isTyping: false });
     socket.emit('send-message', { roomId: r, text: t });
     setInput('');
+    inputRef.current?.focus();
   };
 
   const handleInputChange = (e) => {
