@@ -29,22 +29,6 @@ export default function App() {
   const { socket, connected, country, onlineCount, adsEnabled, allowDevTools, nickname, isCreator, isBlocked, contentFlagged } = useSocket();
   const coinState = useCoins();
 
-  useEffect(() => {
-    if (allowDevTools) return;
-    const block = (e) => e.preventDefault();
-    const keyBlock = (e) => {
-      if (e.keyCode === 123 || (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) || (e.ctrlKey && e.keyCode === 85)) {
-        e.preventDefault();
-        return false;
-      }
-    };
-    document.addEventListener('contextmenu', block);
-    document.addEventListener('keydown', keyBlock);
-    return () => {
-      document.removeEventListener('contextmenu', block);
-      document.removeEventListener('keydown', keyBlock);
-    };
-  }, [allowDevTools]);
 
   const handlePreloadReady = useCallback(() => setPreloadDone(true), []);
 

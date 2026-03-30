@@ -19,26 +19,6 @@
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Mana Mingle – Anonymous Video Chat" />
   <meta name="twitter:description" content="Free anonymous video chat and text chat. Connect 1-on-1 or in groups with people who share your interests. AI-powered safety." />
-  <script>
-    // Anti-inspect guard: only block when allowDevTools is OFF (admin-controlled)
-    (function() {
-      function applyGuard() {
-        document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
-        document.onkeydown = function(e) {
-          if (e.keyCode == 123) return false;
-          if (e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) return false;
-          if (e.ctrlKey && e.shiftKey && e.keyCode == 'C'.charCodeAt(0)) return false;
-          if (e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) return false;
-          if (e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) return false;
-        };
-      }
-      var api = (typeof window !== 'undefined' && window.location) ? (window.location.origin || '') : '';
-      fetch(api + '/api/settings').then(function(r) { return r.ok ? r.json() : {}; }).then(function(s) {
-        if (s && s.allowDevTools === true) return;
-        applyGuard();
-      }).catch(applyGuard);
-    })();
-  </script>
 </head>
 
 <body>
