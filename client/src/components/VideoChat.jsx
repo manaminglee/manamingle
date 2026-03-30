@@ -1181,13 +1181,13 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       </header>
 
       {/* Main area - Omegle split layout */}
-      <main className="flex-1 flex min-h-0 relative">
+      <main className={`flex-1 flex min-h-0 relative ${isMobile && showChat ? 'flex-col' : ''}`}>
         {/* Split view: You | Stranger - when idle or searching show full, when connected show split */}
-        <div className={`flex-1 flex ${status === 'connected' ? (showChat && isMobile ? 'flex-col' : 'flex-col sm:flex-row') : 'flex-col'} min-h-0 relative`}>
+        <div className={`flex-1 flex ${status === 'connected' ? (showChat && isMobile ? 'h-[55%] flex-col' : 'flex-col sm:flex-row') : 'flex-col'} min-h-0 relative`}>
           {/* Left: You (or full when idle/searching) */}
           <div className={`relative bg-[#0a0a0a] flex-1 flex flex-col justify-center items-center min-h-0 ${
             status === 'connected' 
-              ? (showChat && isMobile ? 'absolute top-4 right-4 w-32 h-44 z-50 rounded-2xl shadow-2xl border-2 border-white/20 overflow-hidden animate-in-zoom' : 'border-b sm:border-b-0 sm:border-r border-white/[0.06]') 
+              ? (showChat && isMobile ? 'fixed top-[15%] right-4 w-28 h-36 z-[200] rounded-2xl shadow-2xl border-2 border-white/20 overflow-hidden animate-in-zoom' : 'border-b sm:border-b-0 sm:border-r border-white/[0.06]') 
               : ''
           }`}>
             {status === 'idle' && (
@@ -1231,7 +1231,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
           {/* Right: Stranger (only when connected) */}
           {status === 'connected' && (
-            <div className={`relative flex-1 bg-[#0d0d0d] min-h-0 ${showChat && isMobile ? 'h-full' : ''}`}>
+            <div className={`relative bg-[#0d0d0d] flex-grow min-h-0 ${showChat && isMobile ? 'h-full' : ''}`}>
               <RemoteVideoComponent stream={peer?.stream} muted={mutedStranger} strangerFilter={strangerFilter} strangerBlur={strangerBlur} />
               <div className="absolute bottom-3 left-3 px-2 py-1 rounded bg-black/60 text-[10px] font-black uppercase tracking-widest border border-white/10 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -1250,11 +1250,11 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
           )}
         </div>
 
-        {/* Chat panel - Redesigned for Mobile */}
+        {/* Chat panel - Redesigned for Mobile (Sharing space now) */}
         {showChat && status === 'connected' && (
-          <div className={`z-[150] transition-all duration-300 flex flex-col bg-[#0d0d0d] border-white/[0.06] ${
+          <div className={`transition-all duration-300 flex flex-col bg-[#0d0d0d] border-white/[0.06] ${
             isMobile 
-              ? 'absolute bottom-0 left-0 right-0 h-[45%] border-t' 
+              ? 'h-[45%] w-full border-t z-[150]' 
               : 'static w-80 border-l'
           }`}>
             <div className="h-10 px-4 flex items-center justify-between border-b border-white/[0.06] bg-white/[0.02]">
