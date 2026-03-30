@@ -28,7 +28,7 @@ export function useSocket() {
       s.on('connect', () => { setConnected(true); setIsBlocked(false); });
       s.on('disconnect', () => setConnected(false));
       s.on('connected', (data) => setCountry(data?.country || null));
-      s.on('online_count', (data) => setOnlineCount(data?.count ?? 0));
+      s.on('online_count', (data) => setOnlineCount(data));
       s.on('blocked-ip', () => setIsBlocked(true));
       s.on('content-flagged', (data) => {
         setContentFlagged(data?.message || 'Your content was flagged for review. Please follow community guidelines.');

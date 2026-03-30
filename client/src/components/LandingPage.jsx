@@ -69,11 +69,6 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setTrafficStats(s => ({
-        us: s.us + Math.floor(Math.random() * 5) - 2,
-        in: s.in + Math.floor(Math.random() * 5) - 2,
-        eu: s.eu + Math.floor(Math.random() * 5) - 2,
-      }));
       setInsightIndex(prev => (prev + 1) % INSIGHTS.length);
     }, 4000);
     return () => clearInterval(interval);
@@ -156,7 +151,7 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
           {connected && balance !== undefined && (
             <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} />
           )}
-          <div className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black text-white/40 uppercase tracking-widest">{onlineCount.toLocaleString()} Live</div>
+          <div className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black text-white/40 uppercase tracking-widest">{(onlineCount?.count || onlineCount || 0).toLocaleString()} Live</div>
         </div>
       </header>
 
@@ -284,9 +279,9 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
 
               <div className="grid grid-cols-1 gap-6">
                 {[
-                  { label: 'India Terminal', val: trafficStats.in, col: 'text-cyan-400' },
-                  { label: 'USA Node', val: trafficStats.us, col: 'text-indigo-400' },
-                  { label: 'Europe Relay', val: trafficStats.eu, col: 'text-purple-400' },
+                  { label: 'India Terminal', val: onlineCount?.regions?.in || 0, col: 'text-cyan-400' },
+                  { label: 'USA Node', val: onlineCount?.regions?.us || 0, col: 'text-indigo-400' },
+                  { label: 'Europe Relay', val: onlineCount?.regions?.eu || 0, col: 'text-purple-400' },
                 ].map(s => (
                   <div key={s.label} className="p-8 rounded-[32px] bg-white/[0.02] border border-white/5 flex items-center justify-between group hover:bg-white/[0.04] transition-all">
                      <div>

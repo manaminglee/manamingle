@@ -212,7 +212,18 @@ function removeUserFromRoom(socketId, roomId, io) {
 }
 
 function emitOnlineCount() {
-  io.emit('online_count', { count: users.size });
+  const regions = { in: 0, us: 0, eu: 0, ot: 0 };
+  const EU_CODES = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE','GB'];
+  
+  users.forEach(u => {
+    const c = u.country;
+    if (c === 'IN') regions.in++;
+    else if (c === 'US') regions.us++;
+    else if (EU_CODES.includes(c)) regions.eu++;
+    else regions.ot++;
+  });
+  
+  io.emit('online_count', { count: users.size, regions });
 }
 
 // Express app
