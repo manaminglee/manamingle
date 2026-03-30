@@ -385,12 +385,12 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
                   onClick={() => setShowCreatorModal(true)}
                   className="px-10 py-4 bg-white text-black font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-cyan-400 transition-all shadow-xl shadow-cyan-500/20"
                 >
-                  {creatorStatus ? 'Creator Dashboard' : 'Join the Matrix'}
+                  {creatorStatus?.handle_name ? 'Open Dashboard' : 'Apply Now'}
                 </button>
-                {!creatorStatus && (
+                {!creatorStatus?.handle_name && (
                   <button
                     onClick={() => setShowLoginModal(true)}
-                    className="px-10 py-4 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-indigo-500 hover:text-white transition-all"
+                    className="px-10 py-4 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-indigo-500 hover:text-white transition-all underline decoration-indigo-500/30 underline-offset-4"
                   >
                     Creator Login
                   </button>

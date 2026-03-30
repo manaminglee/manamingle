@@ -760,10 +760,15 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     if (!rid || !socket) return;
     const pc = createPeerConnection(remoteId);
     try {
+      if (pc.signalingState !== 'stable' && pc.signalingState !== 'have-local-offer' && pc.signalingState !== 'have-remote-offer') {
+          return;
+      }
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
       const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      socket.emit('webrtc-signal', { roomId: rid, targetSocketId: remoteId, type: 'answer', signal: answer });
+      if (pc.signalingState === 'have-remote-offer') {
+          await pc.setLocalDescription(answer);
+          socket.emit('webrtc-signal', { roomId: rid, targetSocketId: remoteId, type: 'answer', signal: answer });
+      }
     } catch (err) { console.error('answer error', err); }
   }, [socket, createPeerConnection]);
 
