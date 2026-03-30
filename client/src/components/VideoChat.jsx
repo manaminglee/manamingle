@@ -908,9 +908,11 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
   const send3dEmoji = (emoji) => {
     if (balance < 5) return alert('Need 5 coins for 3D Emoji!');
-    if (socket && roomIdRef.current) {
-      const r = roomIdRef.current;
+    const r = roomIdRef.current;
+    if (socket && r) {
       socket.emit('send-3d-emoji', { roomId: r, emoji });
+      // Deduct locally for visual feedback
+      socket.emit('spend-coins', { amount: 5, reason: '3D Emoji' });
       setShowEmojiPicker(false);
     }
   };
@@ -967,6 +969,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   useEffect(() => {
     if (socket) {
       socket.on('3d-emoji', (data) => {
+        // Broaden matching or skip room check for testing
         if (data.roomId && data.roomId !== roomIdRef.current) return;
         setActive3dEmoji(data);
         // Add to chat history too
@@ -976,7 +979,8 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
           socketId: data.socketId,
           nickname: data.nickname,
           ts: Date.now(),
-          isEmoji: true
+          isEmoji: true,
+          fromSelf: data.socketId === socket.id
         }]);
         setTimeout(() => setActive3dEmoji(null), 3000);
       });
@@ -996,16 +1000,25 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
   const sendMsg = () => {
     const t = input.trim();
-    const r = roomIdRef.current || roomId; // Use state fallback
+    const r = roomIdRef.current; // Use Ref for reliability
     if (!t || !socket || !r) {
       console.warn('[VIDEO_CHAT] Cannot send: missing room or content', { t: !!t, socket: !!socket, r });
       return;
     }
     socket.emit('send-message', { roomId: r, text: t });
+    // Optimistically add to local messages to ensure immediate feedback
+    setMessages(prev => [...prev.slice(-100), {
+      id: `local-${Date.now()}`,
+      text: t,
+      nickname,
+      ts: Date.now(),
+      socketId: socket.id,
+      fromSelf: true
+    }]);
     // Clear typing indicator
     socket.emit('typing', { roomId: r, isTyping: false });
     setInput('');
-    inputRef.current?.focus();
+    setTimeout(() => inputRef.current?.focus(), 10);
   };
 
   const handleInputChange = (e) => {
@@ -1108,18 +1121,18 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   return (
     <div className="h-screen flex flex-col bg-[#0a0a0a] text-white overflow-hidden font-sans select-none">
       {/* Minimal Omegle-style header */}
-      <header className="h-12 sm:h-14 px-4 flex items-center justify-between border-b border-white/[0.06] bg-[#0a0a0a] z-[100] shrink-0">
-        <button onClick={handleBack} className="p-2 -ml-2 rounded-lg hover:bg-white/5 transition-colors" aria-label="Back">
-          <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+      <header className="h-10 sm:h-12 px-3 flex items-center justify-between border-b border-white/[0.06] bg-[#0a0a0a] z-[100] shrink-0">
+        <button onClick={handleBack} className="p-1.5 -ml-1 rounded-lg hover:bg-white/5 transition-colors" aria-label="Back">
+          <svg className="w-4 h-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
         </button>
-        <span className="text-sm font-medium text-white/80">Video Chat</span>
-        <div className="flex items-center gap-3">
-          <button onClick={() => setShowFilterMenu(true)} className="px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition">Filters</button>
-          <span className="text-xs text-white/40">{onlineCount?.toLocaleString()} online</span>
-          <button onClick={() => setShowCoinHistory(true)} className="text-amber-500/90 font-medium text-sm flex items-center gap-1 hover:bg-white/5 px-2 py-1 rounded transition">🪙 {balance}</button>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-white/40">Mana Mingle Video</span>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowFilterMenu(true)} className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition">Filters</button>
+          <span className="text-[10px] text-white/30 hidden sm:inline">{onlineCount?.toLocaleString()} online</span>
+          <button onClick={() => setShowCoinHistory(true)} className="text-amber-500/90 font-bold text-xs flex items-center gap-1 hover:bg-white/5 px-2 py-1 rounded transition border border-amber-500/20">🪙 {balance}</button>
           {!showChat && status === 'connected' && (
-            <button onClick={() => setShowChat(true)} className="p-2 sm:hidden text-white/40 hover:text-white">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+            <button onClick={() => setShowChat(true)} className="p-1.5 sm:hidden text-white/40 hover:text-white">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
             </button>
           )}
         </div>
@@ -1241,52 +1254,51 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
         )}
       </main>
 
-      {/* Bottom controls - Rearranged: Stop (Left) | Controls (Middle) | New (Right) */}
-      <footer className="h-16 sm:h-20 px-4 border-t border-white/[0.06] bg-[#0a0a0a] flex items-center justify-between gap-4 z-[120] shrink-0">
+      <footer className="h-14 sm:h-16 px-4 border-t border-white/[0.06] bg-[#0a0a0a] flex items-center justify-between gap-4 z-[120] shrink-0">
         {/* Left Side: Stop */}
-        <div className="flex flex-col items-center gap-1">
-          <button onClick={handleStop} className="group relative px-6 py-2.5 rounded-xl bg-[#cf222e] hover:bg-[#da3633] text-white font-bold text-sm transition-all active:scale-95 shadow-lg shadow-red-900/20" aria-label="Stop">
+        <div className="flex flex-col items-center gap-0.5">
+          <button onClick={handleStop} className="group relative px-4 py-1.5 rounded-lg bg-[#cf222e] hover:bg-[#da3633] text-white font-bold text-xs transition-all active:scale-95 shadow-md shadow-red-900/20" aria-label="Stop">
             Stop
           </button>
-          <span className="text-[9px] uppercase tracking-tighter text-white/30 font-bold">Space + S</span>
+          <span className="text-[7px] uppercase tracking-tighter text-white/20 font-bold">Space + S</span>
         </div>
 
         {/* Middle: Video/Audio Controls */}
-        <div className="flex items-center gap-2 sm:gap-4 bg-white/5 px-4 py-2 rounded-2xl border border-white/10">
-          <div className="flex flex-col items-center gap-1">
-            <button onClick={toggleMute} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${muted ? 'bg-red-500/20 text-red-500' : 'bg-white/10 text-white/80 hover:bg-white/20'}`} title={muted ? 'Unmute' : 'Mute'}>
-              {muted ? <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>}
+        <div className="flex items-center gap-1.5 sm:gap-3 bg-white/[0.03] px-3 py-1.5 rounded-xl border border-white/5">
+          <div className="flex flex-col items-center gap-0.5">
+            <button onClick={toggleMute} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${muted ? 'bg-red-500/20 text-red-500' : 'bg-white/5 text-white/60 hover:bg-white/10'}`} title={muted ? 'Unmute' : 'Mute'}>
+              {muted ? <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg> : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>}
             </button>
-            <span className="text-[8px] text-white/20 font-bold">M</span>
+            <span className="text-[7px] text-white/10 font-bold uppercase">M</span>
           </div>
-          <div className="flex flex-col items-center gap-1">
-            <button onClick={toggleCamera} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${cameraOff ? 'bg-red-500/20 text-red-500' : 'bg-white/10 text-white/80 hover:bg-white/20'}`} title={cameraOff ? 'Camera on' : 'Camera off'}>
-              {cameraOff ? <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3l18 18" /></svg> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>}
+          <div className="flex flex-col items-center gap-0.5">
+            <button onClick={toggleCamera} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${cameraOff ? 'bg-red-500/20 text-red-500' : 'bg-white/5 text-white/60 hover:bg-white/10'}`} title={cameraOff ? 'Camera on' : 'Camera off'}>
+              {cameraOff ? <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3l18 18" /></svg> : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>}
             </button>
-            <span className="text-[8px] text-white/20 font-bold">V</span>
+            <span className="text-[7px] text-white/10 font-bold uppercase">V</span>
           </div>
-          <div className="flex flex-col items-center gap-1">
-            <button onClick={() => setCameraBlur(!cameraBlur)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${cameraBlur ? 'bg-[#1a7f37]/30 text-[#2ea043]' : 'bg-white/10 text-white/80 hover:bg-white/20'}`} title="Blur">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+          <div className="flex flex-col items-center gap-0.5">
+            <button onClick={() => setCameraBlur(!cameraBlur)} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${cameraBlur ? 'bg-[#1a7f37]/30 text-[#2ea043]' : 'bg-white/5 text-white/60 hover:bg-white/10'}`} title="Blur">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
             </button>
-            <span className="text-[8px] text-white/20 font-bold">B</span>
+            <span className="text-[7px] text-white/10 font-bold uppercase">B</span>
           </div>
           {status === 'connected' && (
-            <div className="flex flex-col items-center gap-1">
-              <button onClick={() => setShowChat(!showChat)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${showChat ? 'bg-indigo-500/30 text-indigo-400' : 'bg-white/10 text-white/80 hover:bg-white/20'}`} title="Chat">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+            <div className="flex flex-col items-center gap-0.5">
+              <button onClick={() => setShowChat(!showChat)} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${showChat ? 'bg-indigo-500/30 text-indigo-400' : 'bg-white/5 text-white/60 hover:bg-white/10'}`} title="Chat">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
               </button>
-              <span className="text-[8px] text-white/20 font-bold">C</span>
+              <span className="text-[7px] text-white/10 font-bold uppercase">C</span>
             </div>
           )}
         </div>
 
         {/* Right Side: New/Skip */}
-        <div className="flex flex-col items-center gap-1">
-          <button onClick={handleSkip} className="relative px-6 py-2.5 rounded-xl bg-[#9a6700] hover:bg-[#bf8700] text-white font-bold text-sm transition-all active:scale-95 shadow-lg shadow-amber-900/20" aria-label="Skip">
+        <div className="flex flex-col items-center gap-0.5">
+          <button onClick={handleSkip} className="relative px-4 py-1.5 rounded-lg bg-[#9a6700] hover:bg-[#bf8700] text-white font-bold text-xs transition-all active:scale-95 shadow-md shadow-amber-900/20" aria-label="Skip">
             {status === 'searching' ? 'Cancel' : 'New'}
           </button>
-          <span className="text-[9px] uppercase tracking-tighter text-white/30 font-bold">ESC</span>
+          <span className="text-[7px] uppercase tracking-tighter text-white/20 font-bold">ESC</span>
         </div>
       </footer>
 
