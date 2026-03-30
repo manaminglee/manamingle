@@ -833,6 +833,11 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       setTimeout(() => setPartnerLeft(false), 5000);
     };
 
+    const onRoomEndedByAdmin = () => {
+      setToast('⚠️ This session was terminated by administrative protocol.');
+      setTimeout(() => handleBack(), 2000);
+    };
+
     const onWaiting = () => setStatus('searching');
     const onSystemMsg = (data) => setMessages((m) => [...m, { id: Date.now(), system: true, text: `📢 ADMIN: ${data.message}`, ts: Date.now() }]);
     const onMaintenance = (data) => {
@@ -881,6 +886,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     socket.on('system-announcement', onSystemMsg);
     socket.on('stranger-video-style', onStrangerVideoStyle);
     socket.on('system-maintenance', onMaintenance);
+    socket.on('room-ended-by-admin', onRoomEndedByAdmin);
     socket.on('content-flagged', (data) => {
       setMessages(m => [...m, { id: Date.now(), system: true, text: `🛡️ ${data.message}`, ts: Date.now() }]);
       playDisconnectSound();
@@ -913,12 +919,13 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       socket.off('system-announcement', onSystemMsg);
       socket.off('stranger-video-style', onStrangerVideoStyle);
       socket.off('system-maintenance', onMaintenance);
+      socket.off('room-ended-by-admin', onRoomEndedByAdmin);
       socket.off('content-flagged');
       socket.off('error');
       socket.off('connect');
       socket.off('disconnect');
     };
-  }, [socket, interest, onJoined, onFindNewPartner, doOffer, doAnswer, addIce]);
+  }, [socket, interest, onJoined, onFindNewPartner, doOffer, doAnswer, addIce, handleBack]);
 
   // Handle translation for incoming messages
   useEffect(() => {

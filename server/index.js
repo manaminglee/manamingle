@@ -51,6 +51,11 @@ const settings = {
   safetyAiEnabled: true,
   coinsEnabled: true,
   guestRegistration: true,
+  adScripts: {
+    hero: '',
+    sidebar: '',
+    footer: '',
+  }
 };
 
 // interestKey -> roomId (for groups: "interest_mode")
@@ -309,7 +314,8 @@ function requireAdmin(req, res, next) {
 app.post('/api/admin/settings', requireAdmin, (req, res) => {
   const body = req.body || {};
   Object.keys(settings).forEach(key => {
-    if (typeof body[key] === 'boolean') settings[key] = body[key];
+    if (key === 'adScripts' && typeof body[key] === 'object') settings[key] = body[key];
+    else if (typeof body[key] === 'boolean') settings[key] = body[key];
   });
   io.emit('settings_updated', settings);
   res.json(settings);
@@ -321,7 +327,8 @@ app.get('/api/admin/overview', requireAdmin, (req, res) => {
     id: room.id,
     mode: room.mode,
     interest: room.interest,
-    participants: room.users.size,
+    participantCount: room.users.size,
+    participants: room.participants, // Full list for visual monitoring
     createdAt: room.createdAt,
   }));
 
@@ -461,6 +468,22 @@ app.post('/api/admin/content-flagged', requireAdmin, (req, res) => {
     }
   }
   res.json({ success: true, notified: count });
+});
+
+app.post('/api/admin/end-room', requireAdmin, (req, res) => {
+  const { roomId } = req.body || {};
+  const room = rooms.get(roomId);
+  if (room) {
+    io.to(roomId).emit('room-ended-by-admin');
+    [...room.users].forEach(sid => {
+      const s = io.sockets.sockets.get(sid);
+      if (s) s.leave(roomId);
+    });
+    rooms.delete(roomId);
+    if (room.interestKey) interestToRoom.delete(room.interestKey);
+    return res.json({ success: true });
+  }
+  res.status(404).json({ error: 'Room not found' });
 });
 
 app.post('/api/admin/killswitch', requireAdmin, (req, res) => {
@@ -1085,7 +1108,23 @@ io.on('connection', (socket) => {
       return;
     }
 
-    stats.totalMessages++;
+    socket.on('admin-end-room', (data) => {
+    const { roomId, adminKey: providedKey } = data || {};
+    const adminKey = process.env.ADMIN_KEY;
+    if (!adminKey || providedKey !== adminKey) return;
+    const room = rooms.get(roomId);
+    if (room) {
+      io.to(roomId).emit('room-ended-by-admin');
+      [...room.users].forEach(sid => {
+        const s = io.sockets.sockets.get(sid);
+        if (s) s.leave(roomId);
+      });
+      rooms.delete(roomId);
+      if (room.interestKey) interestToRoom.delete(room.interestKey);
+    }
+  });
+
+  stats.totalMessages++;
     const entry = {
       id: generateId('msg'),
       nickname: userData.nickname,

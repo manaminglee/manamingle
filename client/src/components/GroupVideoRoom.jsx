@@ -616,6 +616,10 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
     };
 
     const onSystemMsg = (data) => setMessages((m) => [...m, { id: Date.now(), system: true, text: `📢 ADMIN: ${data.message}`, ts: Date.now() }]);
+    const onRoomEndedByAdmin = () => {
+      setToast('⚠️ This session was terminated by administrative protocol.');
+      setTimeout(() => onLeave(), 2000);
+    };
 
     socket.on('group-joined', onGroupJoined);
     socket.on('existing-peers', onExistingPeers);
@@ -625,6 +629,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
     socket.on('user-left', onUserLeft);
     socket.on('webrtc-signal', onSignal);
     socket.on('system-announcement', onSystemMsg);
+    socket.on('room-ended-by-admin', onRoomEndedByAdmin);
 
     // Auto-join group on mount removed; we rely on the Entry Modal instead.
 
@@ -638,8 +643,9 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
       socket.off('user-left', onUserLeft);
       socket.off('webrtc-signal', onSignal);
       socket.off('system-announcement', onSystemMsg);
+      socket.off('room-ended-by-admin', onRoomEndedByAdmin);
     };
-  }, [socket, onJoined]);
+  }, [socket, onJoined, onLeave]);
 
   useEffect(() => {
     if (socket) {
