@@ -254,8 +254,8 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       }
 
       // SPACE + S for Stop
-      if (e.code === 'Space' && e.shiftKey) { // Using Shift+Space for "Space+S" style or just separate keys
-         // The user asked for "Space + S", let's implement a listener for both
+      if (e.code === 'Space' && e.shiftKey) { 
+         // Implementation below in more robust listener
       }
 
       // ESC for Skip/New
@@ -468,7 +468,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     socket.emit('find-partner', { mode: 'video', interest: interest || 'general', nickname: 'Anonymous' });
   };
 
-  const handleSkip = () => {
+  const handleSkip = useCallback(() => {
     if (socket) {
       if (roomIdRef.current) socket.emit('leave-room', { roomId: roomIdRef.current });
       else socket.emit('cancel-find-partner');
@@ -483,16 +483,16 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
         onFindNewPartner?.();
       }
     }, 100);
-  };
+  }, [socket, interest, status, onFindNewPartner, clearRoom]);
 
-  const handleStop = () => {
+  const handleStop = useCallback(() => {
     if (roomIdRef.current && socket) socket.emit('leave-room', { roomId: roomIdRef.current });
     socket?.emit('cancel-find-partner');
     clearRoom();
     setStatus('idle');
     setGoodVibesSent(false); setGoodVibesMatch(false); setCameraBlur(false);
     setStrangerFilter('none'); setStrangerBlur(false);
-  };
+  }, [socket, clearRoom]);
 
   const handleBack = () => { handleStop(); onBack?.(); };
 
