@@ -1024,15 +1024,8 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       return;
     }
     socket.emit('send-message', { roomId: r, text: t });
-    // Optimistically add to local messages to ensure immediate feedback
-    setMessages(prev => [...prev.slice(-100), {
-      id: `local-${Date.now()}`,
-      text: t,
-      nickname,
-      ts: Date.now(),
-      socketId: socket.id,
-      fromSelf: true
-    }]);
+    // Optimistic addition removed to prevent duplication: 
+    // The server broadcasts 'chat-message' back to the sender, which onMsg handles.
     // Clear typing indicator
     socket.emit('typing', { roomId: r, isTyping: false });
     setInput('');
@@ -1264,8 +1257,8 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                 <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="text-white/40 hover:text-amber-500 transition-colors p-1" title="3D Animated Emojis (5 Coins)">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </button>
-                <input ref={inputRef} value={input} onChange={handleInputChange} onKeyDown={(e) => e.key === 'Enter' && sendMsg()} placeholder="Type a message..." className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm outline-none focus:border-white/20 placeholder:text-white/30 transition-all focus:bg-white/10" />
-                <button onClick={sendMsg} disabled={!input.trim()} className="px-4 py-2 rounded-lg bg-[#1a7f37] border border-[#2ea043]/50 hover:bg-[#2ea043] disabled:opacity-40 text-white text-sm font-bold shadow-lg shadow-[#1a7f37]/20 transition-all">Send</button>
+                <input ref={inputRef} value={input} onChange={handleInputChange} onKeyDown={(e) => e.key === 'Enter' && sendMsg()} placeholder="Type a message..." className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm outline-none focus:border-white/20 placeholder:text-white/30 transition-all focus:bg-white/10" />
+                <button onClick={sendMsg} disabled={!input.trim()} className="px-3 py-2 rounded-lg bg-[#1a7f37] border border-[#2ea043]/50 hover:bg-[#2ea043] disabled:opacity-40 text-white text-xs font-bold shadow-lg shadow-[#1a7f37]/20 transition-all whitespace-nowrap min-w-[54px]">Send</button>
               </div>
             </div>
           </div>
