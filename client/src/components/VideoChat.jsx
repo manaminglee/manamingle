@@ -200,6 +200,15 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   const fileInputRef = useRef(null);
   const inputRef = useRef(null);
 
+  // --- NEW: Reactive Mobile Logic ---
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 640 : false);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  // ----------------------------------
+
   const isConnected = !!peer && !!roomId;
 
   const connectionQuality = latency == null
@@ -1174,11 +1183,11 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       {/* Main area - Omegle split layout */}
       <main className="flex-1 flex min-h-0 relative">
         {/* Split view: You | Stranger - when idle or searching show full, when connected show split */}
-        <div className={`flex-1 flex ${status === 'connected' ? (showChat && window.innerWidth < 640 ? 'flex-col' : 'flex-col sm:flex-row') : 'flex-col'} min-h-0 relative`}>
+        <div className={`flex-1 flex ${status === 'connected' ? (showChat && isMobile ? 'flex-col' : 'flex-col sm:flex-row') : 'flex-col'} min-h-0 relative`}>
           {/* Left: You (or full when idle/searching) */}
           <div className={`relative bg-[#0a0a0a] flex-1 flex flex-col justify-center items-center min-h-0 ${
             status === 'connected' 
-              ? (showChat && window.innerWidth < 640 ? 'absolute top-4 right-4 w-32 h-44 z-50 rounded-2xl shadow-2xl border-2 border-white/20 overflow-hidden' : 'border-b sm:border-b-0 sm:border-r border-white/[0.06]') 
+              ? (showChat && isMobile ? 'absolute top-4 right-4 w-32 h-44 z-50 rounded-2xl shadow-2xl border-2 border-white/20 overflow-hidden animate-in-zoom' : 'border-b sm:border-b-0 sm:border-r border-white/[0.06]') 
               : ''
           }`}>
             {status === 'idle' && (
@@ -1222,7 +1231,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
           {/* Right: Stranger (only when connected) */}
           {status === 'connected' && (
-            <div className={`relative flex-1 bg-[#0d0d0d] min-h-0 ${showChat && window.innerWidth < 640 ? 'h-[55%]' : ''}`}>
+            <div className={`relative flex-1 bg-[#0d0d0d] min-h-0 ${showChat && isMobile ? 'h-full' : ''}`}>
               <RemoteVideoComponent stream={peer?.stream} muted={mutedStranger} strangerFilter={strangerFilter} strangerBlur={strangerBlur} />
               <div className="absolute bottom-3 left-3 px-2 py-1 rounded bg-black/60 text-[10px] font-black uppercase tracking-widest border border-white/10 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -1244,7 +1253,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
         {/* Chat panel - Redesigned for Mobile */}
         {showChat && status === 'connected' && (
           <div className={`z-[150] transition-all duration-300 flex flex-col bg-[#0d0d0d] border-white/[0.06] ${
-            window.innerWidth < 640 
+            isMobile 
               ? 'absolute bottom-0 left-0 right-0 h-[45%] border-t' 
               : 'static w-80 border-l'
           }`}>
@@ -1452,12 +1461,36 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
 function RemoteVideoComponent({ stream, muted, strangerFilter, strangerBlur }) {
   const ref = useRef(null);
+  
   useEffect(() => {
-    if (ref.current && stream) {
-      ref.current.srcObject = stream;
-      ref.current.play().catch(() => { });
-    }
+    const el = ref.current;
+    if (!el || !stream) return;
+
+    el.srcObject = stream;
+    
+    const playVideo = async () => {
+      try {
+        await el.play();
+      } catch (e) {
+        console.warn('[WEBRTC] Auto-play blocked, retrying on interaction');
+      }
+    };
+    
+    playVideo();
+
+    // Listen for 'stalled' or 'waiting' states which often cause black screens
+    const handleStalled = () => {
+      if (el.paused && stream.active) el.play().catch(() => {});
+    };
+
+    el.addEventListener('stalled', handleStalled);
+    el.addEventListener('canplay', () => el.play().catch(() => {}));
+    
+    return () => {
+      el.removeEventListener('stalled', handleStalled);
+    };
   }, [stream]);
+
   return (
     <video
       ref={ref}
@@ -1465,7 +1498,7 @@ function RemoteVideoComponent({ stream, muted, strangerFilter, strangerBlur }) {
       playsInline
       muted={muted}
       className="absolute inset-0 w-full h-full object-cover transition-all duration-300"
-      style={{ filter: strangerBlur && strangerFilter === 'none' ? 'blur(20px)' : (strangerFilter !== 'none' ? strangerFilter : 'none') }}
+      style={{ backgroundColor: '#000', filter: strangerBlur && strangerFilter === 'none' ? 'blur(20px)' : (strangerFilter !== 'none' ? strangerFilter : 'none') }}
     />
   );
 }
