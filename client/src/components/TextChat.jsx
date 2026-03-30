@@ -192,11 +192,11 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
     const onUserLeft = () => {
       setStatus('disconnected');
       setPeer(null);
-      // AUTO-SEEK Logic: Trigger handleSkip after 2s delay
+      // AUTO-SEEK Logic: Trigger handleSkip after 0.8s delay (High Speed)
       setTimeout(() => {
-        if (roomIdRef.current) return; // Still in a room? Skip.
+        if (roomIdRef.current) return;
         handleSkip();
-      }, 2000);
+      }, 800);
     };
 
     const onStrangerTyping = (data) => {

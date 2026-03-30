@@ -838,11 +838,11 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       setPartnerLeft(true);
       playDisconnectSound();
       
-      // AUTO-SEEK Logic: Wait 2.5s then find new partner
+      // AUTO-SEEK Logic: Wait 0.8s then find new partner (High Speed)
       setTimeout(() => {
-        if (roomIdRef.current) return; // Still connected?
+        if (roomIdRef.current) return;
         handleSkip();
-      }, 2500);
+      }, 800);
       
       setTimeout(() => setPartnerLeft(false), 5000);
     };
