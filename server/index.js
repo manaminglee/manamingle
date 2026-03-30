@@ -301,13 +301,14 @@ app.get('/api/settings', (req, res) => {
 app.post('/api/creators/register', async (req, res) => {
   const { handle, platform, link } = req.body || {};
   const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
+  const referral_code = crypto.randomBytes(3).toString('hex');
   const entry = {
     id: generateId('creator'),
     handle_name: sanitize(handle, 30),
     platform: sanitize(platform, 20),
     profile_link: sanitize(link, 200),
     ip_addr: ip,
-    referral_code: crypto.randomBytes(4).toString('hex'),
+    referral_code,
     status: 'pending',
     coins_earned: 0,
     earnings_rs: 0,
@@ -318,26 +319,66 @@ app.post('/api/creators/register', async (req, res) => {
       const { error } = await supabase.from('creators').insert(entry);
       if (error) throw error;
     } else {
-      const existing = localDb.creators.find(c => c.ip_addr === ip);
+      const existing = localDb.creators.find(c => c.ip_addr === ip || c.handle_name === entry.handle_name);
       if (existing) return res.status(400).json({ error: 'Identity already registered in the matrix.' });
       localDb.creators.push(entry);
       saveLocalDb();
     }
-    res.json({ success: true, message: 'Application sent for manual appraisal.' });
+    res.json({ success: true, message: 'Application sent for appraisal.', accessKey: referral_code });
   } catch (e) { res.status(500).json({ error: 'Database uplink failed' }); }
 });
 
 app.get('/api/creators/status', async (req, res) => {
+  const { id, handle } = req.query || {};
   const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
   try {
+    let creator = null;
     if (supabase) {
-      const { data } = await supabase.from('creators').select('*').eq('ip_addr', ip).single();
-      return res.json({ data: data || null });
+      const query = supabase.from('creators').select('*');
+      if (id) query.eq('referral_code', id);
+      else if (handle) query.eq('handle_name', handle);
+      else query.eq('ip_addr', ip);
+      const { data } = await query.single();
+      creator = data;
     } else {
-      const creator = localDb.creators.find(c => c.ip_addr === ip);
-      return res.json({ data: creator || null });
+      if (id) creator = localDb.creators.find(c => c.referral_code === id);
+      else if (handle) creator = localDb.creators.find(c => c.handle_name === handle);
+      else creator = localDb.creators.find(c => c.ip_addr === ip);
     }
+    res.json({ data: creator || null });
   } catch (e) { res.json({ data: null }); }
+});
+
+// --- ADMIN CONTROL CENTER ---
+app.get('/api/admin/creators', async (req, res) => {
+  const { key } = req.query || {};
+  if (key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Access Denied' });
+  try {
+    if (supabase) {
+      const { data } = await supabase.from('creators').select('*').order('created_at', { ascending: false });
+      res.json({ data });
+    } else {
+      res.json({ data: [...localDb.creators].reverse() });
+    }
+  } catch (e) { res.status(500).json({ error: 'Admin query failed' }); }
+});
+
+app.post('/api/admin/creators/approve', async (req, res) => {
+  const { key, creatorId, status } = req.body || {};
+  if (key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Access Denied' });
+  try {
+    if (supabase) {
+      await supabase.from('creators').update({ status }).eq('id', creatorId);
+    } else {
+      const c = localDb.creators.find(x => x.id === creatorId);
+      if (c) { 
+        c.status = status;
+        saveLocalDb();
+      }
+    }
+    // Broadcast to all sockets of this creator? We'll rely on periodic refresh or re-connect.
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: 'Approval failed' }); }
 });
 
 app.post('/api/creators/verify-ref', async (req, res) => {

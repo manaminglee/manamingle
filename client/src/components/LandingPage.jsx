@@ -490,47 +490,94 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
                   <button
                     onClick={async () => {
                       const res = await registerCreator(creatorForm.handle, creatorForm.platform, creatorForm.link);
-                      if (res.success) alert('Application Transmitted! Wait for Admin Appraisal.');
+                      if (res.success) {
+                        alert(`Application Transmitted! \n\nIMPORTANT: Take a screenshot of your Matrix ID: ${res.accessKey} \nUse this to check your earnings later.`);
+                        window.location.reload();
+                      }
                       else alert(res.error);
                     }}
-                    className="w-full h-14 bg-cyan-500 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all shadow-xl shadow-cyan-500/20"
-                  >Submit Application</button>
+                    className="w-full h-14 bg-cyan-400 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all shadow-xl shadow-cyan-500/20"
+                  >Initialize Matrix Node</button>
+                  
+                  <div className="pt-6 border-t border-white/5">
+                    <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest text-center mb-4 italic shadow-[0_0_10px_rgba(34,211,238,0.2)]">Returning Creator?</p>
+                    <div className="flex gap-2">
+                       <input 
+                         type="text" 
+                         id="creator-id-input"
+                         placeholder="Paste Matrix ID" 
+                         className="flex-1 h-12 bg-white/5 border border-white/5 rounded-xl px-4 text-[10px] outline-none font-black tracking-widest uppercase"
+                       />
+                       <button 
+                         onClick={async () => {
+                           const id = document.getElementById('creator-id-input').value;
+                           const res = await fetch(`${import.meta.env.VITE_SOCKET_URL || ''}/api/creators/status?id=${id}`);
+                           const data = await res.json();
+                           if (data.data) {
+                             // Force status refresh
+                             window.localStorage.setItem('mm_creatorId', id);
+                             window.location.reload();
+                           } else {
+                             alert('Matrix ID invalid.');
+                           }
+                         }}
+                         className="px-6 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500 hover:text-white transition-all"
+                       >Sync</button>
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : (
-              <div className="space-y-8">
-                {/* DASHBOARD INFO */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-6 rounded-3xl bg-white/[0.02] border border-white/5 text-center">
-                    <span className="text-[9px] font-black uppercase text-white/20 tracking-widest">Earnings Matrix</span>
-                    <div className="text-xl font-black text-emerald-400 mt-1">₹{creatorStatus.earnings_rs || 0}</div>
-                  </div>
-                  <div className="p-6 rounded-3xl bg-white/[0.02] border border-white/5 text-center">
-                    <span className="text-[9px] font-black uppercase text-white/20 tracking-widest">Node Syncs</span>
-                    <div className="text-xl font-black text-cyan-400 mt-1">{creatorStatus.coins_earned || 0}</div>
-                  </div>
+              <div className="space-y-8 animate-in-zoom">
+                <div className="p-8 rounded-[32px] bg-white/[0.02] border border-white/5 space-y-4 text-center">
+                   <div className="text-[10px] font-black uppercase tracking-[0.4em] text-white/30">Node Persona</div>
+                   <h4 className="text-3xl font-black italic uppercase tracking-tighter text-white">@{creatorStatus.handle_name}</h4>
+                   <div className="flex justify-center gap-4">
+                     {creatorStatus.status === 'approved' ? (
+                       <span className="px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest shadow-[0_0_20px_#10b98130]">Active Matrix</span>
+                     ) : (
+                       <span className="px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-black uppercase tracking-widest animate-pulse">Wait for appraisal</span>
+                     )}
+                   </div>
                 </div>
 
-                <div className="p-6 rounded-3xl bg-white/[0.01] border border-white/5 space-y-3">
-                  <div className="text-[10px] font-black uppercase text-white/20 tracking-widest">Verification Status</div>
-                  <div className={`text-xs font-black uppercase tracking-widest italic ${creatorStatus.status === 'approved' ? 'text-emerald-400' : 'text-amber-500 animate-pulse'}`}>
-                    ● {creatorStatus.status}
-                  </div>
-                  {creatorStatus.status === 'approved' && (
-                    <div className="pt-4 space-y-3">
-                      <div className="text-[10px] font-black uppercase text-white/20 tracking-widest">Your Referral Node</div>
-                      <div className="flex gap-2">
-                        <input readOnly value={`${window.location.origin}?ref=${creatorStatus.referral_code}`} className="flex-1 bg-black border border-white/10 rounded-xl px-4 py-2 text-[10px] text-cyan-400 font-mono" />
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(`${window.location.origin}?ref=${creatorStatus.referral_code}`);
-                            alert('Ref Link Cached!');
-                          }}
-                          className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-xs"
-                        >📋</button>
-                      </div>
+                {creatorStatus.status === 'approved' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-6 rounded-[32px] bg-white/[0.03] border border-white/5">
+                      <div className="text-[9px] font-black uppercase tracking-widest text-white/20 mb-1">Earned</div>
+                      <div className="text-xl font-black italic text-emerald-400">₹{creatorStatus.earnings_rs || 0}</div>
+                      <div className="text-[8px] font-bold text-white/10 uppercase mt-1 italic shadow-[0_0_10px_rgba(34,211,238,0.2)]">Processed nodes</div>
                     </div>
-                  )}
+                    <div className="p-6 rounded-[32px] bg-white/[0.03] border border-white/5">
+                      <div className="text-[9px] font-black uppercase tracking-widest text-white/20 mb-1">Matrix ID</div>
+                      <div className="text-xl font-black italic text-indigo-400">{creatorStatus.referral_code}</div>
+                      <div className="text-[8px] font-bold text-white/10 uppercase mt-1 italic shadow-[0_0_10px_rgba(34,211,238,0.2)]">Secret Uplink</div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-4 pt-6 border-t border-white/5">
+                  <div className="flex justify-between items-center px-4">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/30">Referral Uplink</span>
+                    {creatorStatus.status === 'approved' && <span className="text-[9px] font-bold text-emerald-400 uppercase italic shadow-[0_0_10px_rgba(34,211,238,0.2)] animate-pulse">Sharing Enabled</span>}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      disabled
+                      readOnly
+                      value={creatorStatus.status === 'approved' ? `${window.location.origin}?ref=${creatorStatus.referral_code}` : 'Awaiting manual appraisal...'}
+                      className="flex-1 h-14 bg-white/5 border border-white/5 rounded-2xl px-6 text-[10px] font-bold text-white/40 outline-none overflow-hidden text-ellipsis italic"
+                    />
+                    {creatorStatus.status === 'approved' && (
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(`${window.location.origin}?ref=${creatorStatus.referral_code}`);
+                          alert('Uplink copied to clipboard');
+                        }}
+                        className="px-6 h-14 rounded-2xl bg-cyan-400 text-black font-black uppercase tracking-widest text-[10px] hover:bg-white transition-all shadow-xl shadow-cyan-500/20"
+                      >Sync</button>
+                    )}
+                  </div>
                 </div>
 
                 {creatorStatus.status === 'approved' && creatorStatus.earnings_rs >= 1500 && (
@@ -543,12 +590,12 @@ export function LandingPage({ onJoin, connected, onlineCount = 0, coinState, isJ
                         else alert(res.error);
                       }
                     }}
-                    className="w-full h-14 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-emerald-500 hover:text-white transition-all"
+                    className="w-full h-14 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-emerald-500 hover:text-white transition-all shadow-xl shadow-emerald-500/20"
                   >Request Withdrawal (₹{creatorStatus.earnings_rs})</button>
                 )}
 
-                <div className="text-[9px] font-bold text-white/10 text-center uppercase tracking-widest">
-                  Logic: 10 Coins / Click | 10000 Coins = ₹150 | Min ₹1500
+                <div className="text-[9px] font-bold text-white/10 text-center uppercase tracking-widest italic pt-4">
+                  Matrix Logic: 10 Coins / Sync | 10000 Coins = ₹150 | Min ₹1500
                 </div>
               </div>
             )}

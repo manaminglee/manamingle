@@ -4,7 +4,7 @@ import { TextChat } from './components/TextChat';
 import { GroupVideoRoom } from './components/GroupVideoRoom';
 import { GroupTextRoom } from './components/GroupTextRoom';
 import { VideoChat } from './components/VideoChat';
-import { AdminDashboard } from './components/AdminDashboard';
+import AdminDashboard from './components/AdminDashboard';
 import { PreloadSplash } from './components/PreloadSplash';
 import { AgeVerificationGate } from './components/AgeVerificationGate';
 import { useSocket } from './hooks/useSocket';
@@ -19,7 +19,7 @@ export default function App() {
   );
 
   const [appState, setAppState] = useState(
-    window.location.pathname === '/admin' ? STATES.ADMIN : STATES.LANDING
+    window.location.pathname === '/matrix-admin' ? STATES.ADMIN : STATES.LANDING
   );
   const [mode, setMode] = useState(null);
   const [interest, setInterest] = useState('general');
