@@ -70,8 +70,17 @@ const EMOJIS_3D = [
 
 const API_BASE = import.meta.env.VITE_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
+const VIDEO_FILTERS = [
+  { id: 'none', label: 'Normal' },
+  { id: 'grayscale(100%)', label: 'Noir (B&W)' },
+  { id: 'sepia(80%)', label: 'Vintage (Sepia)' },
+  { id: 'hue-rotate(90deg)', label: 'Alien (Hue)' },
+  { id: 'invert(100%)', label: 'Negative' },
+  { id: 'contrast(150%) brightness(120%)', label: 'Intense' },
+];
+
 export function VideoChat({ socket, connected, country, onlineCount, interest = 'general', nickname = 'Anonymous', adsEnabled = false, onBack, onJoined, onFindNewPartner, coinState }) {
-  const { balance, streak, canClaim, nextClaim, claimCoins } = coinState;
+  const { balance, streak, canClaim, nextClaim, claimCoins, history, addHistory } = coinState || {};
   const { iceServers } = useIceServers();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -116,6 +125,11 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   const [strangerTyping, setStrangerTyping] = useState(false);
   const [countryBanner, setCountryBanner] = useState(null); // { myCountry, peerCountry }
   const [showChat, setShowChat] = useState(true);
+  const [activeFilter, setActiveFilter] = useState('none');
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [showCoinHistory, setShowCoinHistory] = useState(false);
+  const [smartReplies, setSmartReplies] = useState([]);
+  const filterIntervalRef = useRef(null);
   const [myCountry, setMyCountry] = useState(country);
   const [partnerLeft, setPartnerLeft] = useState(false);
   const [interestTags, setInterestTags] = useState(['social', 'fun', 'music', 'gaming']);
@@ -416,6 +430,65 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [peer]);
+
+  // --- Premium Video Filter Effect ---
+  useEffect(() => {
+    if (activeFilter === 'none') return;
+    const interval = setInterval(() => {
+      if (balance >= 12) {
+        if (socket) socket.emit('spend-coins', { amount: 12, reason: 'Premium Video Filter Maintenance' });
+        if (addHistory) addHistory('Premium Filter (1 min)', -12);
+      } else {
+        setActiveFilter('none');
+        alert('Premium filter stopped: Insufficient coins. Needs 12 coins per minute.');
+      }
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [activeFilter, balance, socket, addHistory]);
+
+  const handleFilterSelect = (filterId) => {
+    if (filterId === 'none') {
+      setActiveFilter('none');
+      setShowFilterMenu(false);
+      return;
+    }
+    if (balance < 12) {
+      alert('You need at least 12 coins to enable premium video filters.');
+      return;
+    }
+    const confirm = window.confirm("Enable Premium Filter? Full auto access is required.\n\n12 coins will be automatically deducted every 1 minute while this filter is active. Continue?");
+    if (!confirm) return;
+
+    if (socket) socket.emit('spend-coins', { amount: 12, reason: 'Started Premium Filter' });
+    if (addHistory) addHistory('Started Premium Video Filter', -12);
+    setActiveFilter(filterId);
+    setShowFilterMenu(false);
+  };
+
+  // --- Smart Quick Replies Effect ---
+  useEffect(() => {
+    const fetchReplies = async () => {
+      const last = messages.filter(m => !m.system && m.socketId !== socket?.id).slice(-1)[0];
+      if (!last?.text) {
+        setSmartReplies([]);
+        return;
+      }
+      try {
+        const res = await fetch(`${API_BASE}/api/ai/reply`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lastMessage: last.text })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setSmartReplies(data.replies || []);
+        }
+      } catch (e) { setSmartReplies([]); }
+    };
+    
+    const timeout = setTimeout(fetchReplies, 800);
+    return () => clearTimeout(timeout);
+  }, [messages, socket?.id]);
 
   useEffect(() => {
     if (status === 'connected') {
@@ -931,18 +1004,24 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
           <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
         </button>
         <span className="text-sm font-medium text-white/80">Video Chat</span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setShowFilterMenu(true)} className="px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition">Filters</button>
           <span className="text-xs text-white/40">{onlineCount?.toLocaleString()} online</span>
-          <span className="text-amber-500/90 font-medium text-sm">🪙 {balance}</span>
+          <button onClick={() => setShowCoinHistory(true)} className="text-amber-500/90 font-medium text-sm flex items-center gap-1 hover:bg-white/5 px-2 py-1 rounded transition">🪙 {balance}</button>
+          {!showChat && status === 'connected' && (
+            <button onClick={() => setShowChat(true)} className="p-2 sm:hidden text-white/40 hover:text-white">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+            </button>
+          )}
         </div>
       </header>
 
       {/* Main area - Omegle split layout */}
       <main className="flex-1 flex min-h-0 relative">
         {/* Split view: You | Stranger - when idle or searching show full, when connected show split */}
-        <div className={`flex-1 flex ${status === 'connected' ? 'flex-row' : 'flex-col'} min-h-0`}>
+        <div className={`flex-1 flex ${status === 'connected' ? 'flex-col sm:flex-row' : 'flex-col'} min-h-0`}>
           {/* Left: You (or full when idle/searching) */}
-          <div className={`relative bg-[#111] flex-1 flex flex-col justify-center items-center min-h-0 ${status === 'connected' ? 'border-r border-white/[0.06]' : ''}`}>
+          <div className={`relative bg-[#111] flex-1 flex flex-col justify-center items-center min-h-0 ${status === 'connected' ? 'border-b sm:border-b-0 sm:border-r border-white/[0.06]' : ''}`}>
             {status === 'idle' && (
               <div className="absolute inset-0 flex flex-col items-center justify-center p-6">
                 {cameraError && (
@@ -969,15 +1048,15 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
               </div>
             )}
             {(status === 'idle' || status === 'searching') && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-32 h-24 sm:w-40 sm:h-28 rounded-lg overflow-hidden border border-white/10 bg-black/50">
-                <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-30' : ''}`} />
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-32 h-24 sm:w-40 sm:h-28 rounded-lg overflow-hidden border border-white/10 bg-black/50 z-10">
+                <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-30' : ''}`} style={{ filter: activeFilter !== 'none' ? activeFilter : 'none' }} />
                 <div className="absolute bottom-1 left-1 text-[10px] font-medium text-white/80 bg-black/50 px-1.5 py-0.5 rounded">You</div>
               </div>
             )}
             {status === 'connected' && (
               <>
-                <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-20' : ''}`} style={cameraBlur ? { filter: 'blur(20px)' } : {}} />
-                <div className="absolute bottom-3 left-3 px-2 py-1 rounded bg-black/60 text-xs font-medium">You</div>
+                <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover scale-x-[-1] transition-opacity duration-300 ${cameraOff ? 'opacity-20' : ''}`} style={{ filter: cameraBlur && activeFilter === 'none' ? 'blur(20px)' : (activeFilter !== 'none' ? activeFilter : 'none') }} />
+                <div className="absolute bottom-3 left-3 px-2 py-1 rounded bg-black/60 text-xs font-medium z-10">You</div>
                 {cameraOff && <div className="absolute inset-0 flex items-center justify-center bg-black/40"><span className="text-white/60 text-sm">Camera off</span></div>}
               </>
             )}
@@ -1005,7 +1084,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
         {/* Chat panel - slide in from right, Omegle style */}
         {showChat && status === 'connected' && (
-          <div className="w-72 sm:w-80 border-l border-white/[0.06] bg-[#0d0d0d] flex flex-col flex-shrink-0 animate-slide-in-right">
+          <div className="absolute inset-y-0 right-0 z-[100] w-[85%] sm:static sm:w-80 border-l border-white/[0.06] bg-[#0d0d0d]/95 backdrop-blur-xl sm:bg-[#0d0d0d] flex flex-col flex-shrink-0 animate-slide-in-right shadow-2xl sm:shadow-none">
             <div className="h-10 px-4 flex items-center justify-between border-b border-white/[0.06]">
               <span className="text-xs font-medium text-white/60">Text chat</span>
               <button onClick={() => setShowChat(false)} className="p-1 text-white/40 hover:text-white">✕</button>
@@ -1021,9 +1100,20 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
               })}
               <div ref={chatEndRef} />
             </div>
-            <div className="p-3 border-t border-white/[0.06] flex gap-2">
-              <input ref={inputRef} value={input} onChange={handleInputChange} onKeyDown={(e) => e.key === 'Enter' && sendMsg()} placeholder="Type a message..." className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm outline-none focus:border-white/20 placeholder:text-white/30" />
-              <button onClick={sendMsg} disabled={!input.trim()} className="px-4 py-2 rounded-lg bg-[#1a7f37] hover:bg-[#2ea043] disabled:opacity-40 text-white text-sm font-medium">Send</button>
+            <div className="p-3 border-t border-white/[0.06] flex flex-col gap-2">
+              {smartReplies.length > 0 && status === 'connected' && (
+                <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar shrink-0">
+                  {smartReplies.map((r, idx) => (
+                    <button key={idx} onClick={() => { setInput(r); inputRef.current?.focus(); setSmartReplies([]); }} className="whitespace-nowrap px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-semibold text-white/80 hover:bg-[#1a7f37] hover:border-[#1a7f37] transition-all shrink-0">
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input ref={inputRef} value={input} onChange={handleInputChange} onKeyDown={(e) => e.key === 'Enter' && sendMsg()} placeholder="Type a message..." className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm outline-none focus:border-white/20 placeholder:text-white/30" />
+                <button onClick={sendMsg} disabled={!input.trim()} className="px-4 py-2 rounded-lg bg-[#1a7f37] hover:bg-[#2ea043] disabled:opacity-40 text-white text-sm font-medium">Send</button>
+              </div>
             </div>
           </div>
         )}
@@ -1069,6 +1159,61 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
           ))}
         </div>
       )}
+      {/* Coin History Modal */}
+      {showCoinHistory && (
+        <div className="absolute inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-[#111] border border-white/10 rounded-2xl p-6 shadow-2xl flex flex-col max-h-[80vh]">
+            <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-2">
+              <h3 className="text-sm font-black uppercase tracking-widest text-amber-500">🪙 Coin History</h3>
+              <button onClick={() => setShowCoinHistory(false)} className="text-white/40 hover:text-white">✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto min-h-0 space-y-2 pr-2">
+              {(history || []).length === 0 ? (
+                <p className="text-center text-xs text-white/40 my-8">No transaction history yet.</p>
+              ) : (
+                (history || []).map((h) => (
+                  <div key={h.id} className="flex justify-between items-center p-3 rounded-xl bg-white/5">
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-white/90">{h.reason}</span>
+                      <span className="text-[10px] text-white/40">{new Date(h.date).toLocaleString()}</span>
+                    </div>
+                    <span className={`text-sm font-bold ${h.amount > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {h.amount > 0 ? '+' : ''}{h.amount}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Premium Video Filters Modal */}
+      {showFilterMenu && (
+        <div className="absolute inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-[280px] bg-[#111] border border-white/10 rounded-2xl p-6 shadow-2xl flex flex-col gap-4">
+            <div className="flex justify-between items-center border-b border-white/5 pb-2">
+              <h3 className="text-sm font-black uppercase tracking-widest text-indigo-400 flex items-center gap-2"><span className="text-amber-500">🪙</span> Premium Filters</h3>
+              <button onClick={() => setShowFilterMenu(false)} className="text-white/40 hover:text-white">✕</button>
+            </div>
+            <p className="text-[10px] text-white/40 text-center leading-relaxed">
+              Premium filters cost <strong className="text-amber-500">12 coins per minute</strong> while active. You will be asked for auto-deduct access.
+            </p>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              {VIDEO_FILTERS.map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => handleFilterSelect(f.id)}
+                  className={`py-3 rounded-xl border text-xs font-bold transition-all ${activeFilter === f.id ? 'bg-indigo-500 border-indigo-500 text-white shadow-lg' : 'bg-white/5 border-white/5 text-white/60 hover:bg-white/10 hover:text-white'}`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

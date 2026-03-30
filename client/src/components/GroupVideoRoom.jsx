@@ -863,7 +863,11 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
   // Adaptive layout: 1 = full, 2 = side-by-side, 3-4 = 2x2
   const filledCount = tiles.filter(t => t.type === 'local' || t.type === 'peer' || t.type === 'searching').length;
   const displayTiles = filledCount <= 2 ? tiles.filter(t => t.type !== 'empty') : tiles;
-  const gridClass = filledCount <= 1 ? 'grid-cols-1 grid-rows-1' : filledCount === 2 ? 'grid-cols-2 grid-rows-1' : 'grid-cols-2 grid-rows-2';
+  const gridClass = filledCount <= 1 
+    ? 'grid-cols-1 grid-rows-1' 
+    : filledCount === 2 
+      ? 'grid-cols-1 grid-rows-2 sm:grid-cols-2 sm:grid-rows-1' 
+      : 'grid-cols-2 grid-rows-2';
 
   const localStream = localStreamRef.current;
 

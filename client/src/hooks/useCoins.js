@@ -12,6 +12,18 @@ export function formatTimeUntilClaim(ms) {
 
 export function useCoins() {
     const [balance, setBalance] = useState(0);
+    const [history, setHistory] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('mm_coin_history')) || []; }
+        catch { return []; }
+    });
+
+    const addHistory = (reason, amount) => {
+        setHistory(prev => {
+            const next = [{ id: Date.now() + Math.random(), reason, amount, date: Date.now() }, ...prev].slice(0, 50);
+            localStorage.setItem('mm_coin_history', JSON.stringify(next));
+            return next;
+        });
+    };
     const [streak, setStreak] = useState(1);
     const [nextClaim, setNextClaim] = useState(0);
     const [canClaim, setCanClaim] = useState(false);
@@ -70,5 +82,5 @@ export function useCoins() {
         if (!canClaim && nextClaim <= 0) setCanClaim(true);
     }, [nextClaim]);
 
-    return { balance, streak, nextClaim, canClaim, claimCoins, refresh: fetchStatus, setBalance };
+    return { balance, streak, nextClaim, canClaim, claimCoins, refresh: fetchStatus, setBalance, history, addHistory };
 }

@@ -464,6 +464,23 @@ app.get('/api/turn', (req, res) => {
       username: process.env.TURN_USERNAME,
       credential: process.env.TURN_PASSWORD,
     });
+  } else {
+    // Free Public TURN relay fallback for robust cross-network P2P connections
+    iceServers.push({
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    });
+    iceServers.push({
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    });
+    iceServers.push({
+      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    });
   }
   res.json({ iceServers });
 });
@@ -574,6 +591,42 @@ app.post('/api/ai/spark', async (req, res) => {
     res.json({ spark: message || 'Hello! What is on your mind today?' });
   } catch (err) {
     res.status(500).json({ error: 'AI generation failed' });
+  }
+});
+
+app.post('/api/ai/reply', async (req, res) => {
+  const { lastMessage } = req.body || {};
+  const apiKey = process.env.NVIDIA_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'AI Service Offline' });
+
+  try {
+    const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'meta/llama3-70b-instruct',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an AI generating 3 short, natural, modern quick-reply options for a chat application. Based on the stranger\'s last message, suggest 3 highly distinct responses (maximum 4 words each). Output them separated by commas like: Haha exactly, No way!, Tell me more. Do not include quotes or numbers.'
+          },
+          {
+            role: 'user',
+            content: `Stranger: ${lastMessage || 'Hi'}`
+          }
+        ],
+        temperature: 0.8,
+        max_tokens: 30,
+      }),
+    });
+    const data = await response.json();
+    const suggestions = data.choices?.[0]?.message?.content?.split(',').map(s => s.trim().replace(/['"]/g, '')) || ['Yes', 'No', 'Haha'];
+    res.json({ replies: suggestions.slice(0, 3) });
+  } catch (err) {
+    res.status(500).json({ error: 'AI reply failed' });
   }
 });
 
