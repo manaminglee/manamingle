@@ -64,10 +64,21 @@ const groupQueues = new Map();
 
 // Admin & Safety State
 const blockedIps = new Set();
+const warnedIps = new Set();
 const userBlocks = new Map(); // ip -> Set of blocked IPs (user-level block list)
 const reports = [];
 const stats = { totalMessages: 0, totalConnections: 0, uniqueIps: new Set() };
 const coinUsers = new Map(); // ip -> { coins: 0, lastClaim: 0, streak: 0, lastClaimDate: null }
+
+const statsHistory = []; // { timestamp, users, rooms }
+setInterval(() => {
+  statsHistory.push({
+    timestamp: Date.now(),
+    users: users.size,
+    rooms: rooms.size,
+  });
+  if (statsHistory.length > 60) statsHistory.shift(); // Keep last hour
+}, 60000);
 
 function generateId(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -352,8 +363,31 @@ app.get('/api/admin/overview', requireAdmin, (req, res) => {
       totalConnections: stats.totalConnections,
       uniqueIps: stats.uniqueIps.size,
       uptimeSeconds: Math.floor(process.uptime()),
-    }
+    },
+    statsHistory,
+    warnedIps: Array.from(warnedIps),
+    memory: process.memoryUsage(),
   });
+});
+
+app.post('/api/admin/warn', requireAdmin, (req, res) => {
+  const { ip, message } = req.body || {};
+  if (!ip) return res.status(400).json({ error: 'IP required' });
+  warnedIps.add(ip);
+  let count = 0;
+  for (const [socketId, user] of users.entries()) {
+    if (user.ip === ip) {
+      io.to(socketId).emit('content-flagged', { message: message || '⚠️ SYSTEM WARNING: Your behavior has been flagged. Please follow community rules.' });
+      count++;
+    }
+  }
+  res.json({ success: true, warned: count });
+});
+
+app.post('/api/admin/unwarn', requireAdmin, (req, res) => {
+  const { ip } = req.body || {};
+  if (ip) warnedIps.delete(ip);
+  res.json({ success: true });
 });
 
 app.post('/api/admin/coins/update', requireAdmin, (req, res) => {
@@ -729,8 +763,8 @@ const server = http.createServer(app);
 const io = new Server(server, {
   path: '/socket.io',
   cors: { origin: NODE_ENV === 'production' ? process.env.FRONTEND_ORIGIN || true : true, credentials: true },
-  pingTimeout: 20000,
-  pingInterval: 8000,
+  pingTimeout: 30000,
+  pingInterval: 15000,
 });
 
 // Per-socket rate limit for signaling
@@ -1024,9 +1058,13 @@ io.on('connection', (socket) => {
 
   socket.on('send-message', (data) => {
     const { roomId, text } = data || {};
-    const userData = users.get(socket.id);
+    if (!userData) return socket.emit('error', { message: 'Session lost. Please refresh.' });
     const room = rooms.get(roomId);
-    if (!userData || !room || !room.users.has(socket.id)) return;
+    if (!room) return socket.emit('error', { message: 'Chat room not found or closed.' });
+    if (!room.users.has(socket.id)) return socket.emit('error', { message: 'You are no longer in this room.' });
+
+    if (settings.maintenanceMode) return socket.emit('error', { message: 'Messaging disabled during maintenance.' });
+
     const msg = sanitize(String(text || ''), 500);
     if (!msg) return;
 
@@ -1103,6 +1141,20 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('spend-coins', (data) => {
+    const { amount, reason } = data || {};
+    const cUser = coinUsers.get(ip);
+    if (!cUser || cUser.coins < amount) return socket.emit('error', { message: 'Insufficient coins' });
+    cUser.coins -= amount;
+    coinUsers.set(ip, cUser);
+    // Notify all sockets with this IP
+    for (const [sid, user] of users.entries()) {
+      if (user.ip === ip) {
+        io.to(sid).emit('coins-updated', { coins: cUser.coins, reason });
+      }
+    }
+  });
+
   socket.on('send-3d-emoji', (data) => {
     const { roomId, emoji } = data || {};
     const u = users.get(socket.id);
@@ -1110,8 +1162,13 @@ io.on('connection', (socket) => {
     if (!u || !cUser || cUser.coins < 5) return socket.emit('error', { message: 'Need 5 coins for 3D Emoji' });
     cUser.coins -= 5;
     coinUsers.set(ip, cUser);
+    // Notify all sockets with this IP
+    for (const [sid, user] of users.entries()) {
+      if (user.ip === ip) {
+        io.to(sid).emit('coins-updated', { coins: cUser.coins, reason: '3D Emoji' });
+      }
+    }
     io.to(roomId).emit('3d-emoji', { roomId, emoji, nickname: u.nickname, socketId: socket.id });
-    socket.emit('coins-updated', { coins: cUser.coins });
   });
 
   socket.on('send-media', (data) => {

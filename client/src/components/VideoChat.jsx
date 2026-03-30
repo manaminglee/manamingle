@@ -600,11 +600,9 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       alert('You need at least 12 coins to enable premium video filters.');
       return;
     }
-    const confirm = window.confirm("Enable Premium Filter? Full auto access is required.\n\n12 coins will be automatically deducted every 1 minute while this filter is active. Continue?");
-    if (!confirm) return;
-
-    if (socket) socket.emit('spend-coins', { amount: 12, reason: 'Started Premium Filter' });
-    if (addHistory) addHistory('Started Premium Video Filter', -12);
+    // Optimization: Deduct first, then enable
+    if (socket) socket.emit('spend-coins', { amount: 12, reason: 'Premium Video Filter' });
+    if (addHistory) addHistory('Premium Filter (1 min)', -12);
     setActiveFilter(filterId);
     setShowFilterMenu(false);
   };
@@ -874,6 +872,22 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     socket.on('system-announcement', onSystemMsg);
     socket.on('stranger-video-style', onStrangerVideoStyle);
     socket.on('system-maintenance', onMaintenance);
+    socket.on('content-flagged', (data) => {
+      setMessages(m => [...m, { id: Date.now(), system: true, text: `🛡️ ${data.message}`, ts: Date.now() }]);
+      playDisconnectSound();
+    });
+    socket.on('error', (data) => {
+      setMessages(m => [...m, { id: Date.now(), system: true, text: `❌ ERROR: ${data.message || 'Something went wrong.'}`, ts: Date.now() }]);
+    });
+    socket.on('connect', () => {
+       console.log('Socket connected:', socket.id);
+    });
+    socket.on('disconnect', (reason) => {
+       console.warn('Socket disconnected:', reason);
+       if (reason === 'io server disconnect' || reason === 'transport close' || reason === 'ping timeout') {
+         setMessages(m => [...m, { id: Date.now(), system: true, text: '⚠️ Connection lost. Trying to reconnect...', ts: Date.now() }]);
+       }
+    });
 
     // Auto-emit find-partner on mount if we're in searching state
     if (socket && status === 'searching' && !roomIdRef.current) {
@@ -890,6 +904,10 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       socket.off('system-announcement', onSystemMsg);
       socket.off('stranger-video-style', onStrangerVideoStyle);
       socket.off('system-maintenance', onMaintenance);
+      socket.off('content-flagged');
+      socket.off('error');
+      socket.off('connect');
+      socket.off('disconnect');
     };
   }, [socket, interest, onJoined, onFindNewPartner, doOffer, doAnswer, addIce]);
 
@@ -941,11 +959,11 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     }
   };
 
-  const send3dEmoji = (emoji) => {
+  const send3dEmoji = (emojiObj) => {
     if (balance < 5) return alert('Need 5 coins for 3D Emoji!');
     const r = roomIdRef.current;
     if (socket && r) {
-      socket.emit('send-3d-emoji', { roomId: r, emoji });
+      socket.emit('send-3d-emoji', { roomId: r, emoji: emojiObj });
       // Deduct locally for visual feedback
       socket.emit('spend-coins', { amount: 5, reason: '3D Emoji' });
       setShowEmojiPicker(false);
@@ -1010,14 +1028,14 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
         // Add to chat history too
         setMessages(prev => [...prev.slice(-100), {
           id: `emoji-${Date.now()}`,
-          text: `Sent a 3D ${data.emoji.char || data.emoji}`,
+          text: `Sent a 3D ${data.emoji?.char || data.emoji}`,
           socketId: data.socketId,
           nickname: data.nickname,
           ts: Date.now(),
           isEmoji: true,
           fromSelf: data.socketId === socket.id
         }]);
-        setTimeout(() => setActive3dEmoji(null), 3000);
+        setTimeout(() => setActive3dEmoji(null), 4000);
       });
       socket.on('media-message', (data) => {
         if (data.roomId && data.roomId !== roomIdRef.current) return;
@@ -1156,9 +1174,13 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       {/* Main area - Omegle split layout */}
       <main className="flex-1 flex min-h-0 relative">
         {/* Split view: You | Stranger - when idle or searching show full, when connected show split */}
-        <div className={`flex-1 flex ${status === 'connected' ? 'flex-col sm:flex-row' : 'flex-col'} min-h-0`}>
+        <div className={`flex-1 flex ${status === 'connected' ? (showChat && window.innerWidth < 640 ? 'flex-col' : 'flex-col sm:flex-row') : 'flex-col'} min-h-0 relative`}>
           {/* Left: You (or full when idle/searching) */}
-          <div className={`relative bg-[#111] flex-1 flex flex-col justify-center items-center min-h-0 ${status === 'connected' ? 'border-b sm:border-b-0 sm:border-r border-white/[0.06]' : ''}`}>
+          <div className={`relative bg-[#0a0a0a] flex-1 flex flex-col justify-center items-center min-h-0 ${
+            status === 'connected' 
+              ? (showChat && window.innerWidth < 640 ? 'absolute top-4 right-4 w-32 h-44 z-50 rounded-2xl shadow-2xl border-2 border-white/20 overflow-hidden' : 'border-b sm:border-b-0 sm:border-r border-white/[0.06]') 
+              : ''
+          }`}>
             {status === 'idle' && (
               <div className="absolute inset-0 flex flex-col items-center justify-center p-6">
                 {cameraError && (
@@ -1168,101 +1190,116 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                 )}
                 <p className="text-white/60 text-sm mb-2">Talk to strangers!</p>
                 <p className="text-white/40 text-xs mb-8 max-w-xs text-center">Click Start to begin a random video chat with someone from around the world.</p>
-                <button onClick={handleStart} disabled={!connected} className="px-12 py-4 rounded-lg bg-[#1a7f37] hover:bg-[#2ea043] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-base transition-colors">
-                  Start
+                <button onClick={handleStart} disabled={!connected} className="px-12 py-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black uppercase tracking-widest text-sm transition-all shadow-xl shadow-indigo-500/20">
+                  Initialize Scan
                 </button>
               </div>
             )}
             {status === 'searching' && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-6">
-                <p className="text-white/80 text-base mb-1">Looking for someone you can chat with...</p>
-                <div className="flex gap-1.5 mt-4">
-                  <span className="w-2 h-2 rounded-full bg-white/60 animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-2 h-2 rounded-full bg-white/60 animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-2 h-2 rounded-full bg-white/60 animate-bounce" style={{ animationDelay: '300ms' }} />
-                </div>
-                <button onClick={handleStop} className="mt-8 text-sm text-white/50 hover:text-white underline">Stop</button>
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-[#050505]">
+                <div className="w-20 h-20 rounded-full border-2 border-indigo-500/20 border-t-indigo-500 animate-spin mb-8" />
+                <p className="text-white font-black uppercase tracking-[0.2em] text-xs mb-2">Searching Active Nodes</p>
+                <p className="text-white/30 text-[10px] uppercase font-bold tracking-widest letter-spacing-2">Establishing Uplink...</p>
+                <button onClick={handleStop} className="mt-12 text-xs font-black uppercase tracking-widest text-rose-500/50 hover:text-rose-500 transition-colors">Abort</button>
               </div>
             )}
             {(status === 'idle' || status === 'searching') && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-32 h-24 sm:w-40 sm:h-28 rounded-lg overflow-hidden border border-white/10 bg-black/50 z-10">
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-32 h-24 sm:w-40 sm:h-28 rounded-2xl overflow-hidden border border-white/10 bg-black/50 z-10 backdrop-blur-md">
                 <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-30' : ''}`} style={{ filter: activeFilter !== 'none' ? activeFilter : 'none' }} />
-                <div className="absolute bottom-1 left-1 flex items-center gap-1 z-10">
-                  <div className="text-[10px] font-medium text-white/80 bg-black/50 px-1.5 py-0.5 rounded">You</div>
-                  {activeFilter !== 'none' && (
-                    <span className="px-1 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-[9px] font-bold text-amber-500 animate-pulse">
-                      -{filterTimer}s
-                    </span>
-                  )}
-                </div>
+                <div className="absolute inset-0 border-2 border-white/5 pointer-events-none rounded-2xl" />
               </div>
             )}
             {status === 'connected' && (
               <>
                 <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover scale-x-[-1] transition-opacity duration-300 ${cameraOff ? 'opacity-20' : ''}`} style={{ filter: cameraBlur && activeFilter === 'none' ? 'blur(20px)' : (activeFilter !== 'none' ? activeFilter : 'none') }} />
                 <div className="absolute bottom-3 left-3 flex items-center gap-1 z-10">
-                  <span className="px-2 py-1 rounded bg-black/60 text-xs font-medium">You</span>
-                  {activeFilter !== 'none' && (
-                    <span className="px-1.5 py-1 rounded bg-amber-500/20 border border-amber-500/40 text-[10px] font-bold text-amber-500 animate-pulse">
-                      -{filterTimer}s
-                    </span>
-                  )}
+                  <span className="px-2 py-1 rounded bg-black/60 text-[10px] font-black uppercase tracking-widest border border-white/10">You</span>
                 </div>
-                {cameraOff && <div className="absolute inset-0 flex items-center justify-center bg-black/40"><span className="text-white/60 text-sm">Camera off</span></div>}
+                {cameraOff && <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm"><span className="text-white/40 text-[10px] font-black uppercase tracking-widest bg-black/60 px-3 py-1.5 rounded-full">Camera Restricted</span></div>}
               </>
             )}
           </div>
 
           {/* Right: Stranger (only when connected) */}
           {status === 'connected' && (
-            <div className="relative flex-1 bg-[#0d0d0d] min-h-0">
+            <div className={`relative flex-1 bg-[#0d0d0d] min-h-0 ${showChat && window.innerWidth < 640 ? 'h-[55%]' : ''}`}>
               <RemoteVideoComponent stream={peer?.stream} muted={mutedStranger} strangerFilter={strangerFilter} strangerBlur={strangerBlur} />
-              <div className="absolute bottom-3 left-3 px-2 py-1 rounded bg-black/60 text-xs font-medium">
-                {countryToFlag(peer?.country)} Stranger
+              <div className="absolute bottom-3 left-3 px-2 py-1 rounded bg-black/60 text-[10px] font-black uppercase tracking-widest border border-white/10 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                {countryToFlag(peer?.country)} Stranger Node
               </div>
               {partnerLeft && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70">
-                  <p className="text-white/80 text-sm">Stranger has disconnected.</p>
-                  <p className="text-white/50 text-xs mt-1">Looking for someone new...</p>
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 backdrop-blur-md z-[60]">
+                  <p className="text-white font-black uppercase tracking-widest text-xs">Node Disconnected</p>
+                  <p className="text-white/30 text-[10px] mt-2 uppercase font-bold tracking-widest">Re-initializing Scan...</p>
                 </div>
               )}
-              <button onClick={handleReport} className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded bg-black/50 hover:bg-rose-500/20 text-white/60 hover:text-rose-400 transition-colors" title="Report">
+              <button onClick={handleReport} className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded bg-black/50 hover:bg-rose-500/20 text-white/60 hover:text-rose-400 transition-colors border border-white/5" title="Report">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
               </button>
             </div>
           )}
         </div>
 
-        {/* Chat panel - slide in from right, Omegle style */}
+        {/* Chat panel - Redesigned for Mobile */}
         {showChat && status === 'connected' && (
-          <div className="absolute inset-y-0 right-0 z-[100] w-[85%] sm:static sm:w-80 border-l border-white/[0.06] bg-[#0d0d0d]/95 backdrop-blur-xl sm:bg-[#0d0d0d] flex flex-col flex-shrink-0 animate-slide-in-right shadow-2xl sm:shadow-none">
-            <div className="h-10 px-4 flex items-center justify-between border-b border-white/[0.06]">
-              <span className="text-xs font-medium text-white/60">Text chat</span>
-              <button onClick={() => setShowChat(false)} className="p-1 text-white/40 hover:text-white">✕</button>
+          <div className={`z-[150] transition-all duration-300 flex flex-col bg-[#0d0d0d] border-white/[0.06] ${
+            window.innerWidth < 640 
+              ? 'absolute bottom-0 left-0 right-0 h-[45%] border-t' 
+              : 'static w-80 border-l'
+          }`}>
+            <div className="h-10 px-4 flex items-center justify-between border-b border-white/[0.06] bg-white/[0.02]">
+              <span className="text-xs font-black uppercase tracking-widest text-indigo-400">Live Chat</span>
+              <button onClick={() => setShowChat(false)} className="p-1 text-white/40 hover:text-white transition-colors">✕</button>
             </div>
-            <div className="flex-1 overflow-y-auto p-3 space-y-2" id="video-chat-messages">
+            
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar" id="video-chat-messages">
+              {messages.length === 0 && (
+                <div className="h-full flex flex-col items-center justify-center opacity-20 filter grayscale">
+                   <svg className="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                   <span className="text-[10px] font-bold uppercase tracking-widest">No messages yet</span>
+                </div>
+              )}
               {messages.map((m, i) => {
                 const isMe = m.socketId === socket.id || m.fromSelf;
                 return <VanishingMessage key={m.id || i} m={m} isMe={isMe} />;
               })}
               <div ref={chatEndRef} />
             </div>
-            <div className="p-3 border-t border-white/[0.06] flex flex-col gap-2">
-              {smartReplies.length > 0 && status === 'connected' && (
-                <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar shrink-0">
+
+            <div className="p-3 bg-white/[0.01] border-t border-white/[0.06] space-y-2">
+              {smartReplies.length > 0 && (
+                <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                   {smartReplies.map((r, idx) => (
-                    <button key={idx} onClick={() => { setInput(r); inputRef.current?.focus(); setSmartReplies([]); }} className="whitespace-nowrap px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-semibold text-white/80 hover:bg-[#1a7f37] hover:border-[#1a7f37] transition-all shrink-0">
+                    <button key={idx} onClick={() => { setInput(r); inputRef.current?.focus(); setSmartReplies([]); }} className="whitespace-nowrap px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-bold text-indigo-300 hover:bg-indigo-500 hover:text-white transition-all shrink-0 uppercase tracking-tighter">
                       {r}
                     </button>
                   ))}
                 </div>
               )}
-              <div className="flex gap-2 items-center relative">
-                <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="text-white/40 hover:text-amber-500 transition-colors p-1" title="3D Animated Emojis (5 Coins)">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <div className="flex gap-1.5 items-center relative">
+                <button 
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)} 
+                  className={`p-2 rounded-lg transition-all ${showEmojiPicker ? 'bg-amber-500 text-black' : 'text-white/40 hover:text-amber-500 bg-white/5'}`} 
+                  title="3D Emojis (5 Coins)"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </button>
-                <input ref={inputRef} value={input} onChange={handleInputChange} onKeyDown={(e) => e.key === 'Enter' && sendMsg()} placeholder="Type a message..." className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm outline-none focus:border-white/20 placeholder:text-white/30 transition-all focus:bg-white/10" />
-                <button onClick={sendMsg} disabled={!input.trim()} className="px-3 py-2 rounded-lg bg-[#1a7f37] border border-[#2ea043]/50 hover:bg-[#2ea043] disabled:opacity-40 text-white text-xs font-bold shadow-lg shadow-[#1a7f37]/20 transition-all whitespace-nowrap min-w-[54px]">Send</button>
+                <input 
+                  ref={inputRef} 
+                  value={input} 
+                  onChange={handleInputChange} 
+                  onKeyDown={(e) => e.key === 'Enter' && sendMsg()} 
+                  placeholder="Say something..." 
+                  className="flex-1 min-w-0 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm outline-none focus:border-white/20 placeholder:text-white/20 transition-all" 
+                />
+                <button 
+                  onClick={sendMsg} 
+                  disabled={!input.trim()} 
+                  className="p-2.5 px-4 rounded-xl bg-indigo-600 disabled:opacity-20 text-white text-[11px] font-black uppercase tracking-widest shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-500"
+                >
+                  Send
+                </button>
               </div>
             </div>
           </div>
@@ -1325,11 +1362,14 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
       {active3dEmoji && (
         <div className="pointer-events-none fixed inset-0 z-[300] flex items-center justify-center overflow-hidden bg-black/40 backdrop-blur-sm">
-          <div className="text-[150px] sm:text-[250px] drop-shadow-[0_0_80px_rgba(255,255,255,0.3)] animate-bounce" style={{ filter: 'drop-shadow(0px 10px 40px rgba(0,0,0,0.5))' }}>
-            {active3dEmoji.emoji}
-          </div>
-          <div className="absolute top-1/4 bg-amber-500/90 text-black px-6 py-2 rounded-full font-black text-sm uppercase tracking-widest shadow-2xl animate-fade-in-up">
-            {active3dEmoji.nickname || 'Someone'} sent a reaction!
+          <div className="flex flex-col items-center gap-4 animate-3d-emoji-pop">
+             <picture className="drop-shadow-[0_0_80px_rgba(255,255,255,0.3)]">
+                <source srcSet={active3dEmoji.emoji?.url} type="image/webp" />
+                <img src={active3dEmoji.emoji?.url} className="w-[180px] h-[180px] sm:w-[300px] sm:h-[300px]" alt="3D reaction" />
+             </picture>
+             <div className="bg-amber-500/90 text-black px-6 py-2 rounded-full font-black text-sm uppercase tracking-widest shadow-2xl">
+                {active3dEmoji.nickname || 'Someone'} sent a reaction!
+             </div>
           </div>
         </div>
       )}
@@ -1342,7 +1382,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
           </div>
           <div className="grid grid-cols-4 gap-2">
             {EMOJIS_3D.map(e => (
-              <button key={e.char} onClick={() => send3dEmoji(e.char)} className="aspect-square rounded-xl bg-white/5 hover:bg-amber-500/20 hover:scale-110 flex flex-col items-center justify-center text-2xl transition-all border border-transparent hover:border-amber-500/30 group">
+              <button key={e.char} onClick={() => send3dEmoji(e)} className="aspect-square rounded-xl bg-white/5 hover:bg-amber-500/20 hover:scale-110 flex flex-col items-center justify-center text-2xl transition-all border border-transparent hover:border-amber-500/30 group">
                 <span className="group-hover:animate-bounce">{e.char}</span>
                 <span className="text-[8px] text-white/30 group-hover:text-amber-500/80 mt-1 uppercase font-bold">{e.label || 'Send'}</span>
               </button>

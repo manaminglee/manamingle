@@ -226,6 +226,14 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
     socket.on('waiting-for-partner', onWaiting);
     socket.on('system-announcement', onSystemMsg);
     socket.on('3d-emoji', on3dEmoji);
+    socket.on('content-flagged', (data) => {
+      setMessages(m => [...m, { id: Date.now(), system: true, text: `🛡️ ${data.message}`, ts: Date.now() }]);
+    });
+    socket.on('disconnect', (reason) => {
+      if (reason === 'io server disconnect' || reason === 'transport close' || reason === 'ping timeout') {
+        setMessages(m => [...m, { id: Date.now(), system: true, text: '⚠️ Connection lost. Searching for new partner...', ts: Date.now() }]);
+      }
+    });
 
     // Auto-emit find-partner on mount if we're in searching state
     if (socket && status === 'searching' && !roomIdRef.current) {
@@ -241,6 +249,9 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
       socket.off('waiting-for-partner', onWaiting);
       socket.off('system-announcement', onSystemMsg);
       socket.off('3d-emoji', on3dEmoji);
+      socket.off('content-flagged');
+      socket.off('error');
+      socket.off('disconnect');
     };
   }, [socket, onJoined]);
 
@@ -758,8 +769,8 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
             )}
 
             {/* Input + Send row - thumb reach on mobile */}
-            <div className="flex-1 min-w-0 flex flex-col gap-2 sm:gap-0 sm:flex-row sm:items-center sm:gap-2">
-              <div className="flex flex-1 min-w-0 gap-1.5 sm:gap-2 items-center">
+            <div className="flex-1 min-w-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
+              <div className="flex flex-1 min-w-0 gap-1.5 items-center">
                 <input
                   ref={inputRef}
                   id="text-message-input"
@@ -776,7 +787,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
                   type="button"
                   onClick={sendMsg}
                   disabled={!isConnected || !input.trim()}
-                  className="btn btn-primary shrink-0 w-12 h-12 p-0 rounded-xl"
+                  className="btn btn-primary shrink-0 w-11 h-11 sm:w-12 sm:h-12 p-0 rounded-xl flex items-center justify-center hover:scale-105 active:scale-95 shadow-lg shadow-indigo-500/20"
                   title="Send"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
