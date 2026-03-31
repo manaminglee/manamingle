@@ -261,7 +261,7 @@ export default function App() {
       <GlobalParticles />
       {contentFlagged && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] px-6 py-3 rounded-xl bg-amber-500/90 text-black font-semibold text-sm shadow-xl animate-fade-in-up max-w-md text-center">
-          ⚠️ {contentFlagged}
+          ⚠️ {String(contentFlagged)}
         </div>
       )}
     </>

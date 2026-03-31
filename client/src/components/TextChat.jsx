@@ -612,7 +612,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
               </div>
               <div className="flex px-3 py-1.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-[9px] font-black text-white/40 uppercase tracking-widest gap-2 items-center">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]" />
-                {onlineCount?.toLocaleString()} Users Online
+                {(typeof onlineCount === 'object' ? onlineCount?.count : onlineCount) || 0} Users Online
               </div>
             </>
           )}

@@ -1105,7 +1105,7 @@ export function AdminDashboard({ onJoinRoom }) {
                            </span>
                         </div>
                         <div className="text-[13px] font-black uppercase italic tracking-tighter text-white/90">
-                           {h.target_name} <span className="text-white/20 not-italic font-medium mx-2">·</span> {h.details}
+                           {String(h?.target_name || '')} <span className="text-white/20 not-italic font-medium mx-2">·</span> {String(h?.details || '')}
                         </div>
                       </div>
                       <div className="text-[9px] font-black text-white/10 uppercase tracking-widest text-right">

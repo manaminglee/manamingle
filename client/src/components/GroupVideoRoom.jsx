@@ -1247,7 +1247,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
               <div className="animate-3d-emoji-pop flex flex-col items-center gap-4">
                 <img src={active3dEmoji.emoji.url} className="w-48 h-48 drop-shadow-2xl" alt="3d" />
                 <span className="px-6 py-2 rounded-full bg-black/60 border border-white/10 backdrop-blur-xl text-sm font-black uppercase tracking-widest">
-                  {active3dEmoji.nickname} sent {active3dEmoji.emoji.char}
+                  {String(active3dEmoji.nickname)} sent {String(active3dEmoji.emoji.char)}
                 </span>
               </div>
             </div>

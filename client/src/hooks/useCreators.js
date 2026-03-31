@@ -14,7 +14,7 @@ export function useCreators() {
     try {
       const storedId = window.localStorage.getItem('mm_creatorId');
       const logoutFlag = window.localStorage.getItem('mm_logout_flag');
-      
+
       let url = `${API_BASE}/api/creators/status`;
       if (storedId) {
         url += `?id=${storedId}`;
@@ -82,7 +82,7 @@ export function useCreators() {
       });
       return await res.json();
     } catch (e) {
-       return { error: 'Verification failed' };
+      return { error: 'Verification failed' };
     }
   };
 
@@ -97,7 +97,7 @@ export function useCreators() {
       if (res.ok) fetchStatus();
       return data;
     } catch (e) {
-       return { error: 'Withdrawal failed' };
+      return { error: 'Withdrawal failed' };
     }
   };
 
@@ -121,15 +121,15 @@ export function useCreators() {
     }
   };
 
-  return { 
-    creatorStatus, 
-    loading, 
-    registerCreator, 
-    verifyReferral, 
-    requestWithdrawal, 
-    fetchStatus, 
+  return {
+    creatorStatus,
+    loading,
+    registerCreator,
+    verifyReferral,
+    requestWithdrawal,
+    fetchStatus,
     login,
     checkStatus,
-    reRequestApproval 
+    reRequestApproval
   };
 }

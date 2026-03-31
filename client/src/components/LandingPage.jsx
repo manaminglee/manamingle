@@ -930,14 +930,14 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                         <div className="bg-black/40 rounded-2xl p-4 border border-white/5 flex justify-between items-center group">
                           <div>
                             <div className="text-[8px] font-black uppercase text-white/20 mb-1">Public Handle</div>
-                            <div className="text-xs font-black text-white italic uppercase">{creatorStatus.handle_name}</div>
+                            <div className="text-xs font-black text-white italic uppercase">{creatorStatus?.handle_name || ''}</div>
                           </div>
                           <span className="text-[10px] opacity-10 group-hover:opacity-40 transition-opacity">🆔</span>
                         </div>
                         <div className="bg-black/40 rounded-2xl p-4 border border-white/5 flex justify-between items-center group">
                           <div>
                             <div className="text-[8px] font-black uppercase text-white/20 mb-1">Account Password</div>
-                            <div className="text-xs font-black text-emerald-400 italic uppercase select-all">{creatorStatus.password}</div>
+                            <div className="text-xs font-black text-emerald-400 italic uppercase select-all">{creatorStatus?.password || ''}</div>
                           </div>
                           <span className="text-[10px] opacity-10 group-hover:opacity-40 transition-opacity">🔒</span>
                         </div>
@@ -1126,7 +1126,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                       <div className="text-2xl">👤</div>
                       <div>
                         <div className="text-xs text-white/20 font-black uppercase tracking-widest">Handle</div>
-                        <div className="font-black text-white text-lg italic uppercase">@{statusCheckResult.handle_name}</div>
+                        <div className="font-black text-white text-lg italic uppercase">@{statusCheckResult?.handle_name || ''}</div>
                       </div>
                     </div>
                     <div className="flex items-center justify-between pt-3 border-t border-white/5">
@@ -1139,7 +1139,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-black uppercase tracking-widest text-white/20">Platform</span>
-                      <span className="text-[10px] font-black text-white/60 uppercase">{statusCheckResult.platform}</span>
+                      <span className="text-[10px] font-black text-white/60 uppercase">{statusCheckResult?.platform || ''}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-black uppercase tracking-widest text-white/20">Applied</span>
