@@ -510,7 +510,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
         return [...prev, { socketId: remoteId, stream, nickname: nick, country: ctry, isCreator: isCr }];
       });
 
-      if (e.track.kind === 'audio') {
+      if (e.track.kind === 'audio' && !audioAnalyzersRef.current.has(remoteId)) {
         setupAudioAnalyzer(remoteId, stream);
       }
     };
@@ -678,11 +678,16 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
       if (data.isCreator) peerCreatorsRef.current.set(data.socketId, true);
       setMessages((m) => [...m, { id: `sys-${Date.now()}`, system: true, text: `${data.nickname || 'A stranger'} joined 👋` }]);
       playConnectSound();
-      // Add peer immediately so tile exists; ontrack will add stream
-      setPeers((prev) => prev.some((p) => p.socketId === data.socketId) ? prev : [...prev, { socketId: data.socketId, stream: null, nickname: data.nickname || 'Anonymous', country: data.country, isCreator: !!data.isCreator }]);
-      if (localStreamRef.current) {
+      
+      setPeers((prev) => {
+        const isKnown = prev.some((p) => p.socketId === data.socketId);
+        if (isKnown) return prev;
+        return [...prev, { socketId: data.socketId, stream: null, nickname: data.nickname || 'Anonymous', country: data.country, isCreator: !!data.isCreator }];
+      });
+
+      if (localStreamRef.current && !peerConnectionsRef.current.has(data.socketId)) {
         doOffer(data.socketId);
-      } else {
+      } else if (!peerConnectionsRef.current.has(data.socketId)) {
         pendingPeersRef.current.push(data.socketId);
       }
     };
@@ -852,6 +857,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
   const send3dEmoji = (emoji) => {
     if (balance < 5) return alert('Need 5 coins!');
     if (socket && (roomIdRef.current || roomId)) {
+      socket.emit('spend-coins', { amount: 5, reason: '3d-emoji' });
       socket.emit('send-3d-emoji', { roomId: roomIdRef.current || roomId, emoji });
       setShowEmojiPicker(false);
     }
@@ -872,10 +878,12 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
         if (video.duration > 6) {
           return alert('Video must be 5 seconds or less!');
         }
+        socket.emit('spend-coins', { amount: cost, reason: 'media-share' });
         processUpload(file);
       };
       video.src = URL.createObjectURL(file);
     } else {
+      socket.emit('spend-coins', { amount: cost, reason: 'media-share' });
       processUpload(file);
     }
     e.target.value = '';
@@ -965,7 +973,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
       });
     }, 3000);
     return () => clearInterval(interval);
-  }, [peers.length]);
+  }, [peers]);
 
   useEffect(() => () => {
     peerConnectionsRef.current.forEach((pc) => pc.close());
@@ -1176,9 +1184,23 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
       <header className="h-12 sm:h-14 flex-shrink-0 flex items-center justify-between px-4 sm:px-6 bg-[#1a1d21] border-b border-white/5 z-[80]">
         <div className="flex items-center gap-2 sm:gap-4">
           <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center font-black text-white shrink-0">M</div>
-          <span className="text-[10px] font-bold text-white/60 hidden sm:inline">{formatTimer(connectedSecs)} · {participantCount}/4</span>
+          <div className="hidden sm:flex items-center gap-2">
+            <span className="text-[10px] font-bold text-white/60">{formatTimer(connectedSecs)} · {participantCount}/4</span>
+            {myCountry && <span className="text-xs">{countryToFlag(myCountry)}</span>}
+          </div>
+          <CoinBadge balance={balance} canClaim={canClaim} onClaim={claimCoins} streak={streak} nextClaim={nextClaim} />
         </div>
-        <button onClick={copyRoomLink} aria-label="Copy meeting link" className="h-8 px-2.5 rounded-lg bg-white/5 border border-white/10 text-[9px] font-bold uppercase tracking-wider hover:bg-white/10 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500">Copy Link</button>
+        <div className="flex items-center gap-2">
+          {onFindNewPod && (
+            <button 
+              onClick={() => { onLeave(); onFindNewPod(); }} 
+              className="h-8 px-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[9px] font-bold uppercase tracking-wider hover:bg-indigo-500 hover:text-white transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              New Pod
+            </button>
+          )}
+          <button onClick={copyRoomLink} aria-label="Copy meeting link" className="h-8 px-2.5 rounded-lg bg-white/5 border border-white/10 text-[9px] font-bold uppercase tracking-wider hover:bg-white/10 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500">Invite</button>
+        </div>
       </header>
 
       {/* MAIN VIEWPORT */}
@@ -1328,7 +1350,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
 
             <div id="group-video-chat-messages" className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
               {messages.map((m, i) => (
-                <div key={m.id || i} className={`flex flex-col ${m.system ? 'items-center py-2' : m.socketId === socket.id ? 'items-end' : 'items-start'} group animate-fade-in`}>
+                <div key={m.id || `msg-${i}`} className={`flex flex-col ${m.system ? 'items-center py-2' : m.socketId === socket.id ? 'items-end' : 'items-start'} group animate-fade-in`}>
                   {m.system ? (
                     <span className="text-[9px] font-black uppercase tracking-widest text-white/10 text-center px-4">{m.text}</span>
                   ) : (
@@ -1362,6 +1384,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
                 </div>
               ))}
               <div ref={chatEndRef} />
+              {sparks.map(s => <MessageSpark key={s.id} x={s.x} y={s.y} />)}
             </div>
 
             <div className="p-4 bg-[#0c0e1a] border-t border-white/5">

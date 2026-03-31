@@ -721,7 +721,7 @@ app.post('/api/admin/unwarn', requireAdmin, (req, res) => {
   res.json({ success: true });
 });
 
-app.post('/api/admin/coins/update', requireAdmin, (req, res) => {
+app.post('/api/admin/coins/update', requireAdmin, async (req, res) => {
   const { ip, amount, set } = req.body || {};
   if (!ip) return res.status(400).json({ error: 'IP required' });
 
