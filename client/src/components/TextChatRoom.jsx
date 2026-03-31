@@ -3,23 +3,41 @@ import { countryToFlag } from '../utils/countryFlag';
 
 export function TextChatRoom({ roomId, interest, nickname, myCountry, socket, isQueuing, onLeave, onFindNewPartner, onJoined }) {
   const roomIdRef = useRef(null);
-  const rid = roomId ?? roomIdRef.current;
   const [peer, setPeer] = useState(null);
   const [messages, setMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [participantCount, setParticipantCount] = useState(1);
   const hasJoinedRef = useRef(false);
   const chatEndRef = useRef(null);
+  const inputRef = useRef(null);
 
+  // Fix #1: Keep roomIdRef synced with roomId prop
+  useEffect(() => {
+    if (roomId) roomIdRef.current = roomId;
+  }, [roomId]);
+
+  // Fix #3: Reset hasJoinedRef when roomId changes (so onJoined fires for new rooms)
+  useEffect(() => {
+    hasJoinedRef.current = false;
+  }, [roomId]);
+
+  // Auto-scroll on new messages
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Minor: Auto-focus input when peer connects
+  useEffect(() => {
+    if (peer) inputRef.current?.focus();
+  }, [peer]);
+
   const sendMessage = () => {
+    // Fix #6 + minor prevent-send-while-queuing
+    if (isQueuing) return;
+    if (!socket || !roomIdRef.current) return;
     const t = chatInput.trim();
-    const r = roomIdRef.current || roomId;
-    if (!t || !socket || !r) return;
-    socket.emit('send-message', { roomId: r, text: t });
+    if (!t) return;
+    socket.emit('send-message', { roomId: roomIdRef.current, text: t });
     setChatInput('');
   };
 
@@ -31,7 +49,7 @@ export function TextChatRoom({ roomId, interest, nickname, myCountry, socket, is
       if (r) roomIdRef.current = r;
       if (!hasJoinedRef.current) {
         hasJoinedRef.current = true;
-        onJoined(r);
+        onJoined?.(r);
       }
       setPeer(data.peer);
       setParticipantCount(2);
@@ -39,7 +57,10 @@ export function TextChatRoom({ roomId, interest, nickname, myCountry, socket, is
 
     const onChatHistory = (data) => {
       const r = roomIdRef.current || roomId;
-      if (data.roomId === r && data.messages) setMessages(data.messages);
+      if (data.roomId === r && data.messages) {
+        // Fix #7: Slice history to 80 messages for performance
+        setMessages(data.messages.slice(-80));
+      }
     };
 
     const onChatMessage = (data) => {
@@ -48,8 +69,13 @@ export function TextChatRoom({ roomId, interest, nickname, myCountry, socket, is
     };
 
     const onUserLeft = (data) => {
+      // Fix #8: Only react if it's for our current room
+      const r = roomIdRef.current || roomId;
+      if (data?.roomId && data.roomId !== r) return;
       setParticipantCount(1);
       setPeer(null);
+      // Minor: Auto-seek new partner after 1.5s instead of requiring manual skip
+      setTimeout(() => onFindNewPartner?.(), 1500);
     };
 
     socket.on('partner-found', onPartnerFound);
@@ -63,7 +89,8 @@ export function TextChatRoom({ roomId, interest, nickname, myCountry, socket, is
       socket.off('chat-message', onChatMessage);
       socket.off('user-left', onUserLeft);
     };
-  }, [socket, onJoined]);
+  // Fix #2: Added roomId and isQueuing to dependency array
+  }, [socket, onJoined, roomId, isQueuing]);
 
   const partnerLeft = participantCount < 2 && !peer && !isQueuing;
 
@@ -112,6 +139,7 @@ export function TextChatRoom({ roomId, interest, nickname, myCountry, socket, is
         <div className="px-4 py-2 bg-realm-card/50 border-b border-realm-border/50">
           <p className="text-sm text-realm-muted">
             <span className="text-realm-gold">Chatting with:</span>{' '}
+            {/* Fix #5: Nickname fallback */}
             <span className="text-white/90">{countryToFlag(peer.country) ? `${countryToFlag(peer.country)} ` : ''}{peer.nickname || 'Stranger'}</span>
           </p>
         </div>
@@ -119,39 +147,45 @@ export function TextChatRoom({ roomId, interest, nickname, myCountry, socket, is
 
       {!isQueuing && partnerLeft && (
         <div className="px-4 py-2 bg-realm-coral/20 border-b border-realm-coral/30">
-          <p className="text-sm text-realm-coral">Your partner left. Use Skip to find someone new.</p>
+          <p className="text-sm text-realm-coral">Your partner left. Finding someone new...</p>
         </div>
       )}
 
       {!isQueuing && (
-      <div className="flex-1 flex flex-col min-h-0">
-        <div className="flex-1 overflow-y-auto p-4 space-y-2 min-h-0">
-          {messages.map((m) => (
-            <div key={m.id} className="text-sm">
-              <span className="text-realm-teal font-medium">{m.nickname}:</span>{' '}
-              <span className="text-white/90">{m.text}</span>
-            </div>
-          ))}
-          <div ref={chatEndRef} />
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 overflow-y-auto p-4 space-y-2 min-h-0">
+            {messages.map((m, i) => (
+              // Fix #4: Stable key — never use undefined m.id
+              <div key={m.id ?? `${m.nickname ?? 'msg'}-${m.ts ?? i}`} className="text-sm">
+                {/* Fix #5: nickname fallback */}
+                <span className="text-realm-teal font-medium">{m.nickname || 'Stranger'}:</span>{' '}
+                <span className="text-white/90">{m.text}</span>
+              </div>
+            ))}
+            <div ref={chatEndRef} />
+          </div>
+          <div className="p-3 border-t border-realm-border flex gap-2">
+            <input
+              ref={inputRef}
+              type="text"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+              placeholder={isQueuing ? 'Searching...' : peer ? 'Say something...' : 'Waiting for partner...'}
+              disabled={isQueuing || !peer}
+              className="flex-1 px-3 py-2 rounded-lg bg-realm-card border border-realm-border text-white placeholder-realm-muted text-sm focus:border-realm-teal focus:outline-none disabled:opacity-40"
+            />
+            {/* Minor: Disable send when no peer or queuing */}
+            <button
+              type="button"
+              onClick={sendMessage}
+              disabled={!peer || isQueuing || !chatInput.trim()}
+              className="px-4 py-2 rounded-lg bg-realm-teal text-realm-void font-medium text-sm hover:bg-realm-mint transition disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Send
+            </button>
+          </div>
         </div>
-        <div className="p-3 border-t border-realm-border flex gap-2">
-          <input
-            type="text"
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-            placeholder="Say something..."
-            className="flex-1 px-3 py-2 rounded-lg bg-realm-card border border-realm-border text-white placeholder-realm-muted text-sm focus:border-realm-teal focus:outline-none"
-          />
-          <button
-            type="button"
-            onClick={sendMessage}
-            className="px-4 py-2 rounded-lg bg-realm-teal text-realm-void font-medium text-sm hover:bg-realm-mint transition"
-          >
-            Send
-          </button>
-        </div>
-      </div>
       )}
     </div>
   );
