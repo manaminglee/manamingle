@@ -92,8 +92,40 @@ export const ParticleText = ({ text = "MANA MINGLE", className = "" }) => {
       }
     }
 
+    const drawCore = () => {
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      
+      // Proximity glow
+      const dx = mouse.x - centerX;
+      const dy = mouse.y - centerY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const proximityScale = Math.max(0, 1 - dist / 300);
+      
+      const pulse = Math.sin(Date.now() / 600) * 5;
+      const radius = 35 + pulse + (proximityScale * 15);
+      
+      const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+      gradient.addColorStop(0, `rgba(6, 182, 212, ${0.4 + proximityScale * 0.4})`);
+      gradient.addColorStop(0.5, `rgba(99, 102, 241, ${0.1 + proximityScale * 0.2})`);
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius * 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Outer ring
+      ctx.strokeStyle = `rgba(6, 182, 212, ${0.1 + proximityScale * 0.3})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius + 10, 0, Math.PI * 2);
+      ctx.stroke();
+    };
+
     const animate = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawCore();
       for (let i = 0; i < particles.length; i++) {
         particles[i].draw();
         particles[i].update();
@@ -131,7 +163,7 @@ export const ParticleText = ({ text = "MANA MINGLE", className = "" }) => {
     <div className={`relative w-full h-[300px] flex items-center justify-center overflow-hidden ${className}`}>
       <canvas
         ref={canvasRef}
-        className="cursor-crosshair w-full h-full"
+        className="cursor-default w-full h-full"
       />
     </div>
   );
