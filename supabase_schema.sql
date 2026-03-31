@@ -151,7 +151,13 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='user_coins' AND column_name='streak') THEN
         ALTER TABLE user_coins ADD COLUMN streak INTEGER DEFAULT 1;
     END IF;
+
+    -- Cleanup: Remove NOT NULL constraint from any unexpected columns like 'ip_addr'
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='creators' AND column_name='ip_addr') THEN
+        ALTER TABLE creators ALTER COLUMN ip_addr DROP NOT NULL;
+    END IF;
 END $$;
+
 
 
 
