@@ -337,6 +337,47 @@ app.get('/api/settings', (req, res) => {
   res.json({ adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools });
 });
 
+// Debug: Supabase connection status (safe - no secrets exposed)
+app.get('/api/debug/status', async (req, res) => {
+  const hasUrl = !!(process.env.SUPABASE_URL || '').trim();
+  const hasServiceKey = !!(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+  const hasAnonKey = !!(process.env.SUPABASE_ANON_KEY || '').trim();
+  const keyUsed = hasServiceKey ? 'service_role' : hasAnonKey ? 'anon' : 'none';
+
+  const result = {
+    supabase_url_set: hasUrl,
+    key_type_used: keyUsed,
+    supabase_client_initialized: !!supabase,
+    storage_mode: supabase ? 'supabase' : 'local_json',
+    db_ping: null,
+    db_ping_error: null,
+    env: process.env.NODE_ENV || 'unknown',
+    uptime_seconds: Math.floor(process.uptime()),
+  };
+
+  if (supabase) {
+    try {
+      const { count, error } = await supabase
+        .from('creators')
+        .select('*', { count: 'exact', head: true });
+      if (error) {
+        result.db_ping = false;
+        result.db_ping_error = error.message;
+      } else {
+        result.db_ping = true;
+        result.creators_count = count;
+      }
+    } catch (e) {
+      result.db_ping = false;
+      result.db_ping_error = e.message;
+    }
+  } else {
+    result.local_creators_count = (localDb.creators || []).length;
+  }
+
+  res.json(result);
+});
+
 // --- CREATOR MATRIX HUB (High Priority) ---
 app.post('/api/creators/register', async (req, res) => {
   const { handle, platform, link } = req.body || {};
