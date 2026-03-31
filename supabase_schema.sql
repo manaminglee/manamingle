@@ -75,10 +75,25 @@ ALTER TABLE user_coins ENABLE ROW LEVEL SECURITY;
 ALTER TABLE creator_logins ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admin_history ENABLE ROW LEVEL SECURITY;
 
--- Policy: Allow service role to perform all actions
-CREATE POLICY "Allow service role access" ON creators FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow service role access" ON referral_logs FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow service role access" ON withdrawals FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow service role access" ON user_coins FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow service role access" ON creator_logins FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow service role access" ON admin_history FOR ALL USING (true) WITH CHECK (true);
+-- Drop existing policies if they exist (safe to re-run)
+DROP POLICY IF EXISTS "Allow full access" ON creators;
+DROP POLICY IF EXISTS "Allow full access" ON referral_logs;
+DROP POLICY IF EXISTS "Allow full access" ON withdrawals;
+DROP POLICY IF EXISTS "Allow full access" ON user_coins;
+DROP POLICY IF EXISTS "Allow full access" ON creator_logins;
+DROP POLICY IF EXISTS "Allow full access" ON admin_history;
+DROP POLICY IF EXISTS "Allow service role access" ON creators;
+DROP POLICY IF EXISTS "Allow service role access" ON referral_logs;
+DROP POLICY IF EXISTS "Allow service role access" ON withdrawals;
+DROP POLICY IF EXISTS "Allow service role access" ON user_coins;
+DROP POLICY IF EXISTS "Allow service role access" ON creator_logins;
+DROP POLICY IF EXISTS "Allow service role access" ON admin_history;
+
+-- Policy: Allow ALL operations (server uses service_role key which bypasses RLS anyway)
+-- These permissive policies are a safety net for anon key fallback
+CREATE POLICY "Allow full access" ON creators FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Allow full access" ON referral_logs FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Allow full access" ON withdrawals FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Allow full access" ON user_coins FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Allow full access" ON creator_logins FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Allow full access" ON admin_history FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);

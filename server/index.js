@@ -19,34 +19,47 @@ const { createClient } = require('@supabase/supabase-js');
 
 // Persistence Strategy: Supabase (Cloud) or Local JSON (Node)
 const supabaseUrl = (process.env.SUPABASE_URL || '').trim();
-const supabaseKey = (process.env.SUPABASE_ANON_KEY || '').trim();
+// Use service role key to bypass RLS for server-side admin operations.
+// Falls back to anon key if service role not provided.
+const supabaseKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '').trim();
 let supabase = null;
 
 // Local DB State (Fallback)
-const LOCAL_DB_PATH = path.join(__dirname, 'data', 'matrix_hub.json');
-let localDb = { creators: [], referral_logs: [], withdrawals: [] };
+const LOCAL_DB_PATH = path.join(__dirname, 'data', 'manadb.json');
+let localDb = { creators: [], referral_logs: [], withdrawals: [], admin_history: [] };
 
 function loadLocalDb() {
   try {
     if (!fs.existsSync(path.dirname(LOCAL_DB_PATH))) fs.mkdirSync(path.dirname(LOCAL_DB_PATH), { recursive: true });
     if (fs.existsSync(LOCAL_DB_PATH)) {
-      localDb = JSON.parse(fs.readFileSync(LOCAL_DB_PATH, 'utf8'));
-      console.log('[MATRIX] Local Node Storage Synchronized.');
+      const parsed = JSON.parse(fs.readFileSync(LOCAL_DB_PATH, 'utf8'));
+      localDb = { creators: [], referral_logs: [], withdrawals: [], admin_history: [], ...parsed };
+      console.log('[DB] Local storage loaded.');
     }
-  } catch (e) { console.error('[MATRIX] Local DB Load Failed', e); }
+  } catch (e) { console.error('[DB] Local DB load failed', e); }
 }
 
 function saveLocalDb() {
   try {
     fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify(localDb, null, 2));
-  } catch (e) { console.error('[MATRIX] Local DB Sync Failed', e); }
+  } catch (e) { console.error('[DB] Local DB save failed', e); }
 }
 
 if (supabaseUrl && supabaseKey && supabaseUrl.startsWith('http')) {
   supabase = createClient(supabaseUrl, supabaseKey);
-  console.log('[MATRIX] Supabase Uplink Initialized.');
+  console.log('[DB] Supabase connected.');
+  // Verify connection asynchronously
+  supabase.from('creators').select('count', { count: 'exact', head: true })
+    .then(({ error }) => {
+      if (error) {
+        console.error('[DB] Supabase connection test FAILED:', error.message);
+        console.warn('[DB] Check SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in your .env / Render environment variables.');
+      } else {
+        console.log('[DB] Supabase connection verified OK.');
+      }
+    });
 } else {
-  console.warn('[MATRIX] SUPABASE_URL missing or invalid. Engaging Local Node Storage.');
+  console.warn('[DB] Supabase not configured. Using local JSON storage (data resets on restart).');
   loadLocalDb();
 }
 
