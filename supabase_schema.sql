@@ -57,17 +57,23 @@ CREATE TABLE IF NOT EXISTS creator_logins (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Enable Row Level Security (RLS)
--- For MVP, you might want to allow service_role access only, 
--- or specific policies if using the Anon key from the client.
--- In this app's architecture, the server handles Sugabase access, 
--- so standard RLS applies primarily to the Server's IP or Service Role.
+-- 6. Admin History Table (Auditability & Records)
+CREATE TABLE IF NOT EXISTS admin_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  action_type TEXT NOT NULL,
+  target_id TEXT,
+  target_name TEXT,
+  details TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
+-- Enable Row Level Security (RLS)
 ALTER TABLE creators ENABLE ROW LEVEL SECURITY;
 ALTER TABLE referral_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE withdrawals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_coins ENABLE ROW LEVEL SECURITY;
 ALTER TABLE creator_logins ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_history ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Allow service role to perform all actions
 CREATE POLICY "Allow service role access" ON creators FOR ALL USING (true) WITH CHECK (true);
@@ -75,3 +81,4 @@ CREATE POLICY "Allow service role access" ON referral_logs FOR ALL USING (true) 
 CREATE POLICY "Allow service role access" ON withdrawals FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow service role access" ON user_coins FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow service role access" ON creator_logins FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow service role access" ON admin_history FOR ALL USING (true) WITH CHECK (true);

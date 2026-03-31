@@ -226,25 +226,25 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
       )}
 
       {/* HEADER */}
-      <header className="fixed top-0 left-0 right-0 z-[150] h-20 px-8 flex items-center justify-between bg-black/20 backdrop-blur-3xl border-b border-white/5">
-        <div className="flex items-center gap-4">
-          <img src="/apple-touch-icon.png" alt="Logo" className="w-10 h-10 object-contain drop-shadow-[0_0_10px_#06b6d4]" />
+      <header className="fixed top-0 left-0 right-0 z-[150] h-16 sm:h-20 px-4 sm:px-8 flex items-center justify-between bg-black/20 backdrop-blur-3xl border-b border-white/5">
+        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+          <img src="/apple-touch-icon.png" alt="Logo" className="w-8 h-8 sm:w-10 sm:h-10 object-contain drop-shadow-[0_0_10px_#06b6d4]" />
           <div className="flex flex-col">
-            <h1 className="text-sm font-black uppercase tracking-[0.4em]">Mana Mingle</h1>
-            <span className="text-[7px] font-black uppercase tracking-[0.2em] text-cyan-400/40">by WeConnect</span>
+            <h1 className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] sm:tracking-[0.4em] whitespace-nowrap">Mana Mingle</h1>
+            <span className="hidden sm:block text-[7px] font-black uppercase tracking-[0.2em] text-cyan-400/40">by WeConnect</span>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1.5 sm:gap-4 overflow-hidden">
           {connected && balance !== undefined && (
             <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} />
           )}
-          <div className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black text-white/40 uppercase tracking-widest flex items-center gap-1.5">
+          <div className="px-2 sm:px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[8px] sm:text-[10px] font-black text-white/40 uppercase tracking-widest flex items-center gap-1 shrink-0">
             {country && <span className="opacity-100 grayscale hover:grayscale-0 transition-all cursor-help" title={`Localized to ${country}`}>{countryToFlag(country)}</span>}
             <span>{(onlineCount ?? 0)} Live</span>
           </div>
           {creatorStatus && (
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:flex items-center px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[9px] font-black text-white/40 uppercase tracking-tighter italic">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <div className="hidden md:flex items-center px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[9px] font-black text-white/40 uppercase tracking-tighter italic">
                 @{creatorStatus.handle_name}
                 {creatorStatus.status === 'approved' && <BlueTick />}
               </div>
@@ -254,7 +254,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                   window.localStorage.removeItem('mm_creatorId');
                   window.location.reload();
                 }}
-                className="p-2 bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg text-[8px] font-black uppercase tracking-widest transition-all"
+                className="px-2 py-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg text-[8px] font-black uppercase tracking-widest transition-all"
                 title="Logout Session"
               >Logout</button>
             </div>

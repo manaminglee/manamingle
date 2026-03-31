@@ -3,13 +3,13 @@
  */
 import { useEffect, useState, useRef } from 'react';
 
-const FALLBACK_MS = 3500;
-const SKIP_AFTER_MS = 3000;
+const FALLBACK_MS = 2000;
+const SKIP_AFTER_MS = 1500;
 
 const PRELOAD_MESSAGES = [
-  'Connecting to servers',
-  'Preparing video engine',
-  'Loading chat modules',
+  'Connecting to Secure Network',
+  'Optimizing Video Hub',
+  'Syncing Platform Components...',
   'Initializing...',
   'Almost ready...',
 ];
@@ -21,6 +21,7 @@ export function PreloadSplash({ onReady, ready = false, onPreload }) {
   const [fading, setFading] = useState(false);
   const [messageIndex, setMessageIndex] = useState(0);
   const [showSkip, setShowSkip] = useState(false);
+  const [elapsed, setElapsed] = useState(0); // Added missing state
   const doneRef = useRef(false);
   const skipShownRef = useRef(false);
 
@@ -34,7 +35,7 @@ export function PreloadSplash({ onReady, ready = false, onPreload }) {
     onPreload?.();
   }, [onPreload]);
 
-  // Show skip button after 3 seconds
+  // Show skip button after 1.5 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       setElapsed((e) => {
@@ -53,7 +54,7 @@ export function PreloadSplash({ onReady, ready = false, onPreload }) {
   useEffect(() => {
     const interval = setInterval(() => {
       setMessageIndex((i) => (i + 1) % PRELOAD_MESSAGES.length);
-    }, 800);
+    }, 600);
     return () => clearInterval(interval);
   }, []);
 
@@ -66,7 +67,7 @@ export function PreloadSplash({ onReady, ready = false, onPreload }) {
     return () => clearTimeout(t);
   }, []);
 
-  // Progress curve: 0–70% fast, 70–90% slow, 90–100% instant
+  // Progress curve: Turbo mode when ready
   useEffect(() => {
     if (!ready) return;
     const interval = setInterval(() => {
@@ -75,11 +76,11 @@ export function PreloadSplash({ onReady, ready = false, onPreload }) {
           clearInterval(interval);
           return 100;
         }
-        if (p < 70) return Math.min(70, p + 12);
-        if (p < 90) return Math.min(90, p + 3);
-        return Math.min(100, p + 1);
+        if (p < 70) return Math.min(70, p + 25);
+        if (p < 90) return Math.min(90, p + 15);
+        return Math.min(100, p + 10);
       });
-    }, 50);
+    }, 40);
     return () => clearInterval(interval);
   }, [ready]);
 

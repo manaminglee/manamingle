@@ -373,12 +373,12 @@ app.post('/api/creators/login', async (req, res) => {
       creator = localDb.creators.find(c => c.handle_name === handle && c.password === password);
     }
     if (!creator) {
-      if (supabase) await supabase.from('creator_logins').insert({ handle, ip: currentIp, success: false, reason: 'neural_mismatch' });
-      return res.status(401).json({ error: 'Neural Key Mismatch' });
+      if (supabase) await supabase.from('creator_logins').insert({ handle, ip: currentIp, success: false, reason: 'invalid_credentials' });
+      return res.status(401).json({ error: 'Invalid Credentials' });
     }
     if (creator.status !== 'approved') {
-      if (supabase) await supabase.from('creator_logins').insert({ handle, creator_id: creator.id, ip: currentIp, success: false, reason: 'pending_appraisal' });
-      return res.status(403).json({ error: 'Node Pending Appraisal' });
+      if (supabase) await supabase.from('creator_logins').insert({ handle, creator_id: creator.id, ip: currentIp, success: false, reason: 'pending_review' });
+      return res.status(403).json({ error: 'Application Pending Review' });
     }
 
     // Link current IP if not already linked
@@ -447,6 +447,19 @@ app.get('/api/admin/creators', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Admin query failed' }); }
 });
 
+app.get('/api/admin/history', requireAdmin, async (req, res) => {
+  try {
+    let history = [];
+    if (supabase) {
+      const { data } = await supabase.from('admin_history').select('*').order('created_at', { ascending: false }).limit(100);
+      history = data || [];
+    } else {
+      history = [...(localDb.admin_history || [])].reverse().slice(0, 100);
+    }
+    res.json({ success: true, history });
+  } catch (e) { res.status(500).json({ error: 'History query failed' }); }
+});
+
 app.post('/api/admin/creators/approve', requireAdmin, async (req, res) => {
   const { creatorId, status } = req.body || {};
   try {
@@ -467,8 +480,22 @@ app.post('/api/admin/creators/approve', requireAdmin, async (req, res) => {
 
     if (supabase) {
       await supabase.from('creators').update(updates).eq('id', creatorId);
+      await supabase.from('admin_history').insert({
+        action_type: 'CREATOR_APPROVE',
+        target_id: creatorId,
+        target_name: creator.handle_name,
+        details: `Status set to ${status}`
+      });
     } else {
       Object.assign(creator, updates);
+      localDb.admin_history.push({
+        id: Date.now().toString(),
+        action_type: 'CREATOR_APPROVE',
+        target_id: creatorId,
+        target_name: creator.handle_name,
+        details: `Status set to ${status}`,
+        created_at: new Date().toISOString()
+      });
       saveLocalDb();
     }
     res.json({ success: true, password: updates.password });
@@ -913,7 +940,7 @@ app.get('/api/user/coins', async (req, res) => {
       nextClaim: Math.max(0, nextClaim - now)
     });
   } catch (e) {
-    res.status(500).json({ error: 'Matrix sync delayed' });
+    res.status(500).json({ error: 'Platform sync delayed' });
   }
 });
 
@@ -1113,7 +1140,7 @@ app.post('/api/ai/translate', async (req, res) => {
 
 // API 404 Fallback
 app.all('/api/*', (req, res) => {
-  res.status(404).json({ error: 'Matrix endpoint not found' });
+  res.status(404).json({ error: 'API endpoint not found' });
 });
 
 // Serve React build when client/dist exists (single-host deploy). Else API-only (Vercel frontend).

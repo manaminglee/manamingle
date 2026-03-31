@@ -18,6 +18,7 @@ export function AdminDashboard({ onJoinRoom }) {
   const [activeTab, setActiveTab] = useState('overview'); // overview, users, creators, room-monitoring, economy, security, ads, logic
   const [creators, setCreators] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
+  const [history, setHistory] = useState([]);
   const [toast, setToast] = useState(null);
   const [adForm, setAdForm] = useState({ hero: '', sidebar: '', footer: '' });
 
@@ -52,6 +53,18 @@ export function AdminDashboard({ onJoinRoom }) {
         const data = await res.json();
         setCreators(data.creators || []);
         setWithdrawals(data.withdrawals || []);
+      }
+    } catch (e) { }
+  };
+
+  const fetchHistory = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/history`, {
+        headers: { 'x-admin-key': key },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setHistory(data.history || []);
       }
     } catch (e) { }
   };
@@ -206,7 +219,7 @@ export function AdminDashboard({ onJoinRoom }) {
       });
       if (res.ok) {
         const data = await res.json();
-        setToast(`💥 System Flush: ${data.kicked} users disconnected.`);
+        setToast(`💥 System Restart: ${data.kicked} users disconnected.`);
         setIsKillswitchConfirm(false);
         fetchStats(key);
       }
@@ -220,7 +233,7 @@ export function AdminDashboard({ onJoinRoom }) {
       const data = await res.json();
       if (data.error) return alert('IP lookup failed');
       alert(`User Detail: ${data.city}, ${data.region_code}, ${data.country_name} · ISP: ${data.org}`);
-    } catch (e) { alert('Lookup terminal failed'); }
+    } catch (e) { alert('Lookup service failed'); }
   };
 
   const handleExportCSV = (data, filename) => {
@@ -262,6 +275,7 @@ export function AdminDashboard({ onJoinRoom }) {
       const interval = setInterval(() => {
         fetchStats(key);
         if (activeTab === 'creators') fetchCreators();
+        if (activeTab === 'history') fetchHistory();
       }, 5000);
       return () => clearInterval(interval);
     }
@@ -370,6 +384,7 @@ export function AdminDashboard({ onJoinRoom }) {
               { id: 'security', label: 'Security & Moderation', icon: '🛡️' },
               { id: 'ads', label: 'Ads Manager', icon: '💰' },
               { id: 'logic', label: 'System Settings', icon: '⚙️' },
+              { id: 'history', label: 'Admin History', icon: '📜' },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -923,7 +938,7 @@ export function AdminDashboard({ onJoinRoom }) {
                   { field: 'adsEnabled', label: 'Ads Manager', desc: 'Manage advertisement visibility', active: stats?.adsEnabled },
                   { field: 'allowDevTools', label: 'Developer Tools', desc: 'Allow browser console access', active: stats?.allowDevTools },
                   { field: 'maintenanceMode', label: 'Maintenance Mode', desc: 'Disable platform access for maintenance', active: stats?.maintenanceMode, color: 'bg-rose-500' },
-                  { field: 'safetyAiEnabled', label: 'Safety AI Monitor', desc: 'LLM behavioural filtering', active: stats?.safetyAiEnabled, color: 'bg-cyan-500' },
+                  { field: 'safetyAiEnabled', label: 'Safety System Monitor', desc: 'Behavioural filtering systems', active: stats?.safetyAiEnabled, color: 'bg-cyan-500' },
                   { field: 'coinsEnabled', label: 'Coin Management', desc: 'Authorize coin circulation', active: stats?.coinsEnabled !== false },
                   { field: 'guestRegistration', label: 'Guest Access', desc: 'Allow anonymous user mapping', active: stats?.guestRegistration !== false },
                 ].map(f => (
@@ -944,6 +959,46 @@ export function AdminDashboard({ onJoinRoom }) {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'history' && (
+            <div className="space-y-10 animate-fade-in px-4">
+              <div className="p-10 rounded-[50px] bg-white/[0.02] border border-white/5 shadow-2xl">
+                <div className="flex justify-between items-center mb-8">
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400">Admin Action History</h3>
+                  <button onClick={fetchHistory} className="text-[10px] font-black text-white/30 hover:text-white uppercase tracking-widest transition-colors">Refresh Records 🔄</button>
+                </div>
+                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
+                  {history.map((h, i) => (
+                    <div key={h.id || i} className="p-6 rounded-3xl bg-black border border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4 group hover:border-cyan-500/20 transition-all shadow-inner relative overflow-hidden">
+                      <div className="absolute top-0 left-0 w-1 h-full bg-cyan-500/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                           <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${h.action_type === 'CREATOR_APPROVE' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/5 text-white/40'}`}>
+                             {h.action_type}
+                           </span>
+                           <span className="text-[9px] text-white/20 font-black uppercase tracking-tighter">
+                             {new Date(h.created_at).toLocaleString()}
+                           </span>
+                        </div>
+                        <div className="text-[13px] font-black uppercase italic tracking-tighter text-white/90">
+                           {h.target_name} <span className="text-white/20 not-italic font-medium mx-2">·</span> {h.details}
+                        </div>
+                      </div>
+                      <div className="text-[9px] font-black text-white/10 uppercase tracking-widest text-right">
+                        ID: {h.target_id || 'SYSTEM'}
+                      </div>
+                    </div>
+                  ))}
+                  {history.length === 0 && (
+                    <div className="py-24 text-center opacity-10 flex flex-col items-center select-none">
+                      <div className="text-5xl mb-6">📜</div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.4em]">No activity records found</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

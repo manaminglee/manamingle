@@ -407,7 +407,15 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
         setLocalStreamReady(true);
       }
     })();
-    return () => { if (s) s.getTracks().forEach((t) => t.stop()); };
+    return () => { 
+      if (s) {
+        s.getTracks().forEach((t) => {
+          t.stop();
+          t.enabled = false;
+        });
+      }
+      localStreamRef.current = null;
+    };
   }, []);
 
   // Sync local stream to video element when ref mounts (handles race)

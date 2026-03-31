@@ -1,15 +1,23 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { LandingPage } from './components/LandingPage';
-import { TextChat } from './components/TextChat';
-import { GroupVideoRoom } from './components/GroupVideoRoom';
-import { GroupTextRoom } from './components/GroupTextRoom';
-import { VideoChat } from './components/VideoChat';
-import AdminDashboard from './components/AdminDashboard';
 import { PreloadSplash } from './components/PreloadSplash';
 import { AgeVerificationGate } from './components/AgeVerificationGate';
 import { useSocket } from './hooks/useSocket';
 import { useCoins } from './hooks/useCoins';
 import { GlobalParticles } from './components/GlobalParticles';
+
+// Lazy load off-screen and secondary modules for extreme performance
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
+const TextChat = lazy(() => import('./components/TextChat'));
+const GroupVideoRoom = lazy(() => import('./components/GroupVideoRoom'));
+const GroupTextRoom = lazy(() => import('./components/GroupTextRoom'));
+const VideoChat = lazy(() => import('./components/VideoChat'));
+
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center min-h-[50vh] w-full">
+    <div className="w-12 h-12 border-4 border-cyan-500/10 border-t-cyan-500 rounded-full animate-spin shadow-[0_0_20px_#06b6d420]" />
+  </div>
+);
 
 const STATES = { LANDING: 'landing', CHAT: 'chat', ADMIN: 'admin' };
 const MODES = { TEXT: 'text', VIDEO: 'video', GROUP_TEXT: 'group_text', GROUP_VIDEO: 'group_video' };
@@ -247,7 +255,9 @@ export default function App() {
       {!preloadDone && (
         <PreloadSplash ready={connected} onReady={handlePreloadReady} />
       )}
-      {renderContent()}
+      <Suspense fallback={<LoadingFallback />}>
+        {renderContent()}
+      </Suspense>
       <GlobalParticles />
       {contentFlagged && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] px-6 py-3 rounded-xl bg-amber-500/90 text-black font-semibold text-sm shadow-xl animate-fade-in-up max-w-md text-center">

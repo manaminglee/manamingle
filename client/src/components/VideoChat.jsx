@@ -171,7 +171,7 @@ function VanishingMessage({ m, isMe }) {
   );
 }
 
-function SafetyShield({ active = false, label = "NEURAL SCAN" }) {
+function SafetyShield({ active = false, label = "SAFETY SCAN" }) {
   if (!active) return null;
   return (
     <div className="absolute inset-0 z-20 pointer-events-none flex flex-col items-center justify-center bg-black/20 backdrop-blur-sm">
@@ -530,6 +530,11 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   }, [socket, interest, status, onFindNewPartner, clearRoom]);
 
   const handleStop = useCallback(() => {
+    if (localStreamRef.current) {
+       localStreamRef.current.getTracks().forEach(t => t.stop());
+       localStreamRef.current = null;
+       setLocalStream(null);
+    }
     if (roomIdRef.current && socket) socket.emit('leave-room', { roomId: roomIdRef.current });
     socket?.emit('cancel-find-partner');
     clearRoom();
@@ -542,7 +547,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
   const handleReport = () => {
     if (!isConnected) return;
-    setToast('🚩 User reported. Our safety AI is now performing a deep scan.');
+    setToast('🚩 User reported. Our safety system is now performing a deep scan.');
     // In a real app, this would emit a 'report-user' event to the server
     if (socket && roomIdRef.current) {
       socket.emit('report-user', { roomId: roomIdRef.current, reason: 'unspecified' });

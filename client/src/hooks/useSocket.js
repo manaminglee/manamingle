@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || '';
 
@@ -17,8 +17,10 @@ export function useSocket() {
 
   useEffect(() => {
     let s = null;
+    let mounted = true;
     (async () => {
       const { io } = await import('socket.io-client');
+      if (!mounted) return;
       s = io(SOCKET_URL || window.location.origin, {
         path: '/socket.io',
         transports: ['websocket', 'polling'],
@@ -30,7 +32,6 @@ export function useSocket() {
         timeout: 20000
       });
 
-      // Set socket immediately so components can use it even before 'connect' event
       setSocket(s);
 
       s.on('connect', () => { setConnected(true); setIsBlocked(false); });
@@ -61,47 +62,39 @@ export function useSocket() {
       });
     })();
     return () => {
-      // We no longer disconnect on unmount to keep socket alive throughout the session
-      // if (s) s.disconnect(); 
-      // setSocket(null);
+      mounted = false;
     };
   }, []);
 
-  // Initial fetch for settings so UI knows flags before any socket events
   const apiBase = SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+  
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    const fetchInitData = async () => {
       try {
-        const res = await fetch(`${apiBase}/api/settings`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!cancelled && typeof data.adsEnabled !== 'undefined') {
-          setAdsEnabled(!!data.adsEnabled);
+        const [settingsRes, coinsRes] = await Promise.all([
+          fetch(`${apiBase}/api/settings`),
+          fetch(`${apiBase}/api/user/coins`)
+        ]);
+        
+        if (!cancelled && settingsRes.ok) {
+          const data = await settingsRes.json();
+          if (typeof data.adsEnabled !== 'undefined') setAdsEnabled(!!data.adsEnabled);
+          if (typeof data.allowDevTools !== 'undefined') setAllowDevTools(!!data.allowDevTools);
         }
-        if (!cancelled && typeof data.allowDevTools !== 'undefined') {
-          setAllowDevTools(!!data.allowDevTools);
-        }
-      } catch {
-        // ignore network errors; socket event will eventually update
-      }
-    })();
-    (async () => {
-      try {
-        const res = await fetch(`${apiBase}/api/user/coins`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!cancelled && typeof data?.coins !== 'undefined') {
-          setCoins(data.coins);
+        
+        if (!cancelled && coinsRes.ok) {
+          const data = await coinsRes.json();
+          if (typeof data?.coins !== 'undefined') setCoins(data.coins);
         }
       } catch { }
-    })();
-    return () => {
-      cancelled = true;
     };
+    
+    fetchInitData();
+    return () => { cancelled = true; };
   }, [apiBase]);
 
-  return {
+  return useMemo(() => ({
     socket,
     connected,
     country,
@@ -113,5 +106,5 @@ export function useSocket() {
     isBlocked,
     contentFlagged,
     coins
-  };
+  }), [socket, connected, country, onlineCount, adsEnabled, allowDevTools, nickname, isCreator, isBlocked, contentFlagged, coins]);
 }
