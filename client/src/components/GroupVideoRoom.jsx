@@ -8,16 +8,37 @@ import { useIceServers } from '../hooks/useIceServers';
 import { CoinBadge } from './CoinBadge';
 import { playConnectSound, playMessageSound, playDisconnectSound, playWaveSound } from '../utils/sounds';
 
-const GROUP_MAX = 4;
-const ICEBREAKERS = [
-  "What's something you've learned recently? 📚",
-  "What would you do on a perfect day off? 🌟",
-  "A song you can't stop listening to right now?",
-  "If you could swap lives with anyone for a day, who? 🔄",
-  "What's your hidden talent? 🎯",
-  "What's the last thing you bought that you love? 🛒",
-  "What's a show everyone should watch? 📺",
-];
+const BlueTick = () => (
+  <span className="inline-flex items-center justify-center w-3 h-3 bg-cyan-500 rounded-full ml-1.5 shadow-[0_0_10px_#06b6d4]">
+    <svg className="w-2 h-2 text-black" fill="currentColor" viewBox="0 0 20 20">
+      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+    </svg>
+  </span>
+);
+
+function MessageSpark({ x, y }) {
+  const [active, setActive] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setActive(false), 800);
+    return () => clearTimeout(t);
+  }, []);
+  if (!active) return null;
+  return (
+    <div className="fixed pointer-events-none z-[3000]" style={{ left: x, top: y }}>
+      {[...Array(6)].map((_, i) => (
+        <div
+          key={i}
+          className="absolute w-1 h-1 bg-cyan-400 rounded-full animate-spark"
+          style={{
+            '--tx': `${(Math.random() - 0.5) * 60}px`,
+            '--ty': `${(Math.random() - 0.5) * 60}px`,
+            animationDelay: `${i * 50}ms`
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 function VideoTile({ stream, label, flag, isMe, isEmpty, isSearching, isCreator = false }) {
   const ref = useRef(null);
@@ -59,11 +80,11 @@ function VideoTile({ stream, label, flag, isMe, isEmpty, isSearching, isCreator 
           <div className="search-dots"><span /><span /><span /></div>
         </div>
       )}
-      <div className={`tile-label ${isCreator ? 'border border-cyan-500/30 bg-cyan-950/40 text-cyan-400' : ''}`}>
-        {isCreator && <span className="mr-1">⭐</span>}
-        {flag && <span>{flag}</span>}
-        <span>{label}</span>
-        {isMe && <span className="text-xs opacity-50 ml-1">(you)</span>}
+      <div className={`tile-label ${isCreator ? 'border border-cyan-500/30 bg-cyan-950/40 text-cyan-400 font-black tracking-widest' : ''}`}>
+        {flag && <span className="mr-1">{flag}</span>}
+        <span>{isCreator ? `@${label}` : label}</span>
+        {isCreator && <BlueTick />}
+        {isMe && !isCreator && <span className="text-xs opacity-50 ml-1">(you)</span>}
       </div>
       {!isMe && stream && (
         <div className="absolute top-2 right-2 live-dot" style={{ width: 8, height: 8 }} />
@@ -92,6 +113,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
   const [peers, setPeers] = useState([]);
   const [participantCount, setParticipantCount] = useState(1);
   const [messages, setMessages] = useState([]);
+  const [sparks, setSparks] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
@@ -601,6 +623,12 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
     const onMsg = (data) => {
       if (data.roomId === (roomIdRef.current || roomId)) {
         setMessages((m) => [...m.slice(-100), data]);
+        // Trigger spark
+        const el = document.getElementById('group-video-chat-messages');
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          setSparks(prev => [...prev.slice(-20), { id: Date.now(), x: rect.left + rect.width / 2, y: rect.bottom - 100 }]);
+        }
         if (data.socketId !== socket.id) playMessageSound();
       }
     };

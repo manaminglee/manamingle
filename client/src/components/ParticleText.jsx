@@ -13,13 +13,14 @@ export const ParticleText = ({ text = "MANA MINGLE", className = "" }) => {
     const mouse = { x: 0, y: 0, radius: 150 };
 
     const init = () => {
+      const isMobile = window.innerWidth < 768;
       canvas.width = window.innerWidth;
       canvas.height = 300;
       particles = [];
 
       // Draw text to get pixel data
       ctx.fillStyle = 'white';
-      ctx.font = '900 70px sans-serif';
+      ctx.font = `900 ${isMobile ? '40px' : '70px'} sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(text, canvas.width / 2, canvas.height / 2);
@@ -27,12 +28,11 @@ export const ParticleText = ({ text = "MANA MINGLE", className = "" }) => {
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      for (let y = 0, y2 = imageData.height; y < y2; y += 3) {
-        for (let x = 0, x2 = imageData.width; x < x2; x += 3) {
+      const step = isMobile ? 6 : 3; // Lower density for mobile performance
+      for (let y = 0; y < imageData.height; y += step) {
+        for (let x = 0; x < imageData.width; x += step) {
           if (imageData.data[(y * 4 * imageData.width) + (x * 4) + 3] > 128) {
-            let positionX = x;
-            let positionY = y;
-            particles.push(new Particle(positionX, positionY));
+            particles.push(new Particle(x, y));
           }
         }
       }
@@ -63,14 +63,14 @@ export const ParticleText = ({ text = "MANA MINGLE", className = "" }) => {
         let dx = mouse.x - this.x;
         let dy = mouse.y - this.y;
         let distance = Math.sqrt(dx * dx + dy * dy);
-        let forceDirectionX = dx / distance;
-        let forceDirectionY = dy / distance;
-        let maxDistance = mouse.radius;
-        let force = (maxDistance - distance) / maxDistance;
-        let directionX = forceDirectionX * force * this.density;
-        let directionY = forceDirectionY * force * this.density;
-
+        
         if (distance < mouse.radius) {
+          let forceDirectionX = dx / distance;
+          let forceDirectionY = dy / distance;
+          let maxDistance = mouse.radius;
+          let force = (maxDistance - distance) / maxDistance;
+          let directionX = forceDirectionX * force * this.density;
+          let directionY = forceDirectionY * force * this.density;
           this.x -= directionX;
           this.y -= directionY;
           this.color = 'white';
@@ -100,7 +100,7 @@ export const ParticleText = ({ text = "MANA MINGLE", className = "" }) => {
       const dx = mouse.x - centerX;
       const dy = mouse.y - centerY;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      const proximityScale = Math.max(0, 1 - dist / 300);
+      const proximityScale = Math.max(0, 1 - dist / (mouse.x < 0 ? 1 : 300));
       
       const pulse = Math.sin(Date.now() / 600) * 5;
       const radius = 35 + pulse + (proximityScale * 15);
@@ -139,12 +139,23 @@ export const ParticleText = ({ text = "MANA MINGLE", className = "" }) => {
       mouse.y = event.clientY - rect.top;
     };
 
+    const handleTouch = (event) => {
+      if (event.touches.length > 0) {
+        const rect = canvas.getBoundingClientRect();
+        mouse.x = event.touches[0].clientX - rect.left;
+        mouse.y = event.touches[0].clientY - rect.top;
+      }
+    };
+
     const handleMouseLeave = () => {
       mouse.x = -1000;
       mouse.y = -1000;
     };
 
     window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('touchstart', handleTouch, { passive: true });
+    window.addEventListener('touchmove', handleTouch, { passive: true });
+    window.addEventListener('touchend', handleMouseLeave);
     canvas.addEventListener('mouseleave', handleMouseLeave);
     window.addEventListener('resize', init);
 
@@ -154,6 +165,9 @@ export const ParticleText = ({ text = "MANA MINGLE", className = "" }) => {
     return () => {
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('touchstart', handleTouch);
+      window.removeEventListener('touchmove', handleTouch);
+      window.removeEventListener('touchend', handleMouseLeave);
       canvas.removeEventListener('mouseleave', handleMouseLeave);
       window.removeEventListener('resize', init);
     };
@@ -163,7 +177,7 @@ export const ParticleText = ({ text = "MANA MINGLE", className = "" }) => {
     <div className={`relative w-full h-[300px] flex items-center justify-center overflow-hidden ${className}`}>
       <canvas
         ref={canvasRef}
-        className="cursor-default w-full h-full"
+        className="cursor-default w-full h-full touch-none"
       />
     </div>
   );

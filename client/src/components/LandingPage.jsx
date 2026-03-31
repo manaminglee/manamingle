@@ -3,6 +3,7 @@ import { useSocket } from '../hooks/useSocket';
 import { useLatency } from '../hooks/useLatency';
 import { CoinBadge } from './CoinBadge';
 import { useCreators } from '../hooks/useCreators';
+import { MiniTrendChart } from './MiniTrendChart';
 import { countryToFlag } from '../utils/countryFlag';
 import { ParticleText } from './ParticleText';
 
@@ -737,10 +738,21 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                     )}
                   </div>
                 </div>
-
                 {creatorStatus.status === 'approved' && (
                   <div className="space-y-6">
-                    <div className="grid grid-cols-2 gap-4">
+                    {/* GROWTH VELOCITY ANALYTICS */}
+                    <div className="mb-8 animate-in-zoom" style={{ animationDelay: '100ms' }}>
+                  <MiniTrendChart data={[35, 42, 38, 55, 48, 65, 82]} color="#06b6d4" />
+                  <div className="flex justify-between mt-3 px-2 text-[8px] font-black uppercase text-white/10 tracking-[0.3em] italic">
+                    <span className="flex items-center gap-2">
+                       <span className="w-1 h-1 rounded-full bg-cyan-400" />
+                       Performance Trend: Last 7 Days
+                    </span>
+                    <span className="text-emerald-400/40">+64.8% Influence Delta</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                       <div className="p-6 rounded-[32px] bg-white/[0.03] border border-white/5">
                         <div className="text-[9px] font-black uppercase tracking-widest text-white/20 mb-1">Earned</div>
                         <div className="text-xl font-black italic text-emerald-400">₹{creatorStatus.earnings_rs || 0}</div>

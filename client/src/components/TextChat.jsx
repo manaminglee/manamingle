@@ -58,6 +58,38 @@ const SEARCHING_STATUSES = [
 
 const MAX_MEDIA_SIZE_MB = 5;
 
+const BlueTick = () => (
+  <span className="inline-flex items-center justify-center w-3 h-3 bg-cyan-500 rounded-full ml-1.5 shadow-[0_0_10px_#06b6d4]">
+    <svg className="w-2 h-2 text-black" fill="currentColor" viewBox="0 0 20 20">
+      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+    </svg>
+  </span>
+);
+
+function MessageSpark({ x, y }) {
+  const [active, setActive] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setActive(false), 800);
+    return () => clearTimeout(t);
+  }, []);
+  if (!active) return null;
+  return (
+    <div className="fixed pointer-events-none z-[3000]" style={{ left: x, top: y }}>
+      {[...Array(6)].map((_, i) => (
+        <div
+          key={i}
+          className="absolute w-1 h-1 bg-cyan-400 rounded-full animate-spark"
+          style={{
+            '--tx': `${(Math.random() - 0.5) * 60}px`,
+            '--ty': `${(Math.random() - 0.5) * 60}px`,
+            animationDelay: `${i * 50}ms`
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function VanishingMessage({ m, isMe, onReply }) {
   const [timeLeft, setTimeLeft] = useState(90);
 
@@ -104,9 +136,17 @@ function VanishingMessage({ m, isMe, onReply }) {
             )}
             {m.replyTo && (
               <div className="text-[10px] opacity-60 mb-1 border-l-2 border-white/20 pl-2 italic">
-                <span className="font-bold">{m.replyTo.nickname || 'Someone'}</span>: {m.replyTo.text?.slice(0, 40)}{m.replyTo.text?.length > 40 ? '...' : ''}
+                <span className="font-black">{m.replyTo.isCreator ? `@${m.replyTo.nickname}` : (m.replyTo.nickname || 'Someone')}</span>: {m.replyTo.text?.slice(0, 40)}{m.replyTo.text?.length > 40 ? '...' : ''}
               </div>
             )}
+            <div className="flex flex-col gap-0.5 mb-1">
+              <div className="flex items-center gap-1">
+                <span className={`text-[8px] font-black uppercase tracking-widest ${isMe ? 'text-cyan-400' : 'text-white/40'}`}>
+                  {m.isCreator ? `@${m.nickname}` : (isMe ? 'You' : m.nickname || 'Stranger')}
+                </span>
+                {m.isCreator && <BlueTick />}
+              </div>
+            </div>
             <div className="flex gap-2 items-end">
                 {m.media ? (
                     <div className="max-w-[180px] rounded-lg overflow-hidden border border-white/10">
@@ -128,9 +168,10 @@ function VanishingMessage({ m, isMe, onReply }) {
   );
 }
 
-export function TextChat({ socket, connected, country, onlineCount, interest = 'general', nickname = 'Anonymous', onBack, onJoined, onFindNewPartner, adsEnabled, coinState }) {
+export function TextChat({ socket, connected, country, onlineCount, interest = 'general', nickname = 'Anonymous', isCreator = false, onBack, onJoined, onFindNewPartner, adsEnabled, coinState }) {
   const { balance, streak, canClaim, nextClaim, claimCoins } = coinState;
   const [messages, setMessages] = useState([]);
+  const [sparks, setSparks] = useState([]);
   const [input, setInput] = useState('');
   const [roomId, setRoomId] = useState(null);
   const [peer, setPeer] = useState(null);
@@ -173,8 +214,8 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
 
   const emitFind = useCallback(() => {
     if (!socket || !connected) return;
-    socket.emit('find-partner', { mode: 'text', interest: interest || 'general', nickname: 'Anonymous' });
-  }, [socket, connected, interest]);
+    socket.emit('find-partner', { mode: 'text', interest: interest || 'general', nickname: nickname || 'Anonymous' });
+  }, [socket, connected, interest, nickname]);
 
   const clearRoom = useCallback(() => {
     setPeer(null);
@@ -202,8 +243,15 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
     };
 
     const onMessage = (data) => {
-      if (data.roomId === roomIdRef.current)
+      if (data.roomId === roomIdRef.current) {
         setMessages((m) => [...m.slice(-100), data]);
+        // Trigger spark for incoming messages on message location
+        const el = document.getElementById('text-chat-messages');
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          setSparks(prev => [...prev, { id: Date.now(), x: rect.left + rect.width / 2, y: rect.bottom - 100 }]);
+        }
+      }
     };
 
     const onUserLeft = () => {
@@ -511,6 +559,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
 
   return (
     <div className="min-h-screen flex flex-col bg-[#05060b] text-[#f8fafc] font-sans selection:bg-cyan-500/30 selection:text-cyan-200 overflow-hidden relative">
+      {sparks.map(s => <MessageSpark key={s.id} x={s.x} y={s.y} />)}
       {/* NEURAL BACKGROUND DECOR */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-cyan-500/5 rounded-full blur-[120px]" />
@@ -596,10 +645,13 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
           {status === 'connected' && peer && (
             <div className="flex items-center justify-between px-8 py-5 border-b border-white/[0.05] bg-white/[0.01]">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center text-xl shadow-inner">👤</div>
+                <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center text-xl shadow-inner group">
+                   {peer.isCreator ? '⭐' : '👤'}
+                </div>
                 <div>
-                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-white">
-                    {countryToFlag(peer?.country)} Anonymous Stranger
+                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-white flex items-center gap-2">
+                    {countryToFlag(peer?.country)} {peer.isCreator ? `@${peer.nickname}` : 'Anonymous Stranger'}
+                    {peer.isCreator && <BlueTick />}
                   </h3>
                   <div className="flex items-center gap-2 mt-1">
                      <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_5px_#22d3ee]" />

@@ -18,6 +18,30 @@ import { useIceServers } from '../hooks/useIceServers';
 import { CoinBadge } from './CoinBadge';
 import { playConnectSound, playMessageSound, playDisconnectSound, playWaveSound } from '../utils/sounds';
 
+function MessageSpark({ x, y }) {
+  const [active, setActive] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setActive(false), 800);
+    return () => clearTimeout(t);
+  }, []);
+  if (!active) return null;
+  return (
+    <div className="fixed pointer-events-none z-[3000]" style={{ left: x, top: y }}>
+      {[...Array(6)].map((_, i) => (
+        <div
+          key={i}
+          className="absolute w-1 h-1 bg-cyan-400 rounded-full animate-spark"
+          style={{
+            '--tx': `${(Math.random() - 0.5) * 60}px`,
+            '--ty': `${(Math.random() - 0.5) * 60}px`,
+            animationDelay: `${i * 50}ms`
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 const AI_ICEBREAKERS = {
   general: [
     "What's the most surprising thing about your day so far?",
@@ -122,6 +146,14 @@ function VanishingMessage({ m, isMe }) {
   return (
     <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-fade-in`}>
       <div className={`relative max-w-[85%] px-3 py-2 rounded-lg text-sm flex flex-col gap-1 transition-all ${isMe ? 'bg-[#1a7f37] text-white rounded-tr-none' : 'bg-white/10 text-white/90 rounded-tl-none border border-white/5'}`}>
+        <div className="flex flex-col gap-0.5 mb-1">
+          <div className="flex items-center gap-1">
+             <span className={`text-[8px] font-black uppercase tracking-widest ${isMe ? 'text-cyan-400' : 'text-white/40'}`}>
+                {m.isCreator ? `@${m.nickname}` : (isMe ? 'You' : m.nickname || 'Stranger')}
+             </span>
+             {m.isCreator && <BlueTick />}
+          </div>
+        </div>
         {m.replyTo && (
           <div className="mb-2 p-2 rounded-md bg-black/20 border-l-2 border-indigo-400 text-[10px] opacity-70 italic">
             <div className="font-bold not-italic mb-0.5">{m.replyTo.nickname}</div>
@@ -139,6 +171,23 @@ function VanishingMessage({ m, isMe }) {
   );
 }
 
+function SafetyShield({ active = false, label = "NEURAL SCAN" }) {
+  if (!active) return null;
+  return (
+    <div className="absolute inset-0 z-20 pointer-events-none flex flex-col items-center justify-center bg-black/20 backdrop-blur-sm">
+       <div className="absolute inset-0 bg-gradient-to-b from-cyan-500/10 via-transparent to-cyan-500/10 animate-scan-line pointer-events-none" />
+       <div className="flex flex-col items-center gap-3 animate-pulse-slow">
+          <div className="w-16 h-16 rounded-full border-2 border-cyan-500/50 flex items-center justify-center shadow-[0_0_20px_rgba(6,182,212,0.3)] bg-cyan-950/40">
+             <svg className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+             </svg>
+          </div>
+          <span className="text-[10px] font-black tracking-[0.3em] text-cyan-400 uppercase drop-shadow-[0_0_8px_rgba(6,182,212,0.8)]">{label}</span>
+       </div>
+    </div>
+  );
+}
+
 export function VideoChat({ socket, connected, country, onlineCount, interest = 'general', nickname = 'Anonymous', isCreator = false, adsEnabled = false, onBack, onJoined, onFindNewPartner, coinState }) {
   // Use either internal coins state or passed coinState
   const [coins, setCoins] = useState(coinState?.balance || 0);
@@ -147,8 +196,9 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     if (coinState?.balance !== undefined) setCoins(coinState.balance);
   }, [coinState?.balance]);
   const { balance, streak, canClaim, nextClaim, claimCoins, history, addHistory } = coinState || {};
-  const { iceServers } = useIceServers();
+  const [iceServers] = useState(useIceServers().iceServers);
   const [messages, setMessages] = useState([]);
+  const [sparks, setSparks] = useState([]);
   const [input, setInput] = useState('');
   const [roomId, setRoomId] = useState(null);
   const [peer, setPeer] = useState(null);
@@ -457,7 +507,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     if (!socket || !connected) return;
     clearRoom();
     setStatus('searching');
-    socket.emit('find-partner', { mode: 'video', interest: interest || 'general', nickname: 'Anonymous' });
+    socket.emit('find-partner', { mode: 'video', interest: interest || 'general', nickname: nickname || 'Anonymous' });
   };
 
   const handleSkip = useCallback(() => {
@@ -471,7 +521,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     setStrangerFilter('none'); setStrangerBlur(false);
     setTimeout(() => {
       if (status !== 'idle') {
-        socket?.emit('find-partner', { mode: 'video', interest: interest || 'general', nickname: 'Anonymous' });
+        socket?.emit('find-partner', { mode: 'video', interest: interest || 'general', nickname: nickname || 'Anonymous' });
         onFindNewPartner?.();
       }
     }, 100);
@@ -941,7 +991,17 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
     socket.on('partner-found', onPartnerFound);
     socket.on('chat-history', onHistory);
-    socket.on('chat-message', onMsg);
+    socket.on('chat-message', (data) => {
+      if (data.roomId === roomIdRef.current) {
+        setMessages(m => [...m, data]);
+        // Trigger spark for incoming messages
+        const el = document.getElementById('video-chat-messages');
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          setSparks(prev => [...prev.slice(-20), { id: Date.now(), x: rect.left + rect.width / 2, y: rect.bottom - 100 }]);
+        }
+      }
+    });
     socket.on('user-left', onUserLeft);
     socket.on('waiting-for-partner', onWaiting);
     socket.on('webrtc-signal', onSignal);
@@ -1347,6 +1407,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
           {status === 'connected' && (
             <div className={`relative bg-[#0d0d0d] flex-grow min-h-0 ${showChat && isMobile ? 'h-full' : ''}`}>
               <RemoteVideoComponent stream={peer?.stream} muted={mutedStranger} strangerFilter={strangerFilter} strangerBlur={strangerBlur} />
+              <SafetyShield active={true} label="AI MODERATING" />
               {strangerCameraOff && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md z-10">
                    <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-3">
@@ -1355,10 +1416,10 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40 bg-white/5 px-4 py-1.5 rounded-full border border-white/5">Video Restricted</span>
                 </div>
               )}
-              <div className="absolute bottom-3 left-3 px-2 py-1 rounded bg-black/60 text-[10px] font-black uppercase tracking-widest border border-white/10 flex items-center gap-2">
+              <div className="absolute bottom-3 left-3 px-2 py-1 rounded bg-black/60 text-[10px] font-black uppercase tracking-widest border border-white/10 flex items-center gap-2 z-30">
                 {peer?.isCreator ? (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-cyan-400">
+                    <span className="text-cyan-400 flex items-center gap-1.5">
                       {countryToFlag(peer?.country)} {peer?.nickname || 'Stranger'}
                       <BlueTick />
                     </span>
@@ -1376,7 +1437,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                   <p className="text-white/30 text-[10px] mt-2 uppercase font-bold tracking-widest">Searching for new match...</p>
                 </div>
               )}
-              <button onClick={handleReport} className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded bg-black/50 hover:bg-rose-500/20 text-white/60 hover:text-rose-400 transition-colors border border-white/5" title="Report">
+              <button onClick={handleReport} className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded bg-black/50 hover:bg-rose-500/20 text-white/60 hover:text-rose-400 transition-colors border border-white/5 z-40" title="Report">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
               </button>
             </div>

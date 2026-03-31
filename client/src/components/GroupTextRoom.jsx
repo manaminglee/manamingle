@@ -19,18 +19,39 @@ const ICEBREAKERS = [
 
 const COLORS = ['#a5b4fc', '#34d399', '#fb923c', '#f472b6'];
 
-const EMOJIS_3D = [
-  { char: '🔥', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.webp' },
-  { char: '💎', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f48e/512.webp' },
-  { char: '🚀', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f680/512.webp' },
-  { char: '✨', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/2728/512.webp' },
-  { char: '🎉', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f389/512.webp' },
-  { char: '❤️', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/2764_fe0f/512.webp' },
-  { char: '😂', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f602/512.webp' },
-  { char: '👑', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f451/512.webp' },
-];
+const BlueTick = () => (
+  <span className="inline-flex items-center justify-center w-3 h-3 bg-cyan-500 rounded-full ml-1.5 shadow-[0_0_10px_#06b6d4]">
+    <svg className="w-2 h-2 text-black" fill="currentColor" viewBox="0 0 20 20">
+      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+    </svg>
+  </span>
+);
 
-export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nickname, myCountry, socket, isQueuing, onLeave, onFindNewPod, onJoined, coinState }) {
+function MessageSpark({ x, y }) {
+  const [active, setActive] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setActive(false), 800);
+    return () => clearTimeout(t);
+  }, []);
+  if (!active) return null;
+  return (
+    <div className="fixed pointer-events-none z-[3000]" style={{ left: x, top: y }}>
+      {[...Array(6)].map((_, i) => (
+        <div
+          key={i}
+          className="absolute w-1 h-1 bg-cyan-400 rounded-full animate-spark"
+          style={{
+            '--tx': `${(Math.random() - 0.5) * 60}px`,
+            '--ty': `${(Math.random() - 0.5) * 60}px`,
+            animationDelay: `${i * 50}ms`
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nickname, isCreator = false, myCountry, socket, isQueuing, onLeave, onFindNewPod, onJoined, coinState }) {
   const { balance, streak, canClaim, nextClaim, claimCoins } = coinState;
   const roomIdRef = useRef(null);
   const roomId = roomIdProp ?? roomIdRef.current;
@@ -38,6 +59,7 @@ export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nick
   const [peers, setPeers] = useState([]);
   const [participantCount, setParticipantCount] = useState(1);
   const [messages, setMessages] = useState([]);
+  const [sparks, setSparks] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [replyingTo, setReplyingTo] = useState(null);
   const [isAiGenerating, setIsAiGenerating] = useState(false);
@@ -116,8 +138,15 @@ export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nick
     };
 
     const onMsg = (data) => {
-      if (data.roomId === (roomIdRef.current || roomId))
+      if (data.roomId === (roomIdRef.current || roomId)) {
         setMessages((m) => [...m.slice(-100), data]);
+        // Trigger spark
+        const el = document.getElementById('group-text-messages');
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          setSparks(prev => [...prev.slice(-20), { id: Date.now(), x: rect.left + rect.width / 2, y: rect.bottom - 100 }]);
+        }
+      }
     };
 
     const onUserJoined = (data) => {
@@ -278,6 +307,7 @@ export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nick
 
   return (
     <div className="h-screen flex flex-col bg-[#070811] text-white overflow-hidden relative">
+      {sparks.map(s => <MessageSpark key={s.id} x={s.x} y={s.y} />)}
       {/* AI SAFETY LAYER */}
       <div className="absolute top-[72px] left-1/2 -translate-x-1/2 z-[100] pointer-events-none px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center gap-2 animate-pulse">
          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
@@ -393,10 +423,13 @@ export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nick
                   const showNick = i === 0 || messages[i - 1]?.socketId !== m.socketId || messages[i - 1]?.system;
                   return (
                     <div key={m.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-message-pop`}>
-                      {showNick && !isMe && (
-                        <span className="text-[10px] font-bold px-1 mb-1 uppercase tracking-tighter" style={{ color }}>
-                          {m.nickname || 'Stranger'}
-                        </span>
+                      {showNick && (
+                        <div className="flex items-center gap-1 mb-1 px-1">
+                          <span className="text-[9px] font-black uppercase tracking-widest leading-none" style={{ color: isMe ? '#22d3ee' : color }}>
+                            {m.isCreator ? `@${m.nickname}` : (isMe ? 'You' : m.nickname || 'Stranger')}
+                          </span>
+                          {m.isCreator && <BlueTick />}
+                        </div>
                       )}
                       <div className={`msg-bubble ${isMe ? 'me' : 'them'} flex flex-col gap-1 animate-bubble-pop relative group`} style={!isMe ? { borderColor: `${color}30` } : {}}>
                         {!m.system && (
@@ -548,15 +581,16 @@ export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nick
           <div className="space-y-3">
             {allParticipants.map((p, i) => (
               <div key={p.socketId} className="flex items-center gap-2.5">
-                <div className="peer-avatar text-sm flex-shrink-0" style={{ background: `${getNickColor(i)}20`, borderColor: `${getNickColor(i)}40` }}>
-                  {p.isMe ? '🙋' : '👤'}
+                <div className="peer-avatar text-sm flex-shrink-0" style={{ background: p.isCreator ? 'rgba(6,182,212,0.1)' : `${getNickColor(i)}20`, borderColor: p.isCreator ? 'rgba(6,182,212,0.4)' : `${getNickColor(i)}40` }}>
+                  {p.isCreator ? '⭐' : (p.isMe ? '🙋' : '👤')}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium truncate" style={{ color: p.isMe ? '#a5b4fc' : 'rgba(232,234,246,0.85)' }}>
-                    {p.isMe ? 'You' : (p.nickname || 'Stranger')}
+                  <p className="text-sm font-black flex items-center gap-1.5 truncate" style={{ color: p.isCreator ? '#22d3ee' : (p.isMe ? '#a5b4fc' : 'rgba(232,234,246,0.85)') }}>
+                    {p.isMe && !p.isCreator ? 'You' : (p.nickname || 'Stranger')}
+                    {p.isCreator && <BlueTick />}
                   </p>
-                  <p className="text-xs" style={{ color: 'rgba(232,234,246,0.4)' }}>
-                    {countryToFlag(p.country) || '🌍'} Anonymous
+                  <p className="text-[10px] uppercase font-bold tracking-widest" style={{ color: 'rgba(232,234,246,0.3)' }}>
+                    {countryToFlag(p.country) || '🌍'} {p.isCreator ? 'Creator' : 'Anonymous'}
                   </p>
                 </div>
                 <div className="live-dot ml-auto flex-shrink-0" style={{ width: 6, height: 6 }} />

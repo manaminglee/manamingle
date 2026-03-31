@@ -29,7 +29,7 @@ export function useCoins() {
     const [canClaim, setCanClaim] = useState(false);
     const [loading, setLoading] = useState(true);
 
-    const fetchStatus = async () => {
+    const fetchStatus = async (retries = 3) => {
         try {
             const apiBase = import.meta.env.VITE_SOCKET_URL || '';
             const res = await fetch(`${apiBase}/api/user/coins`);
@@ -39,9 +39,14 @@ export function useCoins() {
                 setStreak(data.streak);
                 setCanClaim(data.canClaim);
                 setNextClaim(data.nextClaim ?? 0);
+            } else if (retries > 0) {
+                setTimeout(() => fetchStatus(retries - 1), 2000);
             }
         } catch (e) {
             console.error('Failed to fetch coins:', e);
+            if (retries > 0) {
+                setTimeout(() => fetchStatus(retries - 1), 2000);
+            }
         } finally {
             setLoading(false);
         }
