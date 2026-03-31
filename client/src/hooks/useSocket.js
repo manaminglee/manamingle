@@ -1,6 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || '';
+
+// Fix #4 + minor: Single base URL — trim to avoid space-only env vars
+const BASE_URL = SOCKET_URL?.trim() || (typeof window !== 'undefined' ? window.location.origin : '');
 
 export function useSocket() {
   const [socket, setSocket] = useState(null);
@@ -15,13 +18,19 @@ export function useSocket() {
   const [coins, setCoins] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
 
+  // Fix #6: Ref to track contentFlagged timeout for proper cleanup
+  const flaggedTimeoutRef = useRef(null);
+
   useEffect(() => {
-    let s = null;
     let mounted = true;
+    let s = null;
+
     (async () => {
       const { io } = await import('socket.io-client');
+      // Fix #3: Guard — if unmounted before import resolved, don't connect
       if (!mounted) return;
-      s = io(SOCKET_URL || window.location.origin, {
+
+      s = io(BASE_URL, {
         path: '/socket.io',
         transports: ['websocket', 'polling'],
         withCredentials: true,
@@ -29,70 +38,124 @@ export function useSocket() {
         reconnectionAttempts: Infinity,
         reconnectionDelay: 2000,
         reconnectionDelayMax: 10000,
-        timeout: 20000
+        timeout: 20000,
       });
 
       setSocket(s);
 
-      s.on('connect', () => { setConnected(true); setIsBlocked(false); });
-      s.on('disconnect', () => setConnected(false));
+      s.on('connect', () => {
+        if (!mounted) return;
+        setConnected(true);
+        setIsBlocked(false);
+      });
+
+      s.on('disconnect', () => {
+        if (!mounted) return;
+        setConnected(false);
+      });
+
+      // Fix #5: Handle connection errors so user isn't left with no feedback
+      s.on('connect_error', (err) => {
+        console.error('[Socket] Connection error:', err.message);
+        if (!mounted) return;
+        setConnected(false);
+      });
+
+      // Minor: Reconnect attempt feedback
+      s.io.on('reconnect_attempt', (attempt) => {
+        console.log(`[Socket] Reconnect attempt #${attempt}...`);
+      });
+
       s.on('connected', (data) => {
+        if (!mounted) return;
         setCountry(data?.country || null);
         setNickname(data?.nickname || 'Anonymous');
         setIsCreator(!!data?.isCreator);
         if (data?.settings) {
-           setAdsEnabled(!!data.settings.adsEnabled);
-           setAllowDevTools(!!data.settings.allowDevTools);
+          setAdsEnabled(!!data.settings.adsEnabled);
+          setAllowDevTools(!!data.settings.allowDevTools);
         }
       });
-      s.on('online_count', (data) => setOnlineCount(data));
-      s.on('blocked-ip', () => setIsBlocked(true));
-      s.on('content-flagged', (data) => {
-        setContentFlagged(data?.message || 'Your content was flagged for review. Please follow community guidelines.');
-        setTimeout(() => setContentFlagged(null), 6000);
+
+      // Minor: Prevent unnecessary re-renders by comparing serialized value
+      s.on('online_count', (data) => {
+        if (!mounted) return;
+        setOnlineCount(prev =>
+          JSON.stringify(prev) === JSON.stringify(data) ? prev : data
+        );
       });
+
+      // Minor: Log reason for block
+      s.on('blocked-ip', (data) => {
+        if (!mounted) return;
+        console.warn('[Socket] Blocked by server:', data?.reason || 'No reason provided');
+        setIsBlocked(true);
+      });
+
+      s.on('content-flagged', (data) => {
+        if (!mounted) return;
+        setContentFlagged(data?.message || 'Your content was flagged for review. Please follow community guidelines.');
+        // Fix #6: Clear previous timeout before setting a new one
+        clearTimeout(flaggedTimeoutRef.current);
+        flaggedTimeoutRef.current = setTimeout(() => {
+          if (mounted) setContentFlagged(null);
+        }, 6000);
+      });
+
       s.on('settings_updated', (data) => {
+        if (!mounted) return;
         if (data) {
           if (typeof data.adsEnabled !== 'undefined') setAdsEnabled(!!data.adsEnabled);
           if (typeof data.allowDevTools !== 'undefined') setAllowDevTools(!!data.allowDevTools);
         }
       });
+
       s.on('coins-updated', (data) => {
+        if (!mounted) return;
         if (typeof data?.coins !== 'undefined') setCoins(data.coins);
       });
     })();
+
     return () => {
       mounted = false;
+      // Fix #1 + #2: Remove all listeners AND disconnect on unmount
+      clearTimeout(flaggedTimeoutRef.current);
+      if (s) {
+        s.off(); // removes ALL event listeners
+        s.disconnect();
+      }
     };
   }, []);
 
-  const apiBase = SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
-  
+  // Fetch initial settings and coins on mount
   useEffect(() => {
     let cancelled = false;
     const fetchInitData = async () => {
       try {
         const [settingsRes, coinsRes] = await Promise.all([
-          fetch(`${apiBase}/api/settings`),
-          fetch(`${apiBase}/api/user/coins`)
+          fetch(`${BASE_URL}/api/settings`),
+          // Fix #7: Include credentials so session/cookie-based auth works
+          fetch(`${BASE_URL}/api/user/coins`, { credentials: 'include' }),
         ]);
-        
+
         if (!cancelled && settingsRes.ok) {
           const data = await settingsRes.json();
           if (typeof data.adsEnabled !== 'undefined') setAdsEnabled(!!data.adsEnabled);
           if (typeof data.allowDevTools !== 'undefined') setAllowDevTools(!!data.allowDevTools);
         }
-        
+
         if (!cancelled && coinsRes.ok) {
           const data = await coinsRes.json();
           if (typeof data?.coins !== 'undefined') setCoins(data.coins);
         }
-      } catch { }
+      } catch {
+        // Silently ignore — coins/settings fetched from socket events too
+      }
     };
-    
+
     fetchInitData();
     return () => { cancelled = true; };
-  }, [apiBase]);
+  }, []);
 
   return useMemo(() => ({
     socket,
@@ -105,6 +168,6 @@ export function useSocket() {
     isCreator,
     isBlocked,
     contentFlagged,
-    coins
+    coins,
   }), [socket, connected, country, onlineCount, adsEnabled, allowDevTools, nickname, isCreator, isBlocked, contentFlagged, coins]);
 }
