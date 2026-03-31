@@ -152,11 +152,23 @@ BEGIN
         ALTER TABLE user_coins ADD COLUMN streak INTEGER DEFAULT 1;
     END IF;
 
-    -- Cleanup: Remove NOT NULL constraint from any unexpected columns like 'ip_addr'
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='creators' AND column_name='ip_addr') THEN
-        ALTER TABLE creators ALTER COLUMN ip_addr DROP NOT NULL;
-    END IF;
+    -- Cleanup: Ensure ANY unrecognized column is NULLABLE so it doesn't block inserts
+    -- This handles 'ip_addr' and any other manually added columns that might have not-null constraints.
+    DECLARE
+        col_rec RECORD;
+    BEGIN
+        FOR col_rec IN 
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'creators' 
+              AND is_nullable = 'NO' 
+              AND column_name NOT IN ('id', 'handle_name', 'created_at') -- Keep our core NOT NULLs
+        LOOP
+            EXECUTE format('ALTER TABLE creators ALTER COLUMN %I DROP NOT NULL', col_rec.column_name);
+        END LOOP;
+    END;
 END $$;
+
 
 
 
