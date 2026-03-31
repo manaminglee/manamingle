@@ -89,6 +89,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
   const [statusCheckCode, setStatusCheckCode] = useState('');
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [showCreatorModal, setShowCreatorModal] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginForm, setLoginForm] = useState({ handle: '', password: '' });
   const [loginError, setLoginError] = useState('');
@@ -139,7 +140,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
       timer = setInterval(() => {
         setApprovalTimer(prev => prev - 1);
       }, 1000);
-      
+
       // Poll status every 3 seconds if waiting
       pollInterval = setInterval(async () => {
         if (uniqueAccessCode) {
@@ -268,7 +269,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
         <div className="text-center mb-0 w-full">
           <ParticleText text="MANA MINGLE" className="mb-0" />
           <p className="text-[9px] font-black uppercase tracking-[0.8em] text-cyan-400 mb-8 animate-pulse">Powered by WeConnect</p>
-          
+
           <h2 className="text-4xl md:text-7xl font-black tracking-tighter leading-none italic m-0 animate-in-zoom text-white">
             Connect <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-500">Instantly.</span>
           </h2>
@@ -431,22 +432,35 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
               <h3 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter mb-4 leading-none text-white">Share your <span className="text-cyan-400 drop-shadow-[0_0_20px_rgba(6,182,212,0.4)]">Influence.</span></h3>
               <p className="text-[10px] md:text-xs font-bold text-white/30 uppercase tracking-[0.4em] mb-12 max-w-md mx-auto leading-relaxed italic">Monetize your reach. Grow your online presence with ManaMingle.</p>
 
-              <div className="flex flex-wrap items-center justify-center gap-6">
+              <div className="flex flex-wrap items-center justify-center gap-4">
                 <button
                   onClick={() => setShowCreatorModal(true)}
-                  className="px-14 py-5 bg-white text-black font-black uppercase tracking-widest text-[11px] rounded-3xl hover:bg-cyan-400 hover:scale-105 transition-all shadow-2xl active:scale-95 flex items-center gap-3 group/btn"
+                  className="px-8 py-4 bg-white text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-cyan-400 hover:scale-105 transition-all shadow-xl active:scale-95 flex items-center gap-2 group/btn"
                 >
-                  <span className="text-lg group-hover/btn:rotate-12 transition-transform">⭐</span>
+                  <span className="text-sm group-hover/btn:rotate-12 transition-transform italic">⭐</span>
                   {creatorStatus?.handle_name ? 'Open Hub' : 'Apply Now'}
                 </button>
 
                 {(!creatorStatus || !creatorStatus.handle_name) && (
-                  <button
-                    onClick={() => setShowLoginModal(true)}
-                    className="px-14 py-5 bg-black/60 border border-white/10 text-white font-black uppercase tracking-widest text-[11px] rounded-3xl hover:bg-white hover:text-black hover:scale-105 transition-all backdrop-blur-3xl shadow-xl active:scale-95"
-                  >
-                    Creator Login
-                  </button>
+                  <>
+                    <span className="text-cyan-500/40 text-xs font-black animate-pulse opacity-40">→</span>
+
+                    <button
+                      onClick={() => setShowStatusModal(true)}
+                      className="px-8 py-4 bg-white/5 border border-white/10 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-cyan-500/20 hover:text-cyan-400 hover:scale-105 transition-all shadow-lg active:scale-95 flex items-center gap-2"
+                    >
+                      <span>🔍</span> Check Status
+                    </button>
+
+                    <span className="text-cyan-500/40 text-xs font-black animate-pulse opacity-40">→</span>
+
+                    <button
+                      onClick={() => setShowLoginModal(true)}
+                      className="px-8 py-4 bg-black/60 border border-white/10 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white hover:text-black hover:scale-105 transition-all backdrop-blur-3xl shadow-xl active:scale-95"
+                    >
+                      Creator Login
+                    </button>
+                  </>
                 )}
               </div>
 
@@ -529,7 +543,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
       {/* CREATOR MODAL */}
       {showCreatorModal && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl animate-in-zoom" onClick={() => setShowCreatorModal(false)}>
-          <div className="relative w-full max-w-lg bg-black border border-white/10 rounded-[50px] p-10 overflow-y-auto max-h-[90vh]" onClick={e => e.stopPropagation()}>
+          <div className="relative w-full max-w-sm bg-black border border-white/10 rounded-[50px] p-10 overflow-y-auto max-h-[90vh]" onClick={e => e.stopPropagation()}>
             <button
               onClick={() => setShowCreatorModal(false)}
               className="absolute top-6 right-8 text-white/20 hover:text-white transition-colors"
@@ -549,7 +563,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                     <h4 className="text-xl font-black italic uppercase text-white">Validation Success!</h4>
                     <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Credentials Generated by WeConnect</p>
                   </div>
-                  
+
                   <div className="space-y-3">
                     <div className="bg-black/40 rounded-2xl p-4 border border-white/5 flex justify-between items-center group">
                       <div>
@@ -567,7 +581,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                     </div>
                   </div>
 
-                  <button 
+                  <button
                     onClick={() => {
                       const content = `MANAMINGLE CREATOR CREDENTIALS\n\nHandle: @${approvalData.handle_name}\nAccess Code: ${approvalData.referral_code}\nPassword: ${approvalData.password}\n\nNote: Reach admin team at manaminglee@gmail.com for issues.`;
                       const blob = new Blob([content], { type: 'text/plain' });
@@ -591,8 +605,8 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                     <div className="space-y-6">
                       <div className="relative w-32 h-32 mx-auto flex items-center justify-center">
                         <div className="absolute inset-0 border-4 border-cyan-500/20 rounded-full" />
-                        <div 
-                          className="absolute inset-0 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" 
+                        <div
+                          className="absolute inset-0 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"
                           style={{ animationDuration: '0.8s' }}
                         />
                         <span className="text-3xl font-black italic text-cyan-400 tabular-nums">{approvalTimer}</span>
@@ -610,7 +624,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                           <div className="w-full bg-black/60 rounded-2xl py-6 px-4 text-2xl font-black italic text-center tracking-[0.2em] text-white border border-white/10 select-all group-hover:border-indigo-500/40 transition-all">
                             {uniqueAccessCode}
                           </div>
-                          <button 
+                          <button
                             onClick={() => {
                               navigator.clipboard.writeText(uniqueAccessCode);
                               setCodeCopied(true);
@@ -625,9 +639,9 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                           Validation is taking longer than expected. <span className="text-white">Copy this code now.</span> You will need it to check your status under the "Returning Creator" section.
                         </p>
                       </div>
-                      
+
                       {codeCopied && (
-                        <button 
+                        <button
                           onClick={() => {
                             setWaitingForApproval(false);
                             setShowCreatorModal(false);
@@ -704,43 +718,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                     className="w-full h-14 bg-cyan-400 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all shadow-xl shadow-cyan-500/20"
                   >Register as Creator</button>
 
-                  <div className="pt-6 border-t border-white/5">
-                    <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest text-center mb-4 italic">Returning Creator?</p>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={statusCheckCode}
-                        onChange={e => setStatusCheckCode(e.target.value)}
-                        placeholder="Enter Access Code (e.g. handle1234)"
-                        className="flex-1 h-12 bg-white/5 border border-white/5 rounded-xl px-4 text-[10px] outline-none font-black tracking-widest uppercase text-white"
-                      />
-                      <button
-                        disabled={checkingStatus}
-                        onClick={async () => {
-                          if (!statusCheckCode) return;
-                          setCheckingStatus(true);
-                          const data = await checkStatus(statusCheckCode);
-                          setCheckingStatus(false);
-                          
-                          if (data) {
-                            if (data.status === 'approved') {
-                              window.localStorage.setItem('mm_creatorId', statusCheckCode);
-                              window.location.reload();
-                            } else {
-                              const ping = confirm(`ID: @${data.handle_name}\nStatus: PENDING VALIDATION\n\nWould you like to re-request admin approval now?`);
-                              if (ping) {
-                                await reRequestApproval(statusCheckCode);
-                                alert('Approval Request Re-sent to Admin.');
-                              }
-                            }
-                          } else {
-                            alert('Unique Access Code not recognized.');
-                          }
-                        }}
-                        className="px-6 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500 hover:text-white transition-all disabled:opacity-50"
-                      >{checkingStatus ? '...' : 'Check Status'}</button>
-                    </div>
-                  </div>
+                  
                 </div>
               </div>
             ) : (
@@ -913,6 +891,56 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                 className="w-full h-14 bg-indigo-600 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white hover:text-black transition-all shadow-xl shadow-indigo-600/20 active:scale-95"
               >Login as Creator</button>
               {loginError && <p className="text-rose-500 text-[10px] text-center font-black uppercase tracking-widest mt-4 animate-shake">{loginError}</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CHECK STATUS MODAL */}
+      {showStatusModal && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl animate-in-zoom" onClick={() => setShowStatusModal(false)}>
+          <div className="relative w-full max-w-sm bg-black border border-white/10 rounded-[50px] p-10 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowStatusModal(false)} className="absolute top-6 right-8 text-white/20 hover:text-white transition-colors">✕</button>
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mx-auto mb-4 text-2xl shadow-[0_0_20px_#06b6d430]">🔍</div>
+              <h3 className="text-xl font-black italic uppercase tracking-tighter text-white">Check Progress</h3>
+              <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-2">Enter Access Code to Resume</p>
+            </div>
+            <div className="space-y-6">
+              <input
+                type="text"
+                value={statusCheckCode}
+                onChange={e => setStatusCheckCode(e.target.value)}
+                placeholder="e.g. handle1234"
+                className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl px-6 text-sm outline-none text-white focus:border-cyan-500/30 transition-all font-bold tracking-widest uppercase"
+              />
+              <button
+                disabled={checkingStatus}
+                onClick={async () => {
+                  if (!statusCheckCode) return;
+                  setCheckingStatus(true);
+                  const data = await checkStatus(statusCheckCode);
+                  setCheckingStatus(false);
+                  
+                  if (data) {
+                    if (data.status === 'approved') {
+                      window.localStorage.setItem('mm_creatorId', statusCheckCode);
+                      window.location.reload();
+                    } else {
+                      const ping = confirm(`ID: @${data.handle_name}\nStatus: PENDING VALIDATION\n\nWould you like to re-request admin approval now?`);
+                      if (ping) {
+                        await reRequestApproval(statusCheckCode);
+                        alert('Approval Request Re-sent to Admin.');
+                      }
+                    }
+                  } else {
+                    alert('Invalid Access Code. Please check and try again.');
+                  }
+                }}
+                className="w-full h-14 bg-cyan-400 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all shadow-xl shadow-cyan-500/20 disabled:opacity-50"
+              >
+                {checkingStatus ? 'Analyzing Terminal...' : 'Verify Progress →'}
+              </button>
             </div>
           </div>
         </div>
