@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 
 const API_BASE = import.meta.env.VITE_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
@@ -21,6 +21,7 @@ export function AdminDashboard({ onJoinRoom }) {
   const [history, setHistory] = useState([]);
   const [toast, setToast] = useState(null);
   const [adForm, setAdForm] = useState({ hero: '', sidebar: '', footer: '' });
+  const socketRef = useRef(null);
 
   const fetchStats = async (adminKey) => {
     try {
@@ -291,7 +292,43 @@ export function AdminDashboard({ onJoinRoom }) {
     return () => clearInterval(statsInterval);
   }, [isLogged, key]);
 
-  // Refresh creators whenever tab switches to creators
+  // Real-time socket connection for live admin notifications
+  useEffect(() => {
+    if (!isLogged) return;
+
+    let mounted = true;
+    (async () => {
+      const { io } = await import('socket.io-client');
+      if (!mounted) return;
+      const s = io(API_BASE || window.location.origin, {
+        path: '/socket.io',
+        transports: ['websocket', 'polling'],
+        withCredentials: true,
+        reconnection: true,
+      });
+      socketRef.current = s;
+
+      // New creator application submitted — update list and show toast
+      s.on('creator-new-application', (creator) => {
+        setCreators(prev => {
+          if (prev.find(c => c.id === creator.id)) return prev;
+          return [creator, ...prev];
+        });
+        setToast(`🔔 New creator application: @${creator.handle_name} (${creator.platform})`);
+      });
+
+      // Creator status was changed (approve/reject from another admin session)
+      s.on('creator-status-changed', () => {
+        fetchCreators();
+      });
+    })();
+
+    return () => {
+      mounted = false;
+      socketRef.current?.disconnect();
+      socketRef.current = null;
+    };
+  }, [isLogged]);
   useEffect(() => {
     if (isLogged && activeTab === 'creators') {
       fetchCreators();

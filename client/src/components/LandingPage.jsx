@@ -155,7 +155,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
         setApprovalTimer(prev => prev - 1);
       }, 1000);
 
-      // Poll status every 3 seconds if waiting
+      // Poll status every 3 seconds if waiting (backup for when socket is unavailable)
       pollInterval = setInterval(async () => {
         if (uniqueAccessCode) {
           const status = await checkStatus(uniqueAccessCode);
@@ -171,6 +171,29 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
       clearInterval(pollInterval);
     };
   }, [waitingForApproval, approvalTimer, creatorStatus, uniqueAccessCode, checkStatus]);
+
+  // Real-time: when admin approves/rejects a creator, update UI instantly via socket
+  useEffect(() => {
+    if (!socket) return;
+    const handler = (data) => {
+      // If this creator is currently waiting for approval
+      if (data.referral_code === uniqueAccessCode && waitingForApproval) {
+        if (data.status === 'approved') {
+          setApprovalData({ ...data, status: 'approved' });
+          setWaitingForApproval(false);
+        }
+      }
+      // If admin panel status check modal is open and result matches
+      setStatusCheckResult(prev => {
+        if (prev && typeof prev === 'object' && prev.referral_code === data.referral_code) {
+          return { ...prev, status: data.status, password: data.password || prev.password };
+        }
+        return prev;
+      });
+    };
+    socket.on('creator-status-changed', handler);
+    return () => socket.off('creator-status-changed', handler);
+  }, [socket, uniqueAccessCode, waitingForApproval]);
 
   const addInterest = (interestArg) => {
     if (!interestArg) return;

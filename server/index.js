@@ -411,6 +411,18 @@ app.post('/api/creators/register', async (req, res) => {
       saveLocalDb();
     }
     res.json({ success: true, message: 'Application Transmitted.', accessCode: referral_code });
+    // Notify admin panel in real-time
+    io.emit('creator-new-application', {
+      id: entry.id,
+      handle_name: entry.handle_name,
+      platform: entry.platform,
+      profile_link: entry.profile_link,
+      referral_code: entry.referral_code,
+      status: 'pending',
+      coins_earned: 0,
+      referral_count: 0,
+      created_at: entry.created_at
+    });
   } catch (e) { res.status(500).json({ error: 'Database uplink failed' }); }
 });
 
@@ -574,6 +586,13 @@ app.post('/api/admin/creators/approve', requireAdmin, async (req, res) => {
       saveLocalDb();
     }
     res.json({ success: true, password: updates.password });
+    // Notify creator in real-time (they may have the status modal open)
+    io.emit('creator-status-changed', {
+      referral_code: creator.referral_code,
+      handle_name: creator.handle_name,
+      status,
+      password: updates.password || creator.password
+    });
   } catch (e) { res.status(500).json({ error: 'Approval failed' }); }
 });
 
