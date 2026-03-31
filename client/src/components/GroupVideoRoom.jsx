@@ -16,6 +16,14 @@ const BlueTick = () => (
   </span>
 );
 
+const ICEBREAKERS = [
+  "What's your favorite movie?",
+  "If you could travel anywhere, where?",
+  "What music are you into?",
+  "Any cool hobbies?",
+  "What's something interesting about you?"
+];
+
 function MessageSpark({ x, y }) {
   const [active, setActive] = useState(true);
   useEffect(() => {
@@ -46,14 +54,14 @@ function VideoTile({ stream, label, flag, isMe, isEmpty, isSearching, isCreator 
     const el = ref.current;
     if (!el || !stream) return;
     el.srcObject = stream;
-    const play = async () => { try { await el.play(); } catch (e) {} };
+    const play = async () => { try { await el.play(); } catch (e) { } };
     play();
 
     // Anti-lag listeners
-    const handleStalled = () => { if (el.paused && stream.active) el.play().catch(() => {}); };
+    const handleStalled = () => { if (el.paused && stream.active) el.play().catch(() => { }); };
     el.addEventListener('stalled', handleStalled);
-    el.addEventListener('waiting', () => { if (stream.active) el.play().catch(() => {}); });
-    el.addEventListener('canplay', () => el.play().catch(() => {}));
+    el.addEventListener('waiting', () => { if (stream.active) el.play().catch(() => { }); });
+    el.addEventListener('canplay', () => el.play().catch(() => { }));
 
     return () => {
       el.removeEventListener('stalled', handleStalled);
@@ -119,7 +127,7 @@ const EMOJIS_3D = [
 ];
 
 export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nickname, isCreator = false, myCountry, socket, isQueuing, onLeave, onFindNewPod, onJoined, coinState }) {
-  const { balance, streak, canClaim, nextClaim, claimCoins } = coinState;
+  const { balance = 0, streak = 0, canClaim = false, nextClaim = 0, claimCoins = () => {} } = coinState || {};
   const { iceServers } = useIceServers();
   const roomIdRef = useRef(null);
   const roomId = roomIdProp ?? roomIdRef.current;
@@ -147,6 +155,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
   const peerCountriesRef = useRef(new Map());
   const peerCreatorsRef = useRef(new Map());
   const hasJoinedRef = useRef(false);
+  const hasAutoLeftRef = useRef(false);
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -199,6 +208,10 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
     // For MVP consistency with VideoChat:
     const targetStream = peers[0]?.stream;
     if (!targetStream) return alert('No remote user stream available.');
+
+    if (!MediaRecorder.isTypeSupported('video/webm')) {
+      return alert('WebM recording not supported on this browser.');
+    }
 
     const recorder = new MediaRecorder(targetStream, { mimeType: 'video/webm' });
     chunksRef.current = [];
@@ -348,7 +361,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
       setMediaError(null);
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = s;
-        localVideoRef.current.play().catch(() => {});
+        localVideoRef.current.play().catch(() => { });
       }
     } catch (err) {
       console.error('getUserMedia error:', err);
@@ -378,7 +391,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
         setLocalStreamReady(true);
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = s;
-          localVideoRef.current.play().catch(() => {});
+          localVideoRef.current.play().catch(() => { });
         }
       } catch (err) {
         console.error('getUserMedia error:', err);
@@ -409,8 +422,8 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
     if (localStreamReady && localStreamRef.current && localStreamRef.current.getAudioTracks().length > 0) {
       setupAudioAnalyzer('local', localStreamRef.current);
     }
-    return () => { audioAnalyzersRef.current.delete('local'); };
-  }, [localStreamReady]);
+    return () => { cleanupAudioAnalyzer('local'); };
+  }, [localStreamReady, localStreamRef.current]);
 
   const toggleMute = () => {
     if (!localStreamRef.current) return;
@@ -428,6 +441,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
 
   const setupAudioAnalyzer = (id, stream) => {
     try {
+      if (audioAnalyzersRef.current.has(id)) cleanupAudioAnalyzer(id);
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       const ctx = new AudioCtx();
       const source = ctx.createMediaStreamSource(stream);
@@ -438,6 +452,14 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
     } catch (e) { }
   };
 
+  const cleanupAudioAnalyzer = (id) => {
+    const data = audioAnalyzersRef.current.get(id);
+    if (data && data.ctx) {
+      try { data.ctx.close(); } catch (e) { }
+    }
+    audioAnalyzersRef.current.delete(id);
+  };
+
   useEffect(() => {
     const interval = setInterval(() => {
       let loudestId = null;
@@ -446,7 +468,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
         const dataArr = new Uint8Array(analyzer.frequencyBinCount);
         analyzer.getByteFrequencyData(dataArr);
         const avg = dataArr.reduce((a, b) => a + b, 0) / dataArr.length;
-        if (avg > maxVol && avg > 10) {
+        if (avg > maxVol && avg > 15) {
           maxVol = avg;
           loudestId = id;
         }
@@ -454,7 +476,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
       if (loudestId !== activeSpeakerId) setActiveSpeakerId(loudestId);
     }, 400);
     return () => clearInterval(interval);
-  }, [activeSpeakerId]);
+  }, [activeSpeakerId, peers]);
 
   const createPeerConnection = (remoteId) => {
     if (peerConnectionsRef.current.has(remoteId)) return peerConnectionsRef.current.get(remoteId);
@@ -472,37 +494,25 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
     };
 
     pc.ontrack = (e) => {
-      const track = e.track;
-      if (!track) return;
-
-      const remoteStream = (e.streams && e.streams[0]) ? e.streams[0] : new MediaStream([track]);
+      const stream = e.streams[0];
+      if (!stream) return;
 
       setPeers((prev) => {
         const existing = prev.find((p) => p.socketId === remoteId);
-
-        // If we found an existing peer entry, we update its stream.
-        // We MUST preserve the stream object provided by the event if possible.
-        let stream = existing?.stream || remoteStream;
-
-        if (stream !== remoteStream) {
-          // If we're merging tracks into an existing stream object
-          if (!stream.getTracks().some(t => t.id === track.id)) {
-            stream.addTrack(track);
-          }
-        }
-
         const nick = peerNicksRef.current.get(remoteId) || 'Stranger';
         const ctry = peerCountriesRef.current.get(remoteId);
-
-        if (track.kind === 'audio') {
-          setupAudioAnalyzer(remoteId, stream);
-        }
+        const isCr = !!peerCreatorsRef.current.get(remoteId);
 
         if (existing) {
-          return prev.map(p => p.socketId === remoteId ? { ...p, stream, nickname: nick, country: ctry } : p);
+          if (existing.stream === stream) return prev;
+          return prev.map(p => p.socketId === remoteId ? { ...p, stream, nickname: nick, country: ctry, isCreator: isCr } : p);
         }
-        return [...prev, { socketId: remoteId, stream, nickname: nick, country: ctry }];
+        return [...prev, { socketId: remoteId, stream, nickname: nick, country: ctry, isCreator: isCr }];
       });
+
+      if (e.track.kind === 'audio') {
+        setupAudioAnalyzer(remoteId, stream);
+      }
     };
 
     pc.oniceconnectionstatechange = () => {
@@ -680,15 +690,18 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
     const onUserLeft = (data) => {
       setParticipantCount((c) => {
         const next = Math.max(1, (data.participantCount ?? c) - 1);
-        if (next === 1 && !isQueuing) {
+        if (next === 1 && !isQueuing && !hasAutoLeftRef.current) {
           // AUTO-SEEK: Find another room if left alone
+          hasAutoLeftRef.current = true;
           setTimeout(() => {
-            if (roomIdRef.current) onLeave(); // Assuming onLeave() in group room context from props is the exit
+            if (roomIdRef.current) {
+              onLeave();
+            }
           }, 3000);
         }
         return next;
       });
-      const sid = data.socketId; 
+      const sid = data.socketId;
       if (sid) {
         const pc = peerConnectionsRef.current.get(sid);
         if (pc) {
@@ -701,7 +714,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
         setPeers((p) => p.filter((x) => x.socketId !== sid));
         if (leavingNick) setMessages((m) => [...m, { id: `sys-left-${Date.now()}`, system: true, text: `${leavingNick} left the room` }]);
         playDisconnectSound();
-        audioAnalyzersRef.current.delete(sid);
+        cleanupAudioAnalyzer(sid);
       }
     };
 
@@ -957,7 +970,13 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
   useEffect(() => () => {
     peerConnectionsRef.current.forEach((pc) => pc.close());
     peerConnectionsRef.current.clear();
-    if (localStreamRef.current) localStreamRef.current.getTracks().forEach((t) => t.stop());
+    audioAnalyzersRef.current.forEach(({ ctx }) => {
+      try { ctx.close(); } catch (e) { }
+    });
+    audioAnalyzersRef.current.clear();
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((t) => t.stop());
+    }
   }, []);
 
   // Keyboard shortcut - Escape to leave
@@ -969,16 +988,25 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
     return () => window.removeEventListener('keydown', handler);
   }, [onLeave]);
 
-  // Build tile array: [local, ...peers, ...empty/searching]
-  const remotePeers = peers.slice(0, 3);
+  // Build adaptive tile array: [local, ...peers, ...empty/searching]
+  const prioritizedPeers = [...peers].sort((a, b) => {
+    if (a.socketId === pinnedId) return -1;
+    if (b.socketId === pinnedId) return 1;
+    return 0;
+  });
+
+  const remotePeers = prioritizedPeers.slice(0, 3);
   const tiles = [];
-  tiles.push({ type: 'local' });
+
+  // Local tile
+  tiles.push({ type: 'local', isPinned: pinnedId === 'local' });
+
   for (let i = 0; i < 3; i++) {
     const peer = remotePeers[i];
-    if (isQueuing && i === 0) {
+    if (isQueuing && i === 0 && peers.length === 0) {
       tiles.push({ type: 'searching' });
     } else if (peer) {
-      tiles.push({ type: 'peer', peer });
+      tiles.push({ type: 'peer', peer, isPinned: peer.socketId === pinnedId });
     } else {
       tiles.push({ type: 'empty' });
     }
@@ -997,6 +1025,14 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
 
   return (
     <div className="h-screen flex flex-col bg-[#1a1d21] text-white overflow-hidden font-sans select-none">
+      {/* VIBE MATCH OVERLAY */}
+      {goodVibesMatch && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-[180] flex items-center gap-3 px-6 py-2 rounded-full bg-emerald-500 text-white font-black uppercase tracking-[0.3em] text-[10px] animate-bounce shadow-[0_0_30px_#10b981]">
+          🤝 Room Synergy Matched!
+          <button onClick={() => setGoodVibesMatch(false)} className="ml-2 hover:scale-110 transition-transform">✕</button>
+        </div>
+      )}
+
       {/* Media permission error overlay */}
       {mediaError && (
         <div className="absolute inset-0 z-[300] bg-[#0c0e1a]/98 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center animate-fade-in">
@@ -1197,7 +1233,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
                   return (
                     <div
                       key={idx}
-                      className={`relative min-w-0 min-h-0 rounded-2xl sm:rounded-3xl overflow-hidden border-2 bg-[#0c0e1a] shadow-2xl transition-all duration-300 ${isSpeaking ? 'border-indigo-500 ring-4 ring-indigo-500/60 shadow-[0_0_30px_rgba(99,102,241,0.6)] animate-speaking-pulse' : 'border-indigo-500/30'}`}
+                      className={`relative min-w-0 min-h-0 rounded-2xl sm:rounded-3xl overflow-hidden border-2 bg-[#0c0e1a] shadow-2xl transition-all duration-300 ${tile.isPinned ? 'border-amber-400 ring-4 ring-amber-400/40 shadow-[0_0_30px_rgba(251,191,36,0.4)]' : (isSpeaking ? 'border-indigo-500 ring-4 ring-indigo-500/60 shadow-[0_0_30px_rgba(99,102,241,0.6)] animate-speaking-pulse' : 'border-indigo-500/30')}`}
                     >
                       {tile.type === 'local' ? (
                         <VideoTile
@@ -1282,15 +1318,15 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
           <aside className="fixed inset-0 sm:relative sm:w-80 h-full bg-[#1a1d21] border-l border-white/5 flex flex-col animate-slide-in-right z-[160]">
             <header className="p-4 border-b border-white/5 flex items-center justify-between">
               <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Group Chat</span>
-              <button 
-                onClick={() => setShowChat(false)} 
+              <button
+                onClick={() => setShowChat(false)}
                 className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-rose-500 hover:text-white text-white/20 transition-all font-bold"
               >
                 ✕
               </button>
             </header>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+            <div id="group-video-chat-messages" className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
               {messages.map((m, i) => (
                 <div key={m.id || i} className={`flex flex-col ${m.system ? 'items-center py-2' : m.socketId === socket.id ? 'items-end' : 'items-start'} group animate-fade-in`}>
                   {m.system ? (
@@ -1300,18 +1336,18 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
                       <div className="flex items-center gap-2 mb-1 px-1">
                         <span className="text-[9px] font-bold text-white/20 uppercase">{m.nickname || 'Stranger'}</span>
                         {m.socketId !== socket.id && (
-                          <button 
+                          <button
                             onClick={() => {
                               setReplyingTo(m);
                               inputRef.current?.focus();
-                            }} 
+                            }}
                             className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-indigo-400 font-bold"
                           >
                             Reply
                           </button>
                         )}
                       </div>
-                      
+
                       <div className={`relative max-w-[90%] px-4 py-2.5 rounded-2xl text-sm ${m.socketId === socket.id ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white/5 text-white/90 rounded-tl-none border border-white/5 shadow-inner'}`}>
                         {m.replyTo && (
                           <div className="mb-2 p-2 rounded-lg bg-black/20 border-l-2 border-indigo-400 text-[10px] opacity-60 italic">
@@ -1384,8 +1420,8 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
             {isRecording ? '⏹️' : 'REC'}
           </button>
         )}
-        <button 
-          onClick={() => setShowChat(!showChat)} 
+        <button
+          onClick={() => setShowChat(!showChat)}
           className={`min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-full transition-all ${showChat ? 'bg-indigo-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
         >
           💬
