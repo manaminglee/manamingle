@@ -43,7 +43,21 @@ function MessageSpark({ x, y }) {
 function VideoTile({ stream, label, flag, isMe, isEmpty, isSearching, isCreator = false }) {
   const ref = useRef(null);
   useEffect(() => {
-    if (ref.current && stream) ref.current.srcObject = stream;
+    const el = ref.current;
+    if (!el || !stream) return;
+    el.srcObject = stream;
+    const play = async () => { try { await el.play(); } catch (e) {} };
+    play();
+
+    // Anti-lag listeners
+    const handleStalled = () => { if (el.paused && stream.active) el.play().catch(() => {}); };
+    el.addEventListener('stalled', handleStalled);
+    el.addEventListener('waiting', () => { if (stream.active) el.play().catch(() => {}); });
+    el.addEventListener('canplay', () => el.play().catch(() => {}));
+
+    return () => {
+      el.removeEventListener('stalled', handleStalled);
+    };
   }, [stream]);
 
   if (isSearching) {
@@ -324,11 +338,18 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
   const requestMediaAccess = async () => {
     setMediaError(null);
     try {
-      const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const constraints = {
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+        audio: { echoCancellation: true, noiseSuppression: true }
+      };
+      const s = await navigator.mediaDevices.getUserMedia(constraints);
       localStreamRef.current = s;
       setLocalStreamReady(true);
       setMediaError(null);
-      if (localVideoRef.current) localVideoRef.current.srcObject = s;
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = s;
+        localVideoRef.current.play().catch(() => {});
+      }
     } catch (err) {
       console.error('getUserMedia error:', err);
       const name = err?.name || '';
@@ -348,10 +369,17 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
     let s = null;
     (async () => {
       try {
-        s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const constraints = {
+          video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+          audio: { echoCancellation: true, noiseSuppression: true }
+        };
+        s = await navigator.mediaDevices.getUserMedia(constraints);
         localStreamRef.current = s;
         setLocalStreamReady(true);
-        if (localVideoRef.current) localVideoRef.current.srcObject = s;
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = s;
+          localVideoRef.current.play().catch(() => {});
+        }
       } catch (err) {
         console.error('getUserMedia error:', err);
         const name = err?.name || '';

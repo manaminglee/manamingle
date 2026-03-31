@@ -418,8 +418,10 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     (async () => {
       try {
         const baseConstraints = {
-          video: selectedVideoDeviceId ? { deviceId: { exact: selectedVideoDeviceId } } : true,
-          audio: selectedAudioDeviceId ? { deviceId: { exact: selectedAudioDeviceId } } : true,
+          video: selectedVideoDeviceId 
+            ? { deviceId: { exact: selectedVideoDeviceId }, width: { ideal: 640 }, height: { ideal: 480 } } 
+            : { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+          audio: selectedAudioDeviceId ? { deviceId: { exact: selectedAudioDeviceId } } : { echoCancellation: true, noiseSuppression: true },
         };
         s = await navigator.mediaDevices.getUserMedia(baseConstraints);
         localStreamRef.current = s;
@@ -1691,22 +1693,29 @@ function RemoteVideoComponent({ stream, muted, strangerFilter, strangerBlur }) {
       try {
         await el.play();
       } catch (e) {
-        console.warn('[WEBRTC] Auto-play blocked, retrying on interaction');
+        // Retry on interaction if needed
       }
     };
 
     playVideo();
 
-    // Listen for 'stalled' or 'waiting' states which often cause black screens
+    // LISTENERS FOR SMOOTH PLAYBACK
     const handleStalled = () => {
       if (el.paused && stream.active) el.play().catch(() => { });
     };
+    
+    const handleWaiting = () => {
+      // Visual indicator of buffering if needed, but here we just try to keep it playing
+      if (stream.active) el.play().catch(() => {});
+    };
 
     el.addEventListener('stalled', handleStalled);
+    el.addEventListener('waiting', handleWaiting);
     el.addEventListener('canplay', () => el.play().catch(() => { }));
 
     return () => {
       el.removeEventListener('stalled', handleStalled);
+      el.removeEventListener('waiting', handleWaiting);
     };
   }, [stream]);
 
@@ -1717,7 +1726,11 @@ function RemoteVideoComponent({ stream, muted, strangerFilter, strangerBlur }) {
       playsInline
       muted={muted}
       className="absolute inset-0 w-full h-full object-cover transition-all duration-300"
-      style={{ backgroundColor: '#000', filter: strangerBlur && strangerFilter === 'none' ? 'blur(20px)' : (strangerFilter !== 'none' ? strangerFilter : 'none') }}
+      style={{ 
+        backgroundColor: '#000', 
+        filter: strangerBlur && strangerFilter === 'none' ? 'blur(20px)' : (strangerFilter !== 'none' ? strangerFilter : 'none'),
+        willChange: 'transform, opacity' // Hardware acceleration
+      }}
     />
   );
 }
