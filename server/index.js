@@ -337,6 +337,26 @@ app.get('/api/settings', (req, res) => {
   res.json({ adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools });
 });
 
+// TURN server credentials endpoint — always served from env vars, NEVER hardcoded in client
+app.get('/api/turn', (req, res) => {
+  const iceServers = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+  ];
+  const turnUrl = (process.env.TURN_URL || '').trim();
+  const turnUser = (process.env.TURN_USERNAME || '').trim();
+  const turnPass = (process.env.TURN_PASSWORD || '').trim();
+  if (turnUrl && turnUser && turnPass) {
+    iceServers.push({ urls: turnUrl, username: turnUser, credential: turnPass });
+    // Also provide TLS fallback (port 443 often gets through firewalls)
+    const tlsUrl = turnUrl.replace(/:\d+$/, ':443');
+    if (tlsUrl !== turnUrl) {
+      iceServers.push({ urls: tlsUrl, username: turnUser, credential: turnPass });
+    }
+  }
+  res.json({ iceServers });
+});
+
 // Debug: Supabase connection status (safe - no secrets exposed)
 app.get('/api/debug/status', async (req, res) => {
   const hasUrl = !!(process.env.SUPABASE_URL || '').trim();
