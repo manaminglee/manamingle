@@ -432,12 +432,18 @@ app.post('/api/creators/re-request', async (req, res) => {
 // --- ADMIN CONTROL CENTER ---
 app.get('/api/admin/creators', requireAdmin, async (req, res) => {
   try {
+    let creators = [];
+    let withdrawals = [];
     if (supabase) {
-      const { data } = await supabase.from('creators').select('*').order('created_at', { ascending: false });
-      res.json({ data });
+      const { data: cData } = await supabase.from('creators').select('*').order('created_at', { ascending: false });
+      const { data: wData } = await supabase.from('withdrawals').select('*, creators(handle_name)').order('created_at', { ascending: false });
+      creators = cData || [];
+      withdrawals = wData || [];
     } else {
-      res.json({ data: [...localDb.creators].reverse() });
+      creators = [...localDb.creators].reverse();
+      withdrawals = [...localDb.withdrawals].reverse();
     }
+    res.json({ success: true, creators, withdrawals });
   } catch (e) { res.status(500).json({ error: 'Admin query failed' }); }
 });
 
@@ -664,10 +670,17 @@ app.get('/api/admin/overview', requireAdmin, (req, res) => {
     socketId: u.socketId
   }));
 
-  const coinStats = {
-    totalUsers: coinUsers.size,
-    totalCoinsInSystem: Array.from(coinUsers.values()).reduce((sum, u) => sum + (u.coins || 0), 0)
-  };
+  let coinStats = { totalUsers: 0, totalCoinsInSystem: 0 };
+  if (supabase) {
+    // In production with Supabase, we'd ideally use a sum query, 
+    // but for the admin dashboard overview, we'll use a snapshot or the cached Map if synced.
+    // For now, let's keep it robust by showing the Map if it has data, or a placeholder.
+    coinStats.totalUsers = coinUsers.size;
+    coinStats.totalCoinsInSystem = Array.from(coinUsers.values()).reduce((sum, u) => sum + (u.coins || 0), 0);
+  } else {
+    coinStats.totalUsers = coinUsers.size;
+    coinStats.totalCoinsInSystem = Array.from(coinUsers.values()).reduce((sum, u) => sum + (u.coins || 0), 0);
+  }
 
   const userWallets = {};
   for (const [ip, data] of coinUsers.entries()) {
@@ -1096,17 +1109,7 @@ app.post('/api/ai/translate', async (req, res) => {
 // Duplicate Approve Endpoint Removed to resolve 401 Neural Key Mismatch.
 // Using the primary one at line 409 which correctly generates passwords.
 
-app.get('/api/admin/creators/list', requireAdmin, async (req, res) => {
-  try {
-    if (supabase) {
-      const { data: creators } = await supabase.from('creators').select('*');
-      const { data: withdrawals } = await supabase.from('withdrawals').select('*, creators(handle_name)');
-      return res.json({ creators: creators || [], withdrawals: withdrawals || [] });
-    } else {
-      return res.json({ creators: localDb.creators || [], withdrawals: localDb.withdrawals || [] });
-    }
-  } catch (e) { res.json({ creators: [], withdrawals: [] }); }
-});
+// Removed duplicate creator list endpoint; merged into /api/admin/creators above.
 
 // API 404 Fallback
 app.all('/api/*', (req, res) => {
@@ -1621,42 +1624,38 @@ io.on('connection', (socket) => {
     console.log(`[COINS] User ${socket.id} spent ${amount} for ${reason}`);
   });
 
-  socket.on('send-3d-emoji', (data) => {
+  socket.on('send-3d-emoji', async (data) => {
     const { roomId, emoji } = data || {};
     const u = users.get(socket.id);
-    let cUser = coinUsers.get(ip);
-    if (!cUser) {
-      cUser = { coins: 30, lastClaim: 0, streak: 1, lastClaimDate: null };
-      coinUsers.set(ip, cUser);
-    }
+    const cUser = await getCoinUser(ip);
+    
     if (cUser.coins < 5) return socket.emit('error', { message: 'Need 5 coins for 3D Emoji' });
-    cUser.coins -= 5;
-    coinUsers.set(ip, cUser);
+    const nextBalance = cUser.coins - 5;
+    await updateCoinUser(ip, { coins: nextBalance });
+
     // Notify all sockets with this IP
     for (const [sid, user] of users.entries()) {
       if (user.ip === ip) {
-        io.to(sid).emit('coins-updated', { coins: cUser.coins, reason: '3D Emoji' });
+        io.to(sid).emit('coins-updated', { coins: nextBalance, reason: '3D Emoji' });
       }
     }
     io.to(roomId).emit('3d-emoji', { roomId, emoji, nickname: u?.nickname || 'Someone', socketId: socket.id });
   });
 
-  socket.on('send-media', (data) => {
+  socket.on('send-media', async (data) => {
     const { roomId, type, content } = data || {};
     const u = users.get(socket.id);
-    let cUser = coinUsers.get(ip);
-    if (!cUser) {
-      cUser = { coins: 30, lastClaim: 0, streak: 1, lastClaimDate: null };
-      coinUsers.set(ip, cUser);
-    }
+    const cUser = await getCoinUser(ip);
+    
     const cost = type === 'video' ? 15 : 10;
     if (cUser.coins < cost) return socket.emit('error', { message: `Need ${cost} coins for Media` });
-    cUser.coins -= cost;
-    coinUsers.set(ip, cUser);
+    const nextBalance = cUser.coins - cost;
+    await updateCoinUser(ip, { coins: nextBalance });
+
     // Notify all sockets with this IP
     for (const [sid, user] of users.entries()) {
       if (user.ip === ip) {
-        io.to(sid).emit('coins-updated', { coins: cUser.coins, reason: 'Media Upload' });
+        io.to(sid).emit('coins-updated', { coins: nextBalance, reason: 'Media Upload' });
       }
     }
     io.to(roomId).emit('media-message', { id: generateId('med'), roomId, type, content, nickname: u?.nickname || 'Someone', ts: Date.now(), socketId: socket.id });

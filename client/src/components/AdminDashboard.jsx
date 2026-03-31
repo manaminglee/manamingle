@@ -50,7 +50,8 @@ export function AdminDashboard({ onJoinRoom }) {
       });
       if (res.ok) {
         const data = await res.json();
-        setCreators(data.data || []);
+        setCreators(data.creators || []);
+        setWithdrawals(data.withdrawals || []);
       }
     } catch (e) { }
   };

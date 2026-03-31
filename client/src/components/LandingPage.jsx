@@ -723,7 +723,26 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                     className="w-full h-14 bg-cyan-400 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all shadow-xl shadow-cyan-500/20"
                   >Register as Creator</button>
 
-                  
+                  <div className="pt-10 flex flex-col items-center gap-6 border-t border-white/5">
+                    <div className="flex items-center gap-4 text-[8px] font-black uppercase tracking-[0.4em] text-white/20 whitespace-nowrap italic">
+                      <span>Apply</span>
+                      <span className="text-cyan-500 animate-pulse">→</span>
+                      <span>Check Status</span>
+                      <span className="text-cyan-500 animate-pulse">→</span>
+                      <span>Login</span>
+                    </div>
+
+                    <div className="flex gap-4 w-full">
+                       <button 
+                        onClick={() => { setShowCreatorModal(false); setShowStatusModal(true); }}
+                        className="flex-1 py-4 rounded-xl bg-white/5 border border-white/5 text-[9px] font-black uppercase text-white/40 hover:text-cyan-400 hover:border-cyan-400/20 transition-all tracking-widest"
+                       >Check Status</button>
+                       <button 
+                        onClick={() => { setShowCreatorModal(false); setShowLoginModal(true); }}
+                        className="flex-1 py-4 rounded-xl bg-white/5 border border-white/5 text-[9px] font-black uppercase text-white/40 hover:text-indigo-400 hover:border-indigo-400/20 transition-all tracking-widest"
+                       >Creator Login</button>
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : (

@@ -1295,8 +1295,9 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
                       <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3 right-2 sm:right-3 flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-full bg-black/50 border border-white/10 backdrop-blur-md">
                           <div className={`w-1.5 h-1.5 rounded-full ${tile.type === 'local' ? 'bg-blue-500' : 'bg-emerald-500'}`} />
-                          <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-white/80">
+                          <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-white/80 flex items-center gap-1">
                             {tile.type === 'local' ? 'You' : tile.peer?.nickname || 'Stranger'}
+                            {((tile.type === 'local' && isCreator) || (tile.type === 'peer' && tile.peer?.isCreator)) && <BlueTick />}
                           </span>
                           {/* Connection quality bars: good=3 green, fair=2, poor=1 amber */}
                           {tile.type === 'peer' && tile.peer && (
@@ -1356,7 +1357,10 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
                   ) : (
                     <>
                       <div className="flex items-center gap-2 mb-1 px-1">
-                        <span className="text-[9px] font-bold text-white/20 uppercase">{m.nickname || 'Stranger'}</span>
+                        <span className="text-[9px] font-bold text-white/20 uppercase flex items-center gap-1">
+                          {m.nickname || 'Stranger'}
+                          {m.isCreator && <BlueTick />}
+                        </span>
                         {m.socketId !== socket.id && (
                           <button
                             onClick={() => {
