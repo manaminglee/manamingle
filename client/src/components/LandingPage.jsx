@@ -89,14 +89,26 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
   const [uniqueAccessCode, setUniqueAccessCode] = useState('');
   const [codeCopied, setCodeCopied] = useState(false);
   const [statusCheckCode, setStatusCheckCode] = useState('');
+  const [statusCheckResult, setStatusCheckResult] = useState(null); // null | 'not_found' | { ...creator }
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [showCreatorModal, setShowCreatorModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginForm, setLoginForm] = useState({ handle: '', password: '' });
   const [loginError, setLoginError] = useState('');
+  // Custom dialog modal — replaces system alert/confirm
+  const [dialog, setDialog] = useState(null); // { title, body, confirm?, onConfirm?, onCancel? }
   const { creatorStatus, registerCreator, verifyReferral, requestWithdrawal, login, checkStatus, reRequestApproval } = useCreators();
   const startRef = useRef(null);
+
+  // Helper to show an alert-dialog
+  const showAlert = (title, body) => new Promise(resolve => {
+    setDialog({ title, body, onConfirm: () => { setDialog(null); resolve(true); }, onCancel: null });
+  });
+  // Helper to show a confirm-dialog
+  const showConfirm = (title, body) => new Promise(resolve => {
+    setDialog({ title, body, confirm: true, onConfirm: () => { setDialog(null); resolve(true); }, onCancel: () => { setDialog(null); resolve(false); } });
+  });
 
   useEffect(() => {
     const rawCount = onlineCount || 0;
@@ -768,10 +780,10 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                   </div>
                   <button
                     onClick={async () => {
-                      if (!creatorForm.handle) return alert('Please enter your handle name.');
-                      if (!creatorForm.link) return alert('Please enter your profile link.');
+                      if (!creatorForm.handle) return showAlert('Missing Handle', 'Please enter your handle name.');
+                      if (!creatorForm.link) return showAlert('Missing Profile Link', 'Please enter your profile link.');
                       if (!linkValidated) {
-                        const go = window.confirm('You haven\'t verified your profile link yet. Submit anyway?');
+                        const go = await showConfirm('Profile Not Verified', "You haven't verified your profile link yet. Are you sure you want to submit?");
                         if (!go) return;
                       }
                       const res = await registerCreator(creatorForm.handle, creatorForm.platform, creatorForm.link);
@@ -780,7 +792,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                         setWaitingForApproval(true);
                         setApprovalTimer(15);
                       }
-                      else alert(res.error);
+                      else showAlert('Registration Failed', res.error || 'Something went wrong. Please try again.');
                     }}
                     className="w-full h-14 bg-cyan-400 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all shadow-xl shadow-cyan-500/20"
                   >Register as Creator</button>
@@ -995,49 +1007,112 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
 
       {/* CHECK STATUS MODAL */}
       {showStatusModal && (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl animate-in-zoom" onClick={() => setShowStatusModal(false)}>
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl animate-in-zoom" onClick={() => { setShowStatusModal(false); setStatusCheckResult(null); setStatusCheckCode(''); }}>
           <div className="relative w-full max-w-sm bg-black border border-white/10 rounded-[50px] p-10 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <button onClick={() => setShowStatusModal(false)} className="absolute top-6 right-8 text-white/20 hover:text-white transition-colors">✕</button>
+            <button onClick={() => { setShowStatusModal(false); setStatusCheckResult(null); setStatusCheckCode(''); }} className="absolute top-6 right-8 text-white/20 hover:text-white transition-colors text-xl">✕</button>
             <div className="text-center mb-8">
               <div className="w-16 h-16 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mx-auto mb-4 text-2xl shadow-[0_0_20px_#06b6d430]">🔍</div>
-              <h3 className="text-xl font-black italic uppercase tracking-tighter text-white">Check Progress</h3>
-              <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-2">Enter Access Code to Resume</p>
+              <h3 className="text-xl font-black italic uppercase tracking-tighter text-white">Check Application Status</h3>
+              <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-2">Enter your access code or handle name</p>
             </div>
             <div className="space-y-6">
-              <input
-                type="text"
-                value={statusCheckCode}
-                onChange={e => setStatusCheckCode(e.target.value)}
-                placeholder="e.g. handle1234"
-                className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl px-6 text-sm outline-none text-white focus:border-cyan-500/30 transition-all font-bold tracking-widest uppercase"
-              />
-              <button
-                disabled={checkingStatus}
-                onClick={async () => {
-                  if (!statusCheckCode) return;
-                  setCheckingStatus(true);
-                  const data = await checkStatus(statusCheckCode);
-                  setCheckingStatus(false);
-                  
-                  if (data) {
-                    if (data.status === 'approved') {
-                      window.localStorage.setItem('mm_creatorId', statusCheckCode);
-                      window.location.reload();
-                    } else {
-                      const ping = confirm(`ID: @${data.handle_name}\nStatus: PENDING VALIDATION\n\nWould you like to re-request admin approval now?`);
-                      if (ping) {
-                        await reRequestApproval(statusCheckCode);
-                        alert('Approval Request Re-sent to Admin.');
+              {!statusCheckResult ? (
+                <>
+                  <input
+                    type="text"
+                    value={statusCheckCode}
+                    onChange={e => { setStatusCheckCode(e.target.value); setStatusCheckResult(null); }}
+                    placeholder="e.g. handle1234 or @yourhandle"
+                    className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl px-6 text-sm outline-none text-white focus:border-cyan-500/30 transition-all font-bold tracking-widest"
+                  />
+                  <button
+                    disabled={checkingStatus || !statusCheckCode.trim()}
+                    onClick={async () => {
+                      const code = statusCheckCode.trim().replace(/^@/, '');
+                      if (!code) return;
+                      setCheckingStatus(true);
+                      // Try access code first, then handle name as fallback
+                      let data = await checkStatus(code);
+                      if (!data) {
+                        // Try looking up by handle name directly
+                        data = await checkStatus(`handle:${code}`);
                       }
-                    }
-                  } else {
-                    alert('Invalid Access Code. Please check and try again.');
-                  }
-                }}
-                className="w-full h-14 bg-cyan-400 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all shadow-xl shadow-cyan-500/20 disabled:opacity-50"
-              >
-                {checkingStatus ? 'Analyzing Terminal...' : 'Verify Progress →'}
-              </button>
+                      setCheckingStatus(false);
+                      setStatusCheckResult(data || 'not_found');
+                    }}
+                    className="w-full h-14 bg-cyan-400 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all shadow-xl shadow-cyan-500/20 disabled:opacity-50"
+                  >
+                    {checkingStatus ? 'Checking...' : 'Check Status →'}
+                  </button>
+                </>
+              ) : statusCheckResult === 'not_found' ? (
+                <div className="text-center space-y-6">
+                  <div className="text-5xl">❌</div>
+                  <div>
+                    <div className="text-sm font-black text-white uppercase tracking-widest">Access Code Not Found</div>
+                    <p className="text-[10px] text-white/30 font-bold mt-2 leading-relaxed">
+                      The code <span className="text-white/60 font-black">"{statusCheckCode}"</span> doesn't match any application.
+                      Make sure you're entering the exact code you received after registering.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => { setStatusCheckResult(null); setStatusCheckCode(''); }}
+                    className="w-full h-12 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white hover:bg-white/10 transition-all"
+                  >Try Again</button>
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  <div className="p-6 rounded-3xl bg-white/[0.03] border border-white/5 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="text-2xl">👤</div>
+                      <div>
+                        <div className="text-xs text-white/20 font-black uppercase tracking-widest">Handle</div>
+                        <div className="font-black text-white text-lg italic uppercase">@{statusCheckResult.handle_name}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between pt-3 border-t border-white/5">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-white/20">Status</span>
+                      <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                        statusCheckResult.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                        statusCheckResult.status === 'rejected' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
+                        'bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse'
+                      }`}>{statusCheckResult.status === 'approved' ? '✅ Approved' : statusCheckResult.status === 'rejected' ? '❌ Rejected' : '⏳ Pending Review'}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-white/20">Platform</span>
+                      <span className="text-[10px] font-black text-white/60 uppercase">{statusCheckResult.platform}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-white/20">Applied</span>
+                      <span className="text-[10px] font-black text-white/40">{new Date(statusCheckResult.created_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+
+                  {statusCheckResult.status === 'approved' ? (
+                    <button
+                      onClick={() => {
+                        window.localStorage.setItem('mm_creatorId', statusCheckResult.referral_code);
+                        window.location.reload();
+                      }}
+                      className="w-full h-12 bg-emerald-500 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white hover:text-black transition-all shadow-xl shadow-emerald-500/20"
+                    >Login as Creator →</button>
+                  ) : statusCheckResult.status === 'pending' ? (
+                    <button
+                      onClick={async () => {
+                        await reRequestApproval(statusCheckResult.referral_code);
+                        setStatusCheckResult({ ...statusCheckResult, _pinged: true });
+                      }}
+                      disabled={statusCheckResult._pinged}
+                      className="w-full h-12 bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-indigo-500 hover:text-white transition-all disabled:opacity-50"
+                    >{statusCheckResult._pinged ? '✓ Approval Reminder Sent' : 'Remind Admin to Review →'}</button>
+                  ) : null}
+
+                  <button
+                    onClick={() => { setStatusCheckResult(null); setStatusCheckCode(''); }}
+                    className="w-full h-10 text-[9px] font-black uppercase tracking-widest text-white/20 hover:text-white/40 transition-colors"
+                  >← Check Another Code</button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1047,9 +1122,35 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
       {modal && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-6 bg-black/90 backdrop-blur-3xl animate-in-zoom" onClick={() => setModal(null)}>
           <div className="relative w-full max-w-sm bg-black border border-white/10 rounded-[40px] p-10 text-center" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setModal(null)} className="absolute top-6 right-8 text-white/20 hover:text-white transition-colors text-xl">✕</button>
             <h3 className="text-2xl font-black text-white italic uppercase mb-6 tracking-tighter">{MODALS[modal]?.title}</h3>
-            <p className="text-[11px] text-white/40 leading-relaxed font-bold uppercase tracking-widest">{MODALS[modal]?.body}</p>
-            <button onClick={() => setModal(null)} className="mt-10 w-full h-14 bg-cyan-500 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all shadow-xl shadow-cyan-500/20">Authorize Terminal_Access</button>
+            <p className="text-[11px] text-white/40 leading-relaxed font-bold uppercase tracking-widest whitespace-pre-line">{MODALS[modal]?.body}</p>
+            <button onClick={() => setModal(null)} className="mt-10 w-full h-14 bg-cyan-500 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all shadow-xl shadow-cyan-500/20">Got it</button>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOM APP DIALOG — replaces system alert/confirm */}
+      {dialog && (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6 bg-black/90 backdrop-blur-3xl">
+          <div className="w-full max-w-xs bg-[#0a0a0a] border border-white/10 rounded-[40px] p-8 shadow-2xl animate-in-zoom">
+            <div className="text-center mb-6">
+              <div className="text-3xl mb-4">{dialog.confirm ? '⚠️' : 'ℹ️'}</div>
+              <h4 className="text-base font-black uppercase tracking-widest text-white italic mb-3">{dialog.title}</h4>
+              <p className="text-[11px] text-white/40 font-bold leading-relaxed">{dialog.body}</p>
+            </div>
+            <div className={`flex gap-3 ${dialog.confirm ? 'flex-row' : 'flex-col'}`}>
+              <button
+                onClick={dialog.onConfirm}
+                className="flex-1 h-12 bg-cyan-400 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all"
+              >OK</button>
+              {dialog.confirm && dialog.onCancel && (
+                <button
+                  onClick={dialog.onCancel}
+                  className="flex-1 h-12 bg-white/5 border border-white/10 text-white/40 font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white/10 transition-all"
+                >Cancel</button>
+              )}
+            </div>
           </div>
         </div>
       )}

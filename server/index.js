@@ -455,21 +455,42 @@ app.get('/api/creators/status', async (req, res) => {
   const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
   try {
     let creator = null;
+    // Support "handle:name" prefix from client for handle-name lookup
+    const isHandleLookup = id && id.startsWith('handle:');
+    const handleFromId = isHandleLookup ? id.replace(/^handle:/, '').trim() : null;
+
     if (supabase) {
-      if (id) {
-        const { data } = await supabase.from('creators').select('*').eq('referral_code', id).single();
+      if (isHandleLookup && handleFromId) {
+        const { data } = await supabase.from('creators').select('*').ilike('handle_name', handleFromId).single();
         creator = data;
+      } else if (id) {
+        // Primary: try referral_code match
+        const { data: byCode } = await supabase.from('creators').select('*').eq('referral_code', id).single();
+        creator = byCode;
+        // Secondary fallback: try handle_name match (in case user types their handle)
+        if (!creator) {
+          const { data: byHandle } = await supabase.from('creators').select('*').ilike('handle_name', id).single();
+          creator = byHandle;
+        }
       } else if (handle) {
-        const { data } = await supabase.from('creators').select('*').eq('handle_name', handle).single();
+        const { data } = await supabase.from('creators').select('*').ilike('handle_name', handle).single();
         creator = data;
       } else {
         const { data } = await supabase.from('creators').select('*').contains('authorized_ips', [ip]).single();
         creator = data;
       }
     } else {
-      if (id) creator = localDb.creators.find(c => c.referral_code === id);
-      else if (handle) creator = localDb.creators.find(c => c.handle_name === handle);
-      else creator = localDb.creators.find(c => c.authorized_ips.includes(ip));
+      if (isHandleLookup && handleFromId) {
+        creator = localDb.creators.find(c => c.handle_name.toLowerCase() === handleFromId.toLowerCase());
+      } else if (id) {
+        creator = localDb.creators.find(c => c.referral_code === id);
+        // Fallback: try by handle name
+        if (!creator) creator = localDb.creators.find(c => c.handle_name.toLowerCase() === id.toLowerCase());
+      } else if (handle) {
+        creator = localDb.creators.find(c => c.handle_name.toLowerCase() === handle.toLowerCase());
+      } else {
+        creator = localDb.creators.find(c => c.authorized_ips.includes(ip));
+      }
     }
     res.json({ data: creator || null });
   } catch (e) { res.json({ data: null }); }
