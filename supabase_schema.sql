@@ -97,3 +97,48 @@ CREATE POLICY "Allow full access" ON withdrawals FOR ALL TO anon, authenticated,
 CREATE POLICY "Allow full access" ON user_coins FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
 CREATE POLICY "Allow full access" ON creator_logins FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
 CREATE POLICY "Allow full access" ON admin_history FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
+
+-- 7. Delta/Migration Patches (Safe to run multiple times)
+-- This ensures existing tables get any newly added columns.
+DO $$ 
+BEGIN 
+    -- Add authorized_ips if missing
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='creators' AND column_name='authorized_ips') THEN
+        ALTER TABLE creators ADD COLUMN authorized_ips TEXT[] DEFAULT '{}';
+    END IF;
+
+    -- Add password if missing
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='creators' AND column_name='password') THEN
+        ALTER TABLE creators ADD COLUMN password TEXT;
+    END IF;
+
+    -- Add earnings_rs if missing
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='creators' AND column_name='earnings_rs') THEN
+        ALTER TABLE creators ADD COLUMN earnings_rs INTEGER DEFAULT 0;
+    END IF;
+
+    -- Add referral_count if missing
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='creators' AND column_name='referral_count') THEN
+        ALTER TABLE creators ADD COLUMN referral_count INTEGER DEFAULT 0;
+    END IF;
+
+    -- Fix ID column types if they were accidentally set to UUID
+    -- This checks if the column is NOT text (e.g. if it's uuid)
+    IF (SELECT data_type FROM information_schema.columns WHERE table_name='creators' AND column_name='id') <> 'text' THEN
+        -- Temporarily drop foreign keys
+        ALTER TABLE referral_logs DROP CONSTRAINT IF EXISTS referral_logs_creator_id_fkey;
+        ALTER TABLE withdrawals DROP CONSTRAINT IF EXISTS withdrawals_creator_id_fkey;
+        
+        -- Convert columns to TEXT
+        ALTER TABLE creators ALTER COLUMN id TYPE TEXT;
+        ALTER TABLE referral_logs ALTER COLUMN creator_id TYPE TEXT;
+        ALTER TABLE withdrawals ALTER COLUMN creator_id TYPE TEXT;
+        
+        -- Re-add foreign keys
+        ALTER TABLE referral_logs ADD CONSTRAINT referral_logs_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES creators(id) ON DELETE CASCADE;
+        ALTER TABLE withdrawals ADD CONSTRAINT withdrawals_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES creators(id) ON DELETE CASCADE;
+    END IF;
+END $$;
+
+
+
