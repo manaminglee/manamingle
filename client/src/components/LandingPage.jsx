@@ -619,26 +619,30 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                     </div>
                   ) : (
                     <div className="space-y-8 animate-fade-in-up">
-                      <div className="p-8 rounded-[38px] bg-indigo-500/10 border-2 border-indigo-500/40 space-y-4 shadow-[0_0_40px_rgba(99,102,241,0.2)]">
-                        <h4 className="text-sm font-black uppercase tracking-[0.3em] text-indigo-400">Unique Access Code</h4>
-                        <div className="relative group">
-                          <div className="w-full bg-black/60 rounded-2xl py-6 px-4 text-2xl font-black italic text-center tracking-[0.2em] text-white border border-white/10 select-all group-hover:border-indigo-500/40 transition-all">
+                      <div className="p-8 rounded-[45px] bg-indigo-500/5 border-2 border-indigo-500/20 space-y-8 shadow-[0_0_50px_rgba(99,102,241,0.15)]">
+                        <div className="text-center">
+                          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-400/60 mb-2">Unique Access Code</h4>
+                          <div className="w-full bg-black/40 rounded-[30px] py-10 px-6 text-2xl font-black italic text-center tracking-[0.1em] text-white border border-white/5 select-all hover:border-indigo-500/30 transition-all">
                             {uniqueAccessCode}
                           </div>
+                        </div>
+
+                        <div className="flex flex-col items-center gap-6">
                           <button
                             onClick={() => {
                               navigator.clipboard.writeText(uniqueAccessCode);
                               setCodeCopied(true);
                               alert('Unique Code Saved to Clipboard');
                             }}
-                            className="absolute -bottom-4 left-1/2 -translate-x-1/2 px-6 py-2 bg-indigo-500 text-white text-[9px] font-black uppercase tracking-widest rounded-full hover:scale-105 transition-all shadow-xl"
+                            className="px-10 py-4 bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-indigo-500 hover:scale-105 transition-all shadow-2xl shadow-indigo-600/30 active:scale-95"
                           >
-                            {codeCopied ? 'Code Copied ✓' : 'Copy Mandotory Code'}
+                            {codeCopied ? 'Code Copied ✓' : 'Copy Mandatory Code'}
                           </button>
+
+                          <p className="text-[9px] font-bold text-white/20 uppercase text-center leading-relaxed max-w-xs">
+                            Validation is taking longer than expected. <span className="text-white/60">Copy this code now.</span> You will need it to check your status under the "Returning Creator" section.
+                          </p>
                         </div>
-                        <p className="text-[9px] font-bold text-white/30 uppercase leading-relaxed pt-4">
-                          Validation is taking longer than expected. <span className="text-white">Copy this code now.</span> You will need it to check your status under the "Returning Creator" section.
-                        </p>
                       </div>
 
                       {codeCopied && (
