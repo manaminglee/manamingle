@@ -151,7 +151,7 @@ function VanishingMessage({ m, isMe, onReply }) {
                 {m.media ? (
                     <div className="max-w-[180px] rounded-lg overflow-hidden border border-white/10">
                         {m.type === 'video' ? (
-                            <video src={m.content} controls className="w-full" autoPlay loop muted />
+                            <video src={m.content} controls className="w-full" autoPlay playsInline muted />
                         ) : (
                             <img src={m.content} className="w-full h-auto" alt="media" />
                         )}
@@ -249,7 +249,8 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
         const el = document.getElementById('text-chat-messages');
         if (el) {
           const rect = el.getBoundingClientRect();
-          setSparks(prev => [...prev, { id: Date.now(), x: rect.left + rect.width / 2, y: rect.bottom - 100 }]);
+          // Fix #8: Cap sparks to 20 to prevent memory growth
+          setSparks(prev => [...prev.slice(-20), { id: Date.now(), x: rect.left + rect.width / 2, y: rect.bottom - 100 }]);
         }
       }
     };
@@ -257,9 +258,10 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
     const onUserLeft = () => {
       setStatus('disconnected');
       setPeer(null);
-      // AUTO-SEEK Logic: Trigger handleSkip after 0.8s delay (High Speed)
+      // Fix #7: Capture room ID at time of event to avoid race condition
+      const currentRoom = roomIdRef.current;
       setTimeout(() => {
-        if (roomIdRef.current) return;
+        if (roomIdRef.current !== currentRoom) return; // new room joined, don't skip
         handleSkip();
       }, 800);
     };
@@ -305,9 +307,8 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
       }
     });
 
-    if (socket && status === 'searching' && !roomIdRef.current) {
-      socket.emit('find-partner', { mode: 'text', interest: interest || 'general', nickname: 'Anonymous' });
-    }
+    // Fix #1: Removed duplicate find-partner emit here — it's called in handleStart/emitFind
+    // Fix #2: Was hardcoded 'Anonymous', now uses prop via emitFind
 
     return () => {
       socket.off('partner-found', onPartnerFound);
@@ -322,7 +323,8 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
       socket.off('error');
       socket.off('disconnect');
     };
-  }, [socket, onJoined]);
+  // Fix #3: Added all used values to dependency array
+  }, [socket, onJoined, interest, nickname]);
 
   useEffect(() => {
     if (socket) {
@@ -336,10 +338,11 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
   }, [socket]);
 
   const send3dEmoji = (emojiObj) => {
+    // Fix #10: Guard room existence before emitting
+    if (!roomIdRef.current) return;
     if (balance < 5) return alert('Need 5 coins for 3D Emoji!');
-    const rid = roomIdRef.current;
-    if (socket && rid) {
-      socket.emit('send-3d-emoji', { roomId: rid, emoji: emojiObj });
+    if (socket) {
+      socket.emit('send-3d-emoji', { roomId: roomIdRef.current, emoji: emojiObj });
       setShowEmojiPicker(false);
     }
   };
@@ -374,6 +377,8 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
   };
 
   const processUpload = (file) => {
+    // Fix #5: Guard room existence before uploading
+    if (!roomIdRef.current) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
       socket.emit('send-media', { roomId: roomIdRef.current, type: file.type.startsWith('video') ? 'video' : 'image', content: ev.target.result });
@@ -381,7 +386,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
     reader.readAsDataURL(file);
   };
 
-  // Handle translation for incoming messages
+  // Fix #6: Translator with infinite loop guard
   useEffect(() => {
     if (!isTranslatorActive) return;
 
@@ -393,24 +398,25 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
       !m.translated &&
       !m.translating
     );
-    if (toTranslate) {
-      const targetId = toTranslate.id || messages.indexOf(toTranslate);
-      setMessages(prev => prev.map(m => (m.id === toTranslate.id || prev.indexOf(m) === targetId) ? { ...m, translating: true } : m));
+    // Fix #6: Guard — if already translating, do nothing (prevents infinite loop)
+    if (!toTranslate || toTranslate.translating) return;
 
-      const apiBase = import.meta.env.VITE_SOCKET_URL || '';
-      fetch(`${apiBase}/api/ai/translate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: toTranslate.text })
+    const targetId = toTranslate.id;
+    setMessages(prev => prev.map(m => m.id === targetId ? { ...m, translating: true } : m));
+
+    const apiBase = import.meta.env.VITE_SOCKET_URL || '';
+    fetch(`${apiBase}/api/ai/translate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: toTranslate.text })
+    })
+      .then(res => res.json())
+      .then(data => {
+        setMessages(prev => prev.map(m => m.id === targetId ? { ...m, translated: data.translated, translating: false } : m));
       })
-        .then(res => res.json())
-        .then(data => {
-          setMessages(prev => prev.map(m => (m.id === toTranslate.id || prev.indexOf(m) === targetId) ? { ...m, translated: data.translated, translating: false } : m));
-        })
-        .catch(() => {
-          setMessages(prev => prev.map(m => (m.id === toTranslate.id || prev.indexOf(m) === targetId) ? { ...m, translating: false } : m));
-        });
-    }
+      .catch(() => {
+        setMessages(prev => prev.map(m => m.id === targetId ? { ...m, translating: false } : m));
+      });
   }, [messages, isTranslatorActive]);
 
   // Rotating searching status
@@ -460,6 +466,9 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
+  // Fix #4: Cleanup typing timer on unmount
+  useEffect(() => () => clearTimeout(typingTimerRef.current), []);
+
   const handleStart = () => {
     if (!socket || !connected) return;
     clearRoom();
@@ -478,7 +487,8 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
     clearRoom();
     setStatus('searching');
     setTimeout(() => {
-      socket?.emit('find-partner', { mode: 'text', interest: interest || 'general', nickname: 'Anonymous' });
+      // Fix #2: Use nickname prop, not hardcoded 'Anonymous'
+      socket?.emit('find-partner', { mode: 'text', interest: interest || 'general', nickname: nickname || 'Anonymous' });
       onFindNewPartner?.();
     }, 50);
   }, [socket, interest, onFindNewPartner]);
@@ -501,11 +511,9 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
 
   const sendMsg = () => {
     const t = input.trim();
-    const r = roomIdRef.current || roomId; // Fallback to state if ref is somehow out of sync
-    if (!t || !socket || !r) {
-      console.warn('[CHAT] Cannot send: missing room or content', { t: !!t, socket: !!socket, r });
-      return;
-    }
+    // Fix #10 minor: Use only ref (single source of truth), never fall back to stale state
+    if (!t || !socket || !roomIdRef.current) return;
+    const r = roomIdRef.current;
     socket.emit('typing', { roomId: r, isTyping: false });
     const payload = { roomId: r, text: t };
     if (replyingTo) payload.replyTo = { id: replyingTo.id, text: replyingTo.text, nickname: replyingTo.nickname };
@@ -736,7 +744,8 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
               {messages.map((m, i) => {
                 const isMe = isFromMe(m);
                 if (mutedStranger && !isMe && !m.system) return null;
-                return <VanishingMessage key={m.id || i} m={m} isMe={isMe} onReply={(msg) => setReplyingTo(msg)} />;
+                // Fix #9: Stable key — never use array index as fallback
+                return <VanishingMessage key={m.id ?? `${m.socketId}-${m.ts}`} m={m} isMe={isMe} onReply={(msg) => setReplyingTo(msg)} />;
               })}
               {strangerTyping && (
                 <div className="flex items-center gap-3 animate-message-pop opacity-50">
@@ -811,7 +820,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
                   <div className="absolute right-3 top-3 flex items-center gap-2">
                      <button
                         onClick={sendMsg}
-                        disabled={!input.trim()}
+                        disabled={!input.trim() || !roomIdRef.current}
                         className="w-10 h-10 rounded-2xl bg-cyan-500 text-black flex items-center justify-center hover:bg-white transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] disabled:opacity-20"
                      >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7-7 7" /></svg>
