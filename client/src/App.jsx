@@ -9,6 +9,7 @@ import { PreloadSplash } from './components/PreloadSplash';
 import { AgeVerificationGate } from './components/AgeVerificationGate';
 import { useSocket } from './hooks/useSocket';
 import { useCoins } from './hooks/useCoins';
+import { GlobalParticles } from './components/GlobalParticles';
 
 const STATES = { LANDING: 'landing', CHAT: 'chat', ADMIN: 'admin' };
 const MODES = { TEXT: 'text', VIDEO: 'video', GROUP_TEXT: 'group_text', GROUP_VIDEO: 'group_video' };
@@ -247,6 +248,7 @@ export default function App() {
         <PreloadSplash ready={connected} onReady={handlePreloadReady} />
       )}
       {renderContent()}
+      <GlobalParticles />
       {contentFlagged && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] px-6 py-3 rounded-xl bg-amber-500/90 text-black font-semibold text-sm shadow-xl animate-fade-in-up max-w-md text-center">
           ⚠️ {contentFlagged}
