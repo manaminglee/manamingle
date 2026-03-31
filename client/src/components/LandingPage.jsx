@@ -82,6 +82,8 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
   const [insightIndex, setInsightIndex] = useState(0);
   const [creatorForm, setCreatorForm] = useState({ handle: '', platform: 'Instagram', link: '' });
   const [linkValidated, setLinkValidated] = useState(false);
+  const [linkVerifying, setLinkVerifying] = useState(false);
+  const [linkVerifyFailed, setLinkVerifyFailed] = useState(false);
   const [refProcessed, setRefProcessed] = useState(false);
   const [platformDropdownOpen, setPlatformDropdownOpen] = useState(false);
   const [waitingForApproval, setWaitingForApproval] = useState(false);
@@ -767,38 +769,72 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                         type="url"
                         placeholder={`e.g. https://instagram.com/${creatorForm.handle.replace(/^@/, '') || 'yourhandle'}`}
                         className={`flex-1 h-14 bg-white/5 border rounded-2xl px-4 text-sm outline-none text-white transition-all ${
-                          linkValidated ? 'border-emerald-500/50 shadow-[0_0_10px_#10b98120]' : 'border-white/5 focus:border-cyan-500/30'
+                          linkValidated ? 'border-emerald-500/50 shadow-[0_0_10px_#10b98120]' :
+                          linkVerifyFailed ? 'border-rose-500/40' :
+                          'border-white/5 focus:border-cyan-500/30'
                         }`}
                         value={creatorForm.link}
                         onChange={e => {
                           setCreatorForm({ ...creatorForm, link: e.target.value });
                           setLinkValidated(false);
+                          setLinkVerifyFailed(false);
                         }}
                       />
                       <button
                         type="button"
-                        onClick={() => {
-                          if (!creatorForm.link) return;
+                        disabled={linkVerifying || !creatorForm.link}
+                        onClick={async () => {
+                          const url = creatorForm.link.trim();
+                          if (!url) return;
+                          // Validate URL format first
+                          try { new URL(url); } catch { return showAlert('Invalid URL', 'Please enter a valid URL starting with https://'); }
+                          setLinkVerifying(true);
+                          setLinkValidated(false);
+                          setLinkVerifyFailed(false);
                           try {
-                            const url = new URL(creatorForm.link);
-                            window.open(url.href, '_blank', 'noopener,noreferrer');
-                            setLinkValidated(true);
+                            const apiBase = import.meta.env.VITE_SOCKET_URL || '';
+                            const res = await fetch(`${apiBase}/api/validate-url`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ url })
+                            });
+                            const data = await res.json();
+                            if (data.valid) {
+                              setLinkValidated(true);
+                              setLinkVerifyFailed(false);
+                            } else {
+                              setLinkVerifyFailed(true);
+                              setLinkValidated(false);
+                            }
                           } catch {
-                            alert('Please enter a valid URL first.');
+                            // Network error - allow submission anyway
+                            setLinkValidated(true);
+                          } finally {
+                            setLinkVerifying(false);
                           }
                         }}
-                        title="Open link in new tab to verify it's your profile"
-                        className={`h-14 px-4 rounded-2xl font-black text-[9px] uppercase tracking-widest transition-all border ${
-                          linkValidated
-                            ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
-                            : 'bg-white/5 border-white/10 text-white/40 hover:border-cyan-500/40 hover:text-cyan-400'
+                        title="Background verify — no new tab opened"
+                        className={`h-14 px-4 rounded-2xl font-black text-[9px] uppercase tracking-widest transition-all border min-w-[80px] flex items-center justify-center ${
+                          linkValidated ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' :
+                          linkVerifyFailed ? 'bg-rose-500/20 border-rose-500/40 text-rose-400' :
+                          linkVerifying ? 'bg-white/5 border-white/10 text-white/40 cursor-wait' :
+                          'bg-white/5 border-white/10 text-white/40 hover:border-cyan-500/40 hover:text-cyan-400 disabled:opacity-50'
                         }`}
                       >
-                        {linkValidated ? '✓ OK' : 'Verify ↗'}
+                        {linkVerifying ? (
+                          <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                          </svg>
+                        ) : linkValidated ? '✓ Live' : linkVerifyFailed ? '✗ Dead' : 'Verify'}
                       </button>
                     </div>
-                    <p className="text-[9px] text-white/20 px-2">
-                      Auto-filled from your handle. Click <span className="text-cyan-400">Verify ↗</span> to confirm it's your profile.
+                    <p className={`text-[9px] px-2 ${
+                      linkValidated ? 'text-emerald-400/60' : linkVerifyFailed ? 'text-rose-400/60' : 'text-white/20'
+                    }`}>
+                      {linkValidated ? '✓ Profile link is reachable and verified.' :
+                       linkVerifyFailed ? '⚠ Link seems unreachable. Double-check the URL.' :
+                       'Auto-filled from your handle. Click Verify to confirm in background.'}
                     </p>
                   </div>
                   <button

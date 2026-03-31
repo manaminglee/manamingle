@@ -379,6 +379,38 @@ app.get('/api/debug/status', async (req, res) => {
 });
 
 // --- CREATOR MATRIX HUB (High Priority) ---
+// Background URL validator (avoids CORS and opening new tabs)
+app.post('/api/validate-url', async (req, res) => {
+  const { url } = req.body || {};
+  if (!url) return res.status(400).json({ valid: false, error: 'No URL provided' });
+  try {
+    new URL(url); // Validate URL format
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+    try {
+      const response = await fetch(url, {
+        method: 'HEAD',
+        redirect: 'follow',
+        signal: controller.signal,
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ManaMingle/1.0)' }
+      });
+      clearTimeout(timeout);
+      res.json({ valid: response.ok || response.status < 400, status: response.status });
+    } catch (fetchErr) {
+      clearTimeout(timeout);
+      // Some hosts block HEAD - try GET with minimal read
+      try {
+        const r2 = await fetch(url, { method: 'GET', redirect: 'follow', headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ManaMingle/1.0)' }, signal: AbortSignal.timeout(6000) });
+        res.json({ valid: r2.ok || r2.status < 400, status: r2.status });
+      } catch {
+        res.json({ valid: false, error: 'Unreachable' });
+      }
+    }
+  } catch (e) {
+    res.json({ valid: false, error: 'Invalid URL format' });
+  }
+});
+
 app.post('/api/creators/register', async (req, res) => {
   const { handle, platform, link } = req.body || {};
   const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
@@ -402,11 +434,17 @@ app.post('/api/creators/register', async (req, res) => {
     if (supabase) {
       // Check if handle already exists
       const { data: existing } = await supabase.from('creators').select('id').eq('handle_name', entry.handle_name).single();
-      if (existing) return res.status(400).json({ error: 'Identity handle already registered.' });
-      await supabase.from('creators').insert(entry);
+      if (existing) return res.status(400).json({ error: 'Handle already registered. Please choose a different name.' });
+      
+      // Insert and check for errors
+      const { error: insertError } = await supabase.from('creators').insert(entry);
+      if (insertError) {
+        console.error('[Creator Register] Supabase insert failed:', insertError.message, insertError.details);
+        return res.status(500).json({ error: `Database save failed: ${insertError.message}. Please try again.` });
+      }
     } else {
       const existing = localDb.creators.find(c => c.handle_name === entry.handle_name);
-      if (existing) return res.status(400).json({ error: 'Identity handle already registered.' });
+      if (existing) return res.status(400).json({ error: 'Handle already registered. Please choose a different name.' });
       localDb.creators.push(entry);
       saveLocalDb();
     }
