@@ -301,24 +301,27 @@ app.get('/api/settings', (req, res) => {
 app.post('/api/creators/register', async (req, res) => {
   const { handle, platform, link } = req.body || {};
   const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
-  const referral_code = crypto.randomBytes(3).toString('hex');
-  const password = Math.random().toString(36).substring(2, 8).toUpperCase();
+  const pin = Math.floor(1000 + Math.random() * 9000);
+  const referral_code = `${handle.replace(/\s+/g, '')}${pin}`;
   const entry = {
     id: generateId('creator'),
     handle_name: sanitize(handle, 30),
     platform: sanitize(platform, 20),
     profile_link: sanitize(link, 200),
     authorized_ips: [ip],
-    referral_code,
+    referral_code, // Store the Handle+4PIN here for status checking
     status: 'pending',
     coins_earned: 0,
     earnings_rs: 0,
     referral_count: 0,
-    password,
+    password: null, // No password until approved
     created_at: new Date().toISOString()
   };
   try {
     if (supabase) {
+      // Check if handle already exists
+      const { data: existing } = await supabase.from('creators').select('id').eq('handle_name', entry.handle_name).single();
+      if (existing) return res.status(400).json({ error: 'Identity handle already registered.' });
       await supabase.from('creators').insert(entry);
     } else {
       const existing = localDb.creators.find(c => c.handle_name === entry.handle_name);
@@ -326,7 +329,7 @@ app.post('/api/creators/register', async (req, res) => {
       localDb.creators.push(entry);
       saveLocalDb();
     }
-    res.json({ success: true, message: 'Application Transmitted.', accessKey: referral_code, password: entry.password });
+    res.json({ success: true, message: 'Application Transmitted.', accessCode: referral_code });
   } catch (e) { res.status(500).json({ error: 'Database uplink failed' }); }
 });
 
@@ -381,6 +384,14 @@ app.get('/api/creators/status', async (req, res) => {
     }
     res.json({ data: creator || null });
   } catch (e) { res.json({ data: null }); }
+});
+
+app.post('/api/creators/re-request', async (req, res) => {
+  const { code } = req.body || {};
+  if (!code) return res.status(400).json({ error: 'Code required' });
+  // In a real system, this would notify the admin via socket or email
+  io.emit('admin-notification', { type: 'creator_ping', message: `Creator ${code} is requesting status update.` });
+  res.json({ success: true });
 });
 
 // --- ADMIN CONTROL CENTER ---
@@ -1445,23 +1456,30 @@ io.on('connection', (socket) => {
 
     // AI SAFETY MONITORING (ENHANCED MULTI-LANGUAGE & SLANG DETECTION)
     const profanities = [
-      // English
+      // English Core
       'fuck', 'shit', 'asshole', 'bitch', 'bastard', 'cunt', 'dick', 'pussy', 'nigga', 'nigger', 'faggot',
-      'slut', 'whore', 'motherfucker', 'cock', 'jerk', 'dumbass', 'retard', 'scum',
-      'porn', 'sex', 'nude', 'naked', 'xxx', 'horny', 'cum', 'cock', 'tit', 'boob', 'vagina', 'penis',
-      // Slang / Shortcuts
-      'fvk', 'sh1t', 'a$$', 'b1tch', 'fcuk', 's-h-i-t', 'n-i-g-g-a', 'stfu', 'lmao', // some are context dependent but better safe
+      'slut', 'whore', 'motherfucker', 'cock', 'jerk', 'dumbass', 'retard', 'scum', 'rape', 'suicide', 'kill',
+      'porn', 'sex', 'nude', 'naked', 'xxx', 'horny', 'cum', 'cock', 'tit', 'boob', 'vagina', 'penis', 'anal',
+      // Slang / Shortcuts / Symbols
+      'fvk', 'sh1t', 'a$$', 'b1tch', 'fcuk', 's-h-i-t', 'n-i-g-g-a', 'stfu', 'lmao', 'f.u.c.k', 'f_u_c_k', 'f-u-c-k',
+      'b.i.t.c.h', 'b_i_t_c_h', 'b-i-t-c-h', 'n.i.g.g.a', 'n_i_g_g_a', 'n-i-g-g-a', 'fucc', 'fack', 'fuk',
       // Hindi
-      'gaali', 'harami', 'chutiya', 'madarchod', 'behenchod', 'bsdk', 'randi', 'saala', 'kaminey', 'loda',
+      'gaali', 'harami', 'chutiya', 'madarchod', 'behenchod', 'bsdk', 'randi', 'saala', 'kaminey', 'loda', 'rakhel', 'gaand', 'bhosadike', 'choot',
       // Telugu
-      'lanja', 'munda', 'pichode', 'nee amma', 'badacow', 'na kodaka', 'dengu', 'lanja kodaka',
+      'lanja', 'munda', 'pichode', 'nee amma', 'badacow', 'na kodaka', 'dengu', 'lanja kodaka', 'modda', 'puku', 'moddalo', 'erripuku', 'dengey',
       // Common Spanish/Global
-      'puta', 'pendejo', 'mierda', 'cabron', 'kurwa'
+      'puta', 'pendejo', 'mierda', 'cabron', 'kurwa', 'foda', 'merde'
     ];
-    // Improved regex to catch variations and partial matches
+    
+    // Obfuscation Shield: Remove spaces and common symbols to detect hidden harmful words
+    const strippedMsg = msg.toLowerCase().replace(/[\s\.\-\_\@\#\$\%\^\&\*\(\)\=\+\{\}\[\]\:\;\"\'\<\>\,\?\/\\]/g, '');
     const pattern = new RegExp(`(${profanities.join('|')})`, 'i');
-    if (settings.safetyAiEnabled && pattern.test(msg.replace(/[^a-zA-Z]/g, ''))) {
-      socket.emit('content-flagged', { message: '⚠️ MESSAGE BLOCKED: Please be respectful and follow community guidelines.' });
+    
+    if (settings.safetyAiEnabled && (pattern.test(msg) || pattern.test(strippedMsg))) {
+      socket.emit('content-flagged', { 
+        message: '⚠️ MESSAGE BLOCKED: Please be respectful. Toxic or explicit language detected.',
+        reason: 'Community Guidelines Violation'
+      });
       return;
     }
 

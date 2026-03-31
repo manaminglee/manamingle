@@ -46,13 +46,31 @@ export function useCreators() {
       });
       const data = await res.json();
       if (res.ok) {
-        fetchStatus();
-        return { success: true, accessKey: data.accessKey, password: data.password };
+        return { success: true, accessCode: data.accessCode };
       }
       return { success: false, error: data.error };
     } catch (e) {
       return { success: false, error: 'Network failure' };
     }
+  };
+
+  const checkStatus = async (code) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/creators/status?id=${code}`);
+      const data = await res.json();
+      return data.data;
+    } catch (e) { return null; }
+  };
+
+  const reRequestApproval = async (code) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/creators/re-request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code })
+      });
+      return await res.json();
+    } catch (e) { return { error: 'Request failed' }; }
   };
 
   const verifyReferral = async (code) => {
