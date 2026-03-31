@@ -106,7 +106,34 @@ const warnedIps = new Set();
 const userBlocks = new Map(); // ip -> Set of blocked IPs (user-level block list)
 const reports = [];
 const stats = { totalMessages: 0, totalConnections: 0, uniqueIps: new Set() };
-const coinUsers = new Map(); // ip -> { coins: 0, lastClaim: 0, streak: 0, lastClaimDate: null }
+
+// Coin System Logic with DB fallback
+let coinUsers = new Map(); // in-memory cache for speed, synced periodically for local or per-request for supabase
+
+async function getCoinUser(ip) {
+  if (supabase) {
+    const { data } = await supabase.from('user_coins').select('*').eq('ip', ip).single();
+    if (data) return data;
+    const newcomer = { ip, coins: 30, last_claim: 0, streak: 1, last_claim_date: null };
+    await supabase.from('user_coins').insert(newcomer);
+    return newcomer;
+  }
+  if (!coinUsers.has(ip)) {
+    coinUsers.set(ip, { ip, coins: 30, last_claim: 0, streak: 1, last_claim_date: null });
+  }
+  return coinUsers.get(ip);
+}
+
+async function updateCoinUser(ip, updates) {
+  if (supabase) {
+    await supabase.from('user_coins').update(updates).eq('ip', ip);
+  } else {
+    const u = coinUsers.get(ip) || { ip, coins: 30, last_claim: 0, streak: 1, last_claim_date: null };
+    Object.assign(u, updates);
+    coinUsers.set(ip, u);
+    saveLocalDb();
+  }
+}
 
 const statsHistory = []; // { timestamp, users, rooms }
 setInterval(() => {
@@ -345,8 +372,14 @@ app.post('/api/creators/login', async (req, res) => {
     } else {
       creator = localDb.creators.find(c => c.handle_name === handle && c.password === password);
     }
-    if (!creator) return res.status(401).json({ error: 'Neural Key Mismatch' });
-    if (creator.status !== 'approved') return res.status(403).json({ error: 'Node Pending Appraisal' });
+    if (!creator) {
+      if (supabase) await supabase.from('creator_logins').insert({ handle, ip: currentIp, success: false, reason: 'neural_mismatch' });
+      return res.status(401).json({ error: 'Neural Key Mismatch' });
+    }
+    if (creator.status !== 'approved') {
+      if (supabase) await supabase.from('creator_logins').insert({ handle, creator_id: creator.id, ip: currentIp, success: false, reason: 'pending_appraisal' });
+      return res.status(403).json({ error: 'Node Pending Appraisal' });
+    }
 
     // Link current IP if not already linked
     if (!creator.authorized_ips.includes(currentIp)) {
@@ -357,6 +390,8 @@ app.post('/api/creators/login', async (req, res) => {
         saveLocalDb();
       }
     }
+    
+    if (supabase) await supabase.from('creator_logins').insert({ handle, creator_id: creator.id, ip: currentIp, success: true });
     res.json({ success: true, data: creator });
   } catch (e) { res.status(500).json({ error: 'Authentication Failed' }); }
 });
@@ -468,10 +503,13 @@ app.post('/api/creators/verify-ref', async (req, res) => {
       creator.earnings_rs = Math.floor(creator.coins_earned / 10000) * 150;
       saveLocalDb();
     }
-    if (!coinUsers.has(visitorIp)) coinUsers.set(visitorIp, { coins: 30, lastClaim: 0, streak: 1, lastClaimDate: null });
-    const u = coinUsers.get(visitorIp);
-    u.coins += 5;
-    coinUsers.set(visitorIp, u);
+    if (!coinUsers.has(visitorIp)) {
+       // We'll use the async helper here
+       await getCoinUser(visitorIp);
+    }
+    const u = await getCoinUser(visitorIp);
+    const updatedCoins = (u.coins || 0) + 5;
+    await updateCoinUser(visitorIp, { coins: updatedCoins });
     res.json({ success: true, message: 'Referral node synchronized' });
   } catch (e) { res.status(500).json({ error: 'Sync failed' }); }
 });
@@ -687,15 +725,11 @@ app.post('/api/admin/coins/update', requireAdmin, (req, res) => {
   const { ip, amount, set } = req.body || {};
   if (!ip) return res.status(400).json({ error: 'IP required' });
 
-  if (!coinUsers.has(ip)) {
-    coinUsers.set(ip, { coins: 30, lastClaim: 0, streak: 1, lastClaimDate: null });
-  }
-
-  const user = coinUsers.get(ip);
+  const user = await getCoinUser(ip);
   if (set) user.coins = parseInt(amount);
   else user.coins += parseInt(amount);
 
-  coinUsers.set(ip, user);
+  await updateCoinUser(ip, { coins: user.coins });
 
   // Find connected sockets with this IP and notify them
   for (const [sid, u] of users.entries()) {
@@ -846,38 +880,37 @@ app.get('/api/turn', (req, res) => {
 // COIN SYSTEM API
 const COIN_CLAIM_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
-app.post('/api/user/credit-age', (req, res) => {
+app.post('/api/user/credit-age', async (req, res) => {
   const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
-  if (!coinUsers.has(ip)) {
-    coinUsers.set(ip, { coins: 30, lastClaim: 0, streak: 1, lastClaimDate: null });
-  }
+  await getCoinUser(ip);
   res.json({ success: true });
 });
 
-app.get('/api/user/coins', (req, res) => {
+app.get('/api/user/coins', async (req, res) => {
   const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
-  if (!coinUsers.has(ip)) {
-    coinUsers.set(ip, { coins: 30, lastClaim: 0, streak: 1, lastClaimDate: null });
-  }
-  const user = coinUsers.get(ip);
-  const now = Date.now();
-  const nextClaim = user.lastClaim + COIN_CLAIM_INTERVAL_MS;
+  try {
+    const user = await getCoinUser(ip);
+    const now = Date.now();
+    const nextClaim = (Number(user.last_claim) || 0) + COIN_CLAIM_INTERVAL_MS;
 
-  res.json({
-    coins: user.coins,
-    streak: user.streak,
-    canClaim: now >= nextClaim,
-    nextClaim: Math.max(0, nextClaim - now)
-  });
+    res.json({
+      coins: user.coins,
+      streak: user.streak,
+      canClaim: now >= nextClaim,
+      nextClaim: Math.max(0, nextClaim - now)
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'Matrix sync delayed' });
+  }
 });
 
-app.post('/api/user/claim', (req, res) => {
+app.post('/api/user/claim', async (req, res) => {
   const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
-  const user = coinUsers.get(ip) || { coins: 0, lastClaim: 0, streak: 0, lastClaimDate: null };
+  const user = await getCoinUser(ip);
   const now = Date.now();
   const waitTime = COIN_CLAIM_INTERVAL_MS;
 
-  if (now < user.lastClaim + waitTime) {
+  if (now < (Number(user.last_claim) || 0) + waitTime) {
     return res.status(400).json({ error: 'Too early to claim' });
   }
 
@@ -885,34 +918,38 @@ app.post('/api/user/claim', (req, res) => {
   const today = new Date().toDateString();
   const yesterday = new Date(now - 86400000).toDateString();
 
-  if (user.lastClaimDate === yesterday) {
+  if (user.last_claim_date === yesterday) {
     user.streak += 1;
-  } else if (user.lastClaimDate !== today) {
+  } else if (user.last_claim_date !== today) {
     user.streak = 1;
   }
 
   // 30 coins base + bonus (5 per streak day, max 50 bonus)
   const bonus = user.streak > 1 ? Math.min((user.streak - 1) * 5, 50) : 0;
-  user.coins += (30 + bonus);
-  user.lastClaim = now;
-  user.lastClaimDate = today;
-  coinUsers.set(ip, user);
+  const nextBalance = (user.coins || 0) + (30 + bonus);
+  
+  await updateCoinUser(ip, { 
+    coins: nextBalance, 
+    last_claim: now, 
+    last_claim_date: today, 
+    streak: user.streak 
+  });
 
-  res.json({ coins: user.coins, streak: user.streak, bonus });
+  res.json({ coins: nextBalance, streak: user.streak, bonus });
 });
 
-app.post('/api/user/spend', (req, res) => {
+app.post('/api/user/spend', async (req, res) => {
   const { amount } = req.body;
   const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
-  const user = coinUsers.get(ip);
+  const user = await getCoinUser(ip);
 
   if (!user || user.coins < amount) {
     return res.status(400).json({ error: 'Insufficient coins' });
   }
 
-  user.coins -= amount;
-  coinUsers.set(ip, user);
-  res.json({ success: true, balance: user.coins });
+  const nextBalance = user.coins - amount;
+  await updateCoinUser(ip, { coins: nextBalance });
+  res.json({ success: true, balance: nextBalance });
 });
 
 // NVIDIA AI PROXY
@@ -1056,21 +1093,8 @@ app.post('/api/ai/translate', async (req, res) => {
 });
 
 
-app.post('/api/admin/creators/approve', requireAdmin, async (req, res) => {
-  const { creatorId, status } = req.body || {};
-  try {
-    if (supabase) {
-      await supabase.from('creators').update({ status }).eq('id', creatorId);
-    } else {
-      const c = localDb.creators.find(x => x.id === creatorId);
-      if (c) {
-        c.status = status;
-        saveLocalDb();
-      }
-    }
-    res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: 'Approval failed' }); }
-});
+// Duplicate Approve Endpoint Removed to resolve 401 Neural Key Mismatch.
+// Using the primary one at line 409 which correctly generates passwords.
 
 app.get('/api/admin/creators/list', requireAdmin, async (req, res) => {
   try {
@@ -1189,9 +1213,10 @@ io.on('connection', (socket) => {
       }
     }
     socket.emit('connected', { userId, nickname: finalNick, isCreator: finalIsCreator, country, settings: { adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools } });
-    if (!coinUsers.has(ip)) {
-      coinUsers.set(ip, { coins: 30, lastClaim: 0, streak: 1, lastClaimDate: null });
-    }
+    
+    // Ensure user has a coin profile
+    await getCoinUser(ip);
+    
     emitOnlineCount();
   })();
 
@@ -1579,20 +1604,18 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('spend-coins', (data) => {
+  socket.on('spend-coins', async (data) => {
     const { amount, reason } = data || {};
-    let cUser = coinUsers.get(ip);
-    if (!cUser) {
-      cUser = { coins: 30, lastClaim: 0, streak: 1, lastClaimDate: null };
-      coinUsers.set(ip, cUser);
-    }
+    const cUser = await getCoinUser(ip);
+
     if (cUser.coins < amount) return socket.emit('error', { message: 'Insufficient coins' });
-    cUser.coins -= amount;
-    coinUsers.set(ip, cUser);
+    const nextBalance = cUser.coins - amount;
+    await updateCoinUser(ip, { coins: nextBalance });
+    
     // Notify all sockets with this IP
     for (const [sid, user] of users.entries()) {
       if (user.ip === ip) {
-        io.to(sid).emit('coins-updated', { coins: cUser.coins, reason });
+        io.to(sid).emit('coins-updated', { coins: nextBalance, reason });
       }
     }
     console.log(`[COINS] User ${socket.id} spent ${amount} for ${reason}`);
