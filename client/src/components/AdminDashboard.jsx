@@ -70,15 +70,22 @@ export function AdminDashboard({ onJoinRoom }) {
   };
 
   const handleCreatorApprove = async (creatorId, status) => {
+    const creator = creators.find(c => c.id === creatorId);
     try {
-      await fetch(`${API_BASE}/api/admin/creators/approve`, {
+      const res = await fetch(`${API_BASE}/api/admin/creators/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
         body: JSON.stringify({ creatorId, status }),
       });
-      fetchCreators();
-      setToast(`⭐ Creator ${status}`);
-    } catch (e) { }
+      if (res.ok) {
+        const data = await res.json();
+        fetchCreators();
+        fetchHistory();
+        setToast(`${status === 'approved' ? '✅' : '❌'} @${creator?.handle_name} ${status}${ data.password ? ` · Password: ${data.password}` : ''}`);
+      } else {
+        setToast('⚠️ Action failed — check server logs');
+      }
+    } catch (e) { setToast('⚠️ Network error'); }
   };
 
 
@@ -265,21 +272,41 @@ export function AdminDashboard({ onJoinRoom }) {
 
   useEffect(() => {
     if (toast) {
-      const t = setTimeout(() => setToast(null), 3000);
+      const t = setTimeout(() => setToast(null), 5000);
       return () => clearTimeout(t);
     }
   }, [toast]);
 
+  // On login: immediately load all data in parallel
   useEffect(() => {
     if (isLogged) {
-      const interval = setInterval(() => {
-        fetchStats(key);
-        if (activeTab === 'creators') fetchCreators();
-        if (activeTab === 'history') fetchHistory();
-      }, 5000);
-      return () => clearInterval(interval);
+      Promise.all([fetchStats(key), fetchCreators(), fetchHistory()]);
     }
-  }, [isLogged, key, activeTab]);
+  }, [isLogged]);
+
+  // Auto-refresh: stats every 5s, creators every 8s when on creators tab
+  useEffect(() => {
+    if (!isLogged) return;
+    const statsInterval = setInterval(() => fetchStats(key), 5000);
+    return () => clearInterval(statsInterval);
+  }, [isLogged, key]);
+
+  // Refresh creators whenever tab switches to creators
+  useEffect(() => {
+    if (isLogged && activeTab === 'creators') {
+      fetchCreators();
+    }
+    if (isLogged && activeTab === 'history') {
+      fetchHistory();
+    }
+  }, [activeTab, isLogged]);
+
+  // Auto-refresh creators every 8s when on creators tab
+  useEffect(() => {
+    if (!isLogged || activeTab !== 'creators') return;
+    const interval = setInterval(fetchCreators, 8000);
+    return () => clearInterval(interval);
+  }, [isLogged, activeTab]);
 
   const filteredUsers = useMemo(() => {
     if (!stats?.userList) return [];
@@ -378,7 +405,7 @@ export function AdminDashboard({ onJoinRoom }) {
             {[
               { id: 'overview', label: 'Overview', icon: '📊' },
               { id: 'users', label: 'Active Users', icon: '👤' },
-              { id: 'creators', label: 'Creator Hub', icon: '⭐' },
+              { id: 'creators', label: 'Creator Hub', icon: '⭐', badge: creators.filter(c => c.status === 'pending').length },
               { id: 'room-monitoring', label: 'Live Monitoring', icon: '👁️' },
               { id: 'economy', label: 'Economy Hub', icon: '🪙' },
               { id: 'security', label: 'Security & Moderation', icon: '🛡️' },
@@ -392,7 +419,12 @@ export function AdminDashboard({ onJoinRoom }) {
                 className={`flex items-center gap-4 px-5 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-xl' : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}
               >
                 <span className="text-lg opacity-60 grayscale group-hover:grayscale-0">{tab.icon}</span>
-                {tab.label}
+                <span className="flex-1 text-left">{tab.label}</span>
+                {tab.badge > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500 text-black text-[8px] font-black min-w-[18px] text-center animate-pulse">
+                    {tab.badge}
+                  </span>
+                )}
               </button>
             ))}
           </nav>
@@ -679,44 +711,91 @@ export function AdminDashboard({ onJoinRoom }) {
 
           {activeTab === 'creators' && (
             <div className="space-y-10 animate-fade-in">
+
+              {/* Pending count summary */}
+              <div className="flex gap-6">
+                {[{ label: 'Pending Approval', val: creators.filter(c => c.status === 'pending').length, color: 'text-amber-400 border-amber-500/20 bg-amber-500/5' },
+                  { label: 'Approved', val: creators.filter(c => c.status === 'approved').length, color: 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5' },
+                  { label: 'Rejected', val: creators.filter(c => c.status === 'rejected').length, color: 'text-rose-400 border-rose-500/20 bg-rose-500/5' },
+                  { label: 'Total Applied', val: creators.length, color: 'text-cyan-400 border-cyan-500/20 bg-cyan-500/5' },
+                ].map(s => (
+                  <div key={s.label} className={`flex-1 p-5 rounded-[28px] border ${s.color} text-center`}>
+                    <div className="text-2xl font-black italic">{s.val}</div>
+                    <div className="text-[9px] font-black uppercase tracking-widest opacity-60 mt-1">{s.label}</div>
+                  </div>
+                ))}
+              </div>
+
               <div className="p-10 rounded-[50px] bg-gradient-to-br from-cyan-500/5 to-transparent border border-cyan-500/10 shadow-2xl">
                 <div className="flex justify-between items-center mb-8">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 italic">⭐ Creator Approval Queue</h3>
-                  <button onClick={() => handleExportCSV(creators, 'platform_creators')} className="px-6 py-3 bg-white/5 border border-white/10 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] hover:bg-cyan-500/20 hover:text-cyan-400 border-cyan-500/30 transition-all shadow-xl">Export CSV</button>
+                  <div>
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 italic">⭐ Creator Applications</h3>
+                    <p className="text-[9px] text-white/20 font-black uppercase mt-1">{creators.filter(c => c.status === 'pending').length} pending review</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={fetchCreators} className="px-5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">Refresh 🔄</button>
+                    <button onClick={() => handleExportCSV(creators, 'platform_creators')} className="px-5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-cyan-500/20 hover:text-cyan-400 transition-all">Export CSV</button>
+                  </div>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="text-[10px] uppercase font-black tracking-widest text-white/20 border-b border-white/5 italic">
-                        <th className="py-4">Creator Handle</th>
-                        <th className="py-4">Platform</th>
-                        <th className="py-4">Metrics (Coins/Clicks)</th>
-                        <th className="py-4">Status</th>
-                        <th className="py-4 text-right">Approval Actions</th>
+                        <th className="py-4 pr-4">Creator Handle</th>
+                        <th className="py-4 pr-4">Platform</th>
+                        <th className="py-4 pr-4">Profile Link</th>
+                        <th className="py-4 pr-4">Coins / Referrals</th>
+                        <th className="py-4 pr-4">Applied</th>
+                        <th className="py-4 pr-4">Status</th>
+                        <th className="py-4 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/[0.03]">
-                      {creators?.map(c => (
-                        <tr key={c.id} className="hover:bg-white/[0.01] transition-all group">
-                          <td className="py-6 flex flex-col">
-                            <span className="font-black text-white italic group-hover:text-cyan-400 transition-colors uppercase tracking-widest">{c.handle_name}</span>
-                            <a href={c.profile_link} target="_blank" className="text-[9px] text-white/20 hover:text-white transition-colors mt-1">View Profile →</a>
+                      {creators.length === 0 && (
+                        <tr><td colSpan="7" className="py-20 text-center text-white/10 italic text-sm font-black uppercase tracking-[0.5em]">No creator applications yet</td></tr>
+                      )}
+                      {creators.map(c => (
+                        <tr key={c.id} className={`hover:bg-white/[0.01] transition-all group ${ c.status === 'pending' ? 'border-l-2 border-l-amber-500/40' : ''}`}>
+                          <td className="py-5 pr-4">
+                            <div className="font-black text-white italic group-hover:text-cyan-400 transition-colors uppercase tracking-widest">{c.handle_name}</div>
+                            <div className="text-[9px] text-white/20 font-mono mt-0.5">{c.referral_code}</div>
                           </td>
-                          <td className="py-6 text-xs text-white/40 font-black uppercase tracking-widest">{c.platform}</td>
-                          <td className="py-6 text-xs font-black uppercase tracking-widest">
+                          <td className="py-5 pr-4 text-xs text-white/40 font-black uppercase tracking-widest">{c.platform}</td>
+                          <td className="py-5 pr-4">
+                            <a href={c.profile_link} target="_blank" rel="noopener noreferrer"
+                              className="text-[9px] text-cyan-400/60 hover:text-cyan-400 transition-colors underline underline-offset-2 font-bold max-w-[160px] truncate block">
+                              Verify Profile ↗
+                            </a>
+                          </td>
+                          <td className="py-5 pr-4 text-xs font-black uppercase tracking-widest">
                             <span className="text-cyan-400 italic">🪙 {c.coins_earned}</span>
                             <span className="mx-2 text-white/5">/</span>
                             <span className="text-indigo-400 italic">🖱️ {c.referral_count || 0}</span>
                           </td>
-                          <td className="py-6">
-                            <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${c.status === 'approved' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'}`}>
-                              {c.status}
-                            </span>
+                          <td className="py-5 pr-4 text-[9px] text-white/20 font-black">
+                            {new Date(c.created_at).toLocaleDateString()}
                           </td>
-                          <td className="py-6 text-right">
+                          <td className="py-5 pr-4">
+                            <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                              c.status === 'approved' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                              c.status === 'rejected' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
+                              'bg-amber-500/10 text-amber-500 border border-amber-500/20 animate-pulse'
+                            }`}>{c.status}</span>
+                          </td>
+                          <td className="py-5 text-right">
                             <div className="flex gap-2 justify-end">
-                              <button onClick={() => handleCreatorApprove(c.id, 'approved')} className="p-2 bg-emerald-500/20 hover:bg-emerald-500 text-emerald-400 hover:text-white rounded-lg transition-all">⭐ Approve</button>
-                              <button onClick={() => handleCreatorApprove(c.id, 'rejected')} className="p-2 bg-rose-500/20 hover:bg-rose-500 text-rose-500 hover:text-white rounded-lg transition-all">✕ Reject</button>
+                              {c.status !== 'approved' && (
+                                <button onClick={() => handleCreatorApprove(c.id, 'approved')}
+                                  className="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500 text-emerald-400 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all">
+                                  ✅ Approve
+                                </button>
+                              )}
+                              {c.status !== 'rejected' && (
+                                <button onClick={() => handleCreatorApprove(c.id, 'rejected')}
+                                  className="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all">
+                                  ❌ Reject
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -727,21 +806,26 @@ export function AdminDashboard({ onJoinRoom }) {
               </div>
 
               <div className="p-10 rounded-[50px] bg-gradient-to-br from-emerald-500/5 to-transparent border border-emerald-500/10 shadow-2xl">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-400 mb-8 italic">💸 Payment Requests (Withdrawals)</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-400 mb-8 italic">💸 Withdrawal Requests</h3>
                 <div className="space-y-4">
                   {withdrawals?.map(w => (
-                    <div key={w.id} className="p-6 rounded-[30px] bg-white/[0.02] border border-white/5 flex items-center justify-between group">
+                    <div key={w.id} className="p-6 rounded-[30px] bg-white/[0.02] border border-white/5 flex items-center justify-between group hover:border-emerald-500/20 transition-all">
                       <div>
-                        <div className="text-sm font-black text-white italic uppercase tracking-widest">{w.creators?.handle_name}</div>
+                        <div className="text-sm font-black text-white italic uppercase tracking-widest">{w.creators?.handle_name || w.handle_name}</div>
                         <div className="text-[10px] text-white/20 font-black uppercase tracking-widest mt-1">UPI: {w.upi}</div>
+                        <div className="text-[9px] text-white/10 mt-1">{new Date(w.created_at).toLocaleString()}</div>
                       </div>
                       <div className="text-right">
                         <div className="text-xl font-black text-emerald-400 italic mb-2 tracking-tighter">₹{w.amount}</div>
-                        <button className="px-6 py-2 bg-emerald-500 text-black font-black uppercase tracking-widest text-[9px] rounded-xl hover:bg-white transition-all shadow-xl shadow-emerald-500/30">Authorize Payout</button>
+                        <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                          w.status === 'paid' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
+                        }`}>{w.status}</span>
                       </div>
                     </div>
                   ))}
-                  {withdrawals?.length === 0 && <div className="py-10 text-center opacity-10 text-xs font-black uppercase tracking-[0.5em]">No pending requests found</div>}
+                  {(!withdrawals || withdrawals.length === 0) && (
+                    <div className="py-10 text-center opacity-10 text-xs font-black uppercase tracking-[0.5em]">No withdrawal requests</div>
+                  )}
                 </div>
               </div>
             </div>
