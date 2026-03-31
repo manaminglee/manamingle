@@ -81,6 +81,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
   const [regionalCounts, setRegionalCounts] = useState({ americas: 42639, eurasia: 89875, oceania: 13033 });
   const [insightIndex, setInsightIndex] = useState(0);
   const [creatorForm, setCreatorForm] = useState({ handle: '', platform: 'Instagram', link: '' });
+  const [linkValidated, setLinkValidated] = useState(false);
   const [refProcessed, setRefProcessed] = useState(false);
   const [platformDropdownOpen, setPlatformDropdownOpen] = useState(false);
   const [waitingForApproval, setWaitingForApproval] = useState(false);
@@ -671,7 +672,19 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                     placeholder="@handle_name"
                     className="w-full h-14 bg-white/5 border border-white/5 focus:border-cyan-500/30 rounded-2xl px-6 text-sm outline-none text-white font-bold"
                     value={creatorForm.handle}
-                    onChange={e => setCreatorForm({ ...creatorForm, handle: e.target.value })}
+                    onChange={e => {
+                      const h = e.target.value.replace(/^@/, '');
+                      const platformUrls = {
+                        'Instagram': `https://instagram.com/${h}`,
+                        'YouTube': `https://youtube.com/@${h}`,
+                        'Snapchat': `https://snapchat.com/add/${h}`,
+                        'X (Twitter)': `https://x.com/${h}`,
+                        'TikTok': `https://tiktok.com/@${h}`,
+                      };
+                      const autoLink = h ? (platformUrls[creatorForm.platform] || '') : '';
+                      setCreatorForm(f => ({ ...f, handle: e.target.value, link: autoLink }));
+                      setLinkValidated(false);
+                    }}
                   />
                   <div className="relative group">
                     <button
@@ -687,31 +700,80 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
 
                     {platformDropdownOpen && (
                       <div className="absolute top-[calc(100%+8px)] left-0 right-0 z-[1000] bg-[#111] border border-white/10 rounded-2xl overflow-hidden shadow-2xl animate-in-zoom">
-                        {['Instagram', 'YouTube', 'Snapchat', 'X (Twitter)', 'TikTok'].map(p => (
-                          <button
-                            key={p}
-                            onClick={() => {
-                              setCreatorForm({ ...creatorForm, platform: p });
-                              setPlatformDropdownOpen(false);
-                            }}
-                            className="w-full h-12 px-6 text-left text-xs font-bold text-white/60 hover:text-white hover:bg-cyan-500/10 transition-all border-b border-white/[0.03] last:border-0"
-                          >
-                            {p}
-                          </button>
-                        ))}
+                        {['Instagram', 'YouTube', 'Snapchat', 'X (Twitter)', 'TikTok'].map(p => {
+                          const platformUrls = {
+                            'Instagram': `https://instagram.com/${creatorForm.handle.replace(/^@/, '')}`,
+                            'YouTube': `https://youtube.com/@${creatorForm.handle.replace(/^@/, '')}`,
+                            'Snapchat': `https://snapchat.com/add/${creatorForm.handle.replace(/^@/, '')}`,
+                            'X (Twitter)': `https://x.com/${creatorForm.handle.replace(/^@/, '')}`,
+                            'TikTok': `https://tiktok.com/@${creatorForm.handle.replace(/^@/, '')}`,
+                          };
+                          return (
+                            <button
+                              key={p}
+                              onClick={() => {
+                                const newLink = platformUrls[p] || '';
+                                setCreatorForm(f => ({ ...f, platform: p, link: newLink }));
+                                setLinkValidated(false);
+                                setPlatformDropdownOpen(false);
+                              }}
+                              className="w-full h-12 px-6 text-left text-xs font-bold text-white/60 hover:text-white hover:bg-cyan-500/10 transition-all border-b border-white/[0.03] last:border-0"
+                            >
+                              {p}
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
-                  <input
-                    type="url"
-                    placeholder="Platform Profile Link"
-                    className="w-full h-14 bg-white/5 border border-white/5 focus:border-cyan-500/30 rounded-2xl px-6 text-sm outline-none text-white"
-                    value={creatorForm.link}
-                    onChange={e => setCreatorForm({ ...creatorForm, link: e.target.value })}
-                  />
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="url"
+                        placeholder={`e.g. https://instagram.com/${creatorForm.handle.replace(/^@/, '') || 'yourhandle'}`}
+                        className={`flex-1 h-14 bg-white/5 border rounded-2xl px-4 text-sm outline-none text-white transition-all ${
+                          linkValidated ? 'border-emerald-500/50 shadow-[0_0_10px_#10b98120]' : 'border-white/5 focus:border-cyan-500/30'
+                        }`}
+                        value={creatorForm.link}
+                        onChange={e => {
+                          setCreatorForm({ ...creatorForm, link: e.target.value });
+                          setLinkValidated(false);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!creatorForm.link) return;
+                          try {
+                            const url = new URL(creatorForm.link);
+                            window.open(url.href, '_blank', 'noopener,noreferrer');
+                            setLinkValidated(true);
+                          } catch {
+                            alert('Please enter a valid URL first.');
+                          }
+                        }}
+                        title="Open link in new tab to verify it's your profile"
+                        className={`h-14 px-4 rounded-2xl font-black text-[9px] uppercase tracking-widest transition-all border ${
+                          linkValidated
+                            ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
+                            : 'bg-white/5 border-white/10 text-white/40 hover:border-cyan-500/40 hover:text-cyan-400'
+                        }`}
+                      >
+                        {linkValidated ? '✓ OK' : 'Verify ↗'}
+                      </button>
+                    </div>
+                    <p className="text-[9px] text-white/20 px-2">
+                      Auto-filled from your handle. Click <span className="text-cyan-400">Verify ↗</span> to confirm it's your profile.
+                    </p>
+                  </div>
                   <button
                     onClick={async () => {
-                      if (!creatorForm.handle || !creatorForm.link) return alert('Fill handle and profile link');
+                      if (!creatorForm.handle) return alert('Please enter your handle name.');
+                      if (!creatorForm.link) return alert('Please enter your profile link.');
+                      if (!linkValidated) {
+                        const go = window.confirm('You haven\'t verified your profile link yet. Submit anyway?');
+                        if (!go) return;
+                      }
                       const res = await registerCreator(creatorForm.handle, creatorForm.platform, creatorForm.link);
                       if (res.success) {
                         setUniqueAccessCode(res.accessCode);
