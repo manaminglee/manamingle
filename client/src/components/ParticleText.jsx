@@ -6,7 +6,7 @@ export const ParticleText = ({ text = "MANA MINGLE", className = "" }) => {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     let animationFrameId;
 
     let particles = [];

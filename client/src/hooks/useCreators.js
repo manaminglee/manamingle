@@ -121,5 +121,15 @@ export function useCreators() {
     }
   };
 
-  return { creatorStatus, loading, registerCreator, verifyReferral, requestWithdrawal, fetchStatus, login };
+  return { 
+    creatorStatus, 
+    loading, 
+    registerCreator, 
+    verifyReferral, 
+    requestWithdrawal, 
+    fetchStatus, 
+    login,
+    checkStatus,
+    reRequestApproval 
+  };
 }
