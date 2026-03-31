@@ -450,7 +450,8 @@ body::after {
 .animate-in-zoom { animation: in-zoom 0.8s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .animate-glow-pulse { animation: glow-pulse 3s ease-in-out infinite; }
 
-.bg-300% {
+/* Use a valid class name for the background size */
+.bg-300-percent {
   background-size: 300% 300%;
 }
 
@@ -1581,6 +1582,12 @@ body::after {
   background: rgba(7, 8, 17, 0.8);
   border-left: 1px solid var(--c-border);
   padding: 1rem 0.75rem;
+}
+
+@media (max-width: 1024px) {
+  .participants-panel {
+    display: none;
+  }
 }
 
 /* ============================================================

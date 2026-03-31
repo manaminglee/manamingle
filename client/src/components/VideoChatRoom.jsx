@@ -308,7 +308,7 @@ export function VideoChatRoom({ roomId: roomIdProp, interest, nickname, isCreato
               className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-all ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}
             >
                <span className={`w-2 h-2 rounded-full ${isRecording ? 'bg-white' : 'bg-red-500'}`} />
-               {isRecording ? 'Recording Matrix' : 'Record Clip'}
+               {isRecording ? 'Recording Session' : 'Record Clip'}
             </button>
           )}
           {!isQueuing && (

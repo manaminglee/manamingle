@@ -302,6 +302,7 @@ app.post('/api/creators/register', async (req, res) => {
   const { handle, platform, link } = req.body || {};
   const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
   const referral_code = crypto.randomBytes(3).toString('hex');
+  const password = Math.random().toString(36).substring(2, 8).toUpperCase();
   const entry = {
     id: generateId('creator'),
     handle_name: sanitize(handle, 30),
@@ -312,7 +313,8 @@ app.post('/api/creators/register', async (req, res) => {
     status: 'pending',
     coins_earned: 0,
     earnings_rs: 0,
-    password: null,
+    referral_count: 0,
+    password,
     created_at: new Date().toISOString()
   };
   try {
@@ -324,7 +326,7 @@ app.post('/api/creators/register', async (req, res) => {
       localDb.creators.push(entry);
       saveLocalDb();
     }
-    res.json({ success: true, message: 'Application Transmitted.', accessKey: referral_code });
+    res.json({ success: true, message: 'Application Transmitted.', accessKey: referral_code, password: entry.password });
   } catch (e) { res.status(500).json({ error: 'Database uplink failed' }); }
 });
 
@@ -382,9 +384,7 @@ app.get('/api/creators/status', async (req, res) => {
 });
 
 // --- ADMIN CONTROL CENTER ---
-app.get('/api/admin/creators', async (req, res) => {
-  const { key } = req.query || {};
-  if (key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Access Denied' });
+app.get('/api/admin/creators', requireAdmin, async (req, res) => {
   try {
     if (supabase) {
       const { data } = await supabase.from('creators').select('*').order('created_at', { ascending: false });
@@ -395,9 +395,8 @@ app.get('/api/admin/creators', async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Admin query failed' }); }
 });
 
-app.post('/api/admin/creators/approve', async (req, res) => {
-  const { key, creatorId, status } = req.body || {};
-  if (key !== process.env.ADMIN_KEY) return res.status(403).json({ error: 'Access Denied' });
+app.post('/api/admin/creators/approve', requireAdmin, async (req, res) => {
+  const { creatorId, status } = req.body || {};
   try {
     let creator = null;
     if (supabase) {
@@ -448,11 +447,13 @@ app.post('/api/creators/verify-ref', async (req, res) => {
     if (supabase) {
       await supabase.from('referral_logs').insert({ creator_id: creator.id, visitor_ip: visitorIp });
       const newCoins = (creator.coins_earned || 0) + 10;
+      const newRefCount = (creator.referral_count || 0) + 1;
       const newEarnings = Math.floor(newCoins / 10000) * 150;
-      await supabase.from('creators').update({ coins_earned: newCoins, earnings_rs: newEarnings }).eq('id', creator.id);
+      await supabase.from('creators').update({ coins_earned: newCoins, earnings_rs: newEarnings, referral_count: newRefCount }).eq('id', creator.id);
     } else {
       localDb.referral_logs.push({ creator_id: creator.id, visitor_ip: visitorIp, created_at: new Date().toISOString() });
       creator.coins_earned = (creator.coins_earned || 0) + 10;
+      creator.referral_count = (creator.referral_count || 0) + 1;
       creator.earnings_rs = Math.floor(creator.coins_earned / 10000) * 150;
       saveLocalDb();
     }
@@ -464,16 +465,37 @@ app.post('/api/creators/verify-ref', async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Sync failed' }); }
 });
 
+app.get('/api/creator/profile/:handle', async (req, res) => {
+  const { handle } = req.params;
+  try {
+    let creator = null;
+    if (supabase) {
+      const { data } = await supabase.from('creators').select('handle_name, platform, coins_earned, referral_count, status').eq('handle_name', handle).single();
+      creator = data;
+    } else {
+      creator = localDb.creators.find(c => c.handle_name === handle);
+    }
+    if (!creator) return res.status(404).json({ error: 'Creator not found' });
+    res.json({
+      handle_name: creator.handle_name,
+      platform: creator.platform,
+      coins_earned: creator.coins_earned,
+      referral_count: creator.referral_count || 0,
+      status: creator.status
+    });
+  } catch (e) { res.status(500).json({ error: 'Query failed' }); }
+});
+
 app.post('/api/creators/withdraw', async (req, res) => {
   const { upi } = req.body || {};
   const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
   try {
      let creator = null;
      if (supabase) {
-       const { data } = await supabase.from('creators').select('*').eq('ip_addr', ip).single();
+       const { data } = await supabase.from('creators').select('*').contains('authorized_ips', [ip]).single();
        creator = data;
      } else {
-       creator = localDb.creators.find(c => c.ip_addr === ip);
+       creator = localDb.creators.find(c => c.authorized_ips.includes(ip));
      }
      if (!creator || creator.status !== 'approved') return res.status(403).json({ error: 'Creator not approved' });
      if (creator.earnings_rs < 1500) return res.status(400).json({ error: 'Threshold (₹1500) not reached' });
@@ -550,9 +572,9 @@ function requireAdmin(req, res, next) {
   if (!adminKey || typeof adminKey !== 'string') {
     return res.status(503).json({ error: 'Admin panel not configured' });
   }
-  const provided = (req.header('x-admin-key') || '').toString();
+  const provided = (req.header('x-admin-key') || '').toString().trim();
   try {
-    const a = Buffer.from(adminKey, 'utf8');
+    const a = Buffer.from(adminKey.trim(), 'utf8');
     const b = Buffer.from(provided, 'utf8');
     if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -787,19 +809,24 @@ app.get('/api/turn', (req, res) => {
   } else {
     // Free Public TURN relay fallback for robust cross-network P2P connections
     iceServers.push({
-      urls: 'turn:openrelay.metered.ca:80',
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
+      urls: 'turn:a.relay.metered.ca:80',
+      username: 'e8dd65b92f3c0ab9bda3c714',
+      credential: '2xMGSyyWIYfJTh3m'
     });
     iceServers.push({
-      urls: 'turn:openrelay.metered.ca:443',
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
+      urls: 'turn:a.relay.metered.ca:443',
+      username: 'e8dd65b92f3c0ab9bda3c714',
+      credential: '2xMGSyyWIYfJTh3m'
     });
     iceServers.push({
-      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
+      urls: 'turn:a.relay.metered.ca:443?transport=tcp',
+      username: 'e8dd65b92f3c0ab9bda3c714',
+      credential: '2xMGSyyWIYfJTh3m'
+    });
+    iceServers.push({
+      urls: 'turns:a.relay.metered.ca:443?transport=tcp',
+      username: 'e8dd65b92f3c0ab9bda3c714',
+      credential: '2xMGSyyWIYfJTh3m'
     });
   }
   res.json({ iceServers });
@@ -1151,6 +1178,9 @@ io.on('connection', (socket) => {
       }
     }
     socket.emit('connected', { userId, nickname: finalNick, isCreator: finalIsCreator, country, settings: { adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools } });
+    if (!coinUsers.has(ip)) {
+      coinUsers.set(ip, { coins: 30, lastClaim: 0, streak: 1, lastClaimDate: null });
+    }
     emitOnlineCount();
   })();
 
@@ -1402,7 +1432,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('send-message', (data) => {
-    const { roomId, text } = data || {};
+    const { roomId, text, replyTo } = data || {};
     const u = users.get(socket.id);
     if (!u) return socket.emit('error', { message: 'Session lost. Please refresh.' });
     const room = rooms.get(roomId);
@@ -1413,15 +1443,25 @@ io.on('connection', (socket) => {
     const msg = sanitize(String(text || ''), 500);
     if (!msg) return;
 
-    // AI SAFETY MONITORING
+    // AI SAFETY MONITORING (ENHANCED MULTI-LANGUAGE & SLANG DETECTION)
     const profanities = [
+      // English
       'fuck', 'shit', 'asshole', 'bitch', 'bastard', 'cunt', 'dick', 'pussy', 'nigga', 'nigger', 'faggot',
       'slut', 'whore', 'motherfucker', 'cock', 'jerk', 'dumbass', 'retard', 'scum',
-      'porn', 'sex', 'nude', 'naked', 'xxx', 'horny', 'cum', 'cock', 'tit', 'boob', 'vagina', 'penis'
+      'porn', 'sex', 'nude', 'naked', 'xxx', 'horny', 'cum', 'cock', 'tit', 'boob', 'vagina', 'penis',
+      // Slang / Shortcuts
+      'fvk', 'sh1t', 'a$$', 'b1tch', 'fcuk', 's-h-i-t', 'n-i-g-g-a', 'stfu', 'lmao', // some are context dependent but better safe
+      // Hindi
+      'gaali', 'harami', 'chutiya', 'madarchod', 'behenchod', 'bsdk', 'randi', 'saala', 'kaminey', 'loda',
+      // Telugu
+      'lanja', 'munda', 'pichode', 'nee amma', 'badacow', 'na kodaka', 'dengu', 'lanja kodaka',
+      // Common Spanish/Global
+      'puta', 'pendejo', 'mierda', 'cabron', 'kurwa'
     ];
-    const pattern = new RegExp(`\\b(${profanities.join('|')})\\b`, 'i');
-    if (settings.safetyAiEnabled && pattern.test(msg)) {
-      socket.emit('content-flagged', { message: '⚠️ MESSAGE BLOCKED: Please be respectful.' });
+    // Improved regex to catch variations and partial matches
+    const pattern = new RegExp(`(${profanities.join('|')})`, 'i');
+    if (settings.safetyAiEnabled && pattern.test(msg.replace(/[^a-zA-Z]/g, ''))) {
+      socket.emit('content-flagged', { message: '⚠️ MESSAGE BLOCKED: Please be respectful and follow community guidelines.' });
       return;
     }
 
@@ -1432,7 +1472,16 @@ io.on('connection', (socket) => {
       text: msg,
       ts: Date.now(),
       socketId: socket.id,
+      isCreator: !!u.isCreator,
     };
+    // Add reply reference if provided
+    if (replyTo && typeof replyTo === 'object') {
+      entry.replyTo = {
+        id: sanitize(String(replyTo.id || ''), 50),
+        text: sanitize(String(replyTo.text || ''), 100),
+        nickname: sanitize(String(replyTo.nickname || ''), 30),
+      };
+    }
     room.messages = room.messages || [];
     room.messages.push(entry);
     if (room.messages.length > 100) room.messages = room.messages.slice(-MESSAGE_HISTORY);
@@ -1483,7 +1532,23 @@ io.on('connection', (socket) => {
 
   socket.on('typing', (data) => {
     const { roomId, isTyping } = data || {};
-    socket.to(roomId).emit('stranger-typing', { isTyping, socketId: socket.id });
+    if (roomId) socket.to(roomId).emit('stranger-typing', { isTyping, socketId: socket.id });
+  });
+
+  // Hand raise relay
+  socket.on('hand-raise', (data) => {
+    const { roomId, raised } = data || {};
+    const room = rooms.get(roomId);
+    if (!room || !room.users.has(socket.id)) return;
+    socket.to(roomId).emit('hand-raise', { socketId: socket.id, raised });
+  });
+
+  // Room reaction relay
+  socket.on('room-reaction', (data) => {
+    const { roomId, emoji } = data || {};
+    const room = rooms.get(roomId);
+    if (!room || !room.users.has(socket.id)) return;
+    socket.to(roomId).emit('room-reaction', { socketId: socket.id, emoji });
   });
 
   socket.on('video-style', (data) => {
@@ -1498,8 +1563,12 @@ io.on('connection', (socket) => {
 
   socket.on('spend-coins', (data) => {
     const { amount, reason } = data || {};
-    const cUser = coinUsers.get(ip);
-    if (!cUser || cUser.coins < amount) return socket.emit('error', { message: 'Insufficient coins' });
+    let cUser = coinUsers.get(ip);
+    if (!cUser) {
+      cUser = { coins: 30, lastClaim: 0, streak: 1, lastClaimDate: null };
+      coinUsers.set(ip, cUser);
+    }
+    if (cUser.coins < amount) return socket.emit('error', { message: 'Insufficient coins' });
     cUser.coins -= amount;
     coinUsers.set(ip, cUser);
     // Notify all sockets with this IP
@@ -1508,13 +1577,18 @@ io.on('connection', (socket) => {
         io.to(sid).emit('coins-updated', { coins: cUser.coins, reason });
       }
     }
+    console.log(`[COINS] User ${socket.id} spent ${amount} for ${reason}`);
   });
 
   socket.on('send-3d-emoji', (data) => {
     const { roomId, emoji } = data || {};
     const u = users.get(socket.id);
-    const cUser = coinUsers.get(ip);
-    if (!u || !cUser || cUser.coins < 5) return socket.emit('error', { message: 'Need 5 coins for 3D Emoji' });
+    let cUser = coinUsers.get(ip);
+    if (!cUser) {
+      cUser = { coins: 30, lastClaim: 0, streak: 1, lastClaimDate: null };
+      coinUsers.set(ip, cUser);
+    }
+    if (cUser.coins < 5) return socket.emit('error', { message: 'Need 5 coins for 3D Emoji' });
     cUser.coins -= 5;
     coinUsers.set(ip, cUser);
     // Notify all sockets with this IP
@@ -1523,29 +1597,28 @@ io.on('connection', (socket) => {
         io.to(sid).emit('coins-updated', { coins: cUser.coins, reason: '3D Emoji' });
       }
     }
-    io.to(roomId).emit('3d-emoji', { roomId, emoji, nickname: u.nickname, socketId: socket.id });
+    io.to(roomId).emit('3d-emoji', { roomId, emoji, nickname: u?.nickname || 'Someone', socketId: socket.id });
   });
 
   socket.on('send-media', (data) => {
     const { roomId, type, content } = data || {};
     const u = users.get(socket.id);
-    const cUser = coinUsers.get(ip);
+    let cUser = coinUsers.get(ip);
+    if (!cUser) {
+      cUser = { coins: 30, lastClaim: 0, streak: 1, lastClaimDate: null };
+      coinUsers.set(ip, cUser);
+    }
     const cost = type === 'video' ? 15 : 10;
-    if (!u || !cUser || cUser.coins < cost) return socket.emit('error', { message: `Need ${cost} coins for Media` });
+    if (cUser.coins < cost) return socket.emit('error', { message: `Need ${cost} coins for Media` });
     cUser.coins -= cost;
     coinUsers.set(ip, cUser);
-    io.to(roomId).emit('media-message', { id: generateId('med'), roomId, type, content, nickname: u.nickname, ts: Date.now(), socketId: socket.id });
-    socket.emit('coins-updated', { coins: cUser.coins });
-  });
-
-  socket.on('spend-coins', (data) => {
-    const { amount, reason } = data || {};
-    const cUser = coinUsers.get(ip);
-    if (!cUser || cUser.coins < amount) return socket.emit('error', { message: 'Insufficient coins' });
-    cUser.coins -= amount;
-    coinUsers.set(ip, cUser);
-    socket.emit('coins-updated', { coins: cUser.coins });
-    console.log(`[COINS] User ${socket.id} spent ${amount} for ${reason}`);
+    // Notify all sockets with this IP
+    for (const [sid, user] of users.entries()) {
+      if (user.ip === ip) {
+        io.to(sid).emit('coins-updated', { coins: cUser.coins, reason: 'Media Upload' });
+      }
+    }
+    io.to(roomId).emit('media-message', { id: generateId('med'), roomId, type, content, nickname: u?.nickname || 'Someone', ts: Date.now(), socketId: socket.id });
   });
 
   socket.on('webrtc-signal', (data) => {

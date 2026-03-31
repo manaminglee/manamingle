@@ -95,7 +95,8 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
   const [chatInput, setChatInput] = useState('');
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
-  const [showChat, setShowChat] = useState(false);
+  const [showChat, setShowChat] = useState(true);
+  const [replyingTo, setReplyingTo] = useState(null);
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [isTranslatorActive, setIsTranslatorActive] = useState(false);
   const [icebreaker] = useState(() => ICEBREAKERS[Math.floor(Math.random() * ICEBREAKERS.length)]);
@@ -139,6 +140,13 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
   const inputRef = useRef(null);
   const [showEntryModal, setShowEntryModal] = useState(isQueuing);
   const [showPreRoomWaiting, setShowPreRoomWaiting] = useState(false);
+
+  useEffect(() => {
+    if (socket && roomIdProp && !hasJoinedRef.current) {
+      socket.emit('join-specific-group', { roomId: roomIdProp, nickname: nickname || 'Admin' });
+      setShowEntryModal(false);
+    }
+  }, [socket, roomIdProp]);
   const [showReactionTooltip, setShowReactionTooltip] = useState(() => !localStorage.getItem('mm_grp_seen_reaction_tooltip'));
   const [localInterest, setLocalInterest] = useState(interestProp || 'general');
   const [joinRoomIdInput, setJoinRoomIdInput] = useState('');
@@ -150,11 +158,11 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
   const [pinnedId, setPinnedId] = useState(null); // 'local' or peer socketId for PiP
 
   const startRecording = () => {
-    if (peers.length === 0) return alert('No active nodes to record.');
+    if (peers.length === 0) return alert('No active users to record.');
     // Record the first peer for now, or use a complex Canvas recorder if needed.
     // For MVP consistency with VideoChat:
     const targetStream = peers[0]?.stream;
-    if (!targetStream) return alert('No remote node stream available.');
+    if (!targetStream) return alert('No remote user stream available.');
 
     const recorder = new MediaRecorder(targetStream, { mimeType: 'video/webm' });
     chunksRef.current = [];
@@ -166,13 +174,13 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Creator_Matrix_Group_Clip_${Date.now()}.webm`;
+      a.download = `Creator_Group_Clip_${Date.now()}.webm`;
       a.click();
     };
     recorder.start();
     recorderRef.current = recorder;
     setIsRecording(true);
-    setToast('🎥 Group Matrix Recording Active');
+    setToast('🎥 Group Recording Active');
   };
 
   const stopRecording = () => {
@@ -520,8 +528,11 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
     const t = chatInput.trim();
     const rid = roomIdRef.current || roomId;
     if (!t || !socket || !rid) return;
-    socket.emit('send-message', { roomId: rid, text: t });
+    const payload = { roomId: rid, text: t };
+    if (replyingTo) payload.replyTo = { id: replyingTo.id, text: replyingTo.text, nickname: replyingTo.nickname || 'Stranger' };
+    socket.emit('send-message', payload);
     setChatInput('');
+    setReplyingTo(null);
   };
 
   const apiBase = import.meta.env.VITE_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
@@ -1149,7 +1160,7 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
                       ) : (
                         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-4 bg-[#0c0e1a]/80">
                           <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center text-3xl sm:text-4xl">👤</div>
-                          <p className="text-[10px] font-bold text-white/50">{tile.type === 'searching' ? 'Scanning...' : 'Waiting for player...'}</p>
+                          <p className="text-[10px] font-bold text-white/50">{tile.type === 'searching' ? 'Searching...' : 'Waiting for player...'}</p>
                           {tile.type === 'empty' && (
                             <button type="button" onClick={(e) => { e.stopPropagation(); copyRoomLink(); }} className="mt-2 px-3 py-2 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 text-[9px] font-bold uppercase tracking-wider hover:bg-indigo-500/30 transition-all min-h-[44px]">
                               Copy Invite Link
@@ -1211,6 +1222,80 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
           </div>
         </div>
 
+        {showChat && (
+          <aside className="fixed inset-0 sm:relative sm:w-80 h-full bg-[#1a1d21] border-l border-white/5 flex flex-col animate-slide-in-right z-[160]">
+            <header className="p-4 border-b border-white/5 flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Group Chat</span>
+              <button 
+                onClick={() => setShowChat(false)} 
+                className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-rose-500 hover:text-white text-white/20 transition-all font-bold"
+              >
+                ✕
+              </button>
+            </header>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+              {messages.map((m, i) => (
+                <div key={m.id || i} className={`flex flex-col ${m.system ? 'items-center py-2' : m.socketId === socket.id ? 'items-end' : 'items-start'} group animate-fade-in`}>
+                  {m.system ? (
+                    <span className="text-[9px] font-black uppercase tracking-widest text-white/10 text-center px-4">{m.text}</span>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2 mb-1 px-1">
+                        <span className="text-[9px] font-bold text-white/20 uppercase">{m.nickname || 'Stranger'}</span>
+                        {m.socketId !== socket.id && (
+                          <button 
+                            onClick={() => {
+                              setReplyingTo(m);
+                              inputRef.current?.focus();
+                            }} 
+                            className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-indigo-400 font-bold"
+                          >
+                            Reply
+                          </button>
+                        )}
+                      </div>
+                      
+                      <div className={`relative max-w-[90%] px-4 py-2.5 rounded-2xl text-sm ${m.socketId === socket.id ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white/5 text-white/90 rounded-tl-none border border-white/5 shadow-inner'}`}>
+                        {m.replyTo && (
+                          <div className="mb-2 p-2 rounded-lg bg-black/20 border-l-2 border-indigo-400 text-[10px] opacity-60 italic">
+                            <div className="font-bold not-italic mb-0.5">{m.replyTo.nickname}</div>
+                            {m.replyTo.text}
+                          </div>
+                        )}
+                        {m.text}
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+              <div ref={chatEndRef} />
+            </div>
+
+            <div className="p-4 bg-[#0c0e1a] border-t border-white/5">
+              {replyingTo && (
+                <div className="mb-2 p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-between shadow-xl animate-slide-in-up">
+                  <div className="text-[10px] text-indigo-300 italic truncate pr-4">Replying to {replyingTo.nickname}: {replyingTo.text}</div>
+                  <button onClick={() => setReplyingTo(null)} className="text-indigo-300 hover:text-white">✕</button>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                  placeholder="Send packet..."
+                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 transition-all outline-none text-white shadow-inner"
+                />
+                <button onClick={sendMessage} className="w-12 h-12 flex items-center justify-center bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white shadow-lg transition-all active:scale-95">
+                  🚀
+                </button>
+              </div>
+            </div>
+          </aside>
+        )}
       </main>
 
       {/* BOTTOM CONTROL BAR - Cam, Blur, Mute, Leave only - min 44px tap targets */}
@@ -1243,6 +1328,12 @@ export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nic
             {isRecording ? '⏹️' : 'REC'}
           </button>
         )}
+        <button 
+          onClick={() => setShowChat(!showChat)} 
+          className={`min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-full transition-all ${showChat ? 'bg-indigo-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+        >
+          💬
+        </button>
       </footer>
 
       {toast && (

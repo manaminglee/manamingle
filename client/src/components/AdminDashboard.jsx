@@ -3,10 +3,10 @@ import { useState, useEffect, useMemo } from 'react';
 const API_BASE = import.meta.env.VITE_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
 /**
- * Mana Mingle Advanced Admin Console v2.5
+ * Mana Mingle Admin Dashboard v2.5
  * Features: Live stats, Visualizations, Economy control, Security, Moderation, Monitoring, Ads
  */
-export function AdminDashboard() {
+export function AdminDashboard({ onJoinRoom }) {
   const [key, setKey] = useState(sessionStorage.getItem('mm_admin_key') || '');
   const [isLogged, setIsLogged] = useState(!!sessionStorage.getItem('mm_admin_key'));
   const [stats, setStats] = useState(null);
@@ -45,11 +45,12 @@ export function AdminDashboard() {
 
   const fetchCreators = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/creators?key=${key}`);
+      const res = await fetch(`${API_BASE}/api/admin/creators`, {
+        headers: { 'x-admin-key': key },
+      });
       if (res.ok) {
         const data = await res.json();
         setCreators(data.data || []);
-        // Withdrawals logic can be added later if you have a separate table
       }
     } catch (e) { }
   };
@@ -58,8 +59,8 @@ export function AdminDashboard() {
     try {
       await fetch(`${API_BASE}/api/admin/creators/approve`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key, creatorId, status }),
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
+        body: JSON.stringify({ creatorId, status }),
       });
       fetchCreators();
       setToast(`⭐ Creator ${status}`);
@@ -95,12 +96,12 @@ export function AdminDashboard() {
         headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
         body: JSON.stringify({ adScripts: adForm }),
       });
-      if (res.ok) setToast('🚀 Ad Matrix Synced!');
+      if (res.ok) setToast('✅ Ad Settings Updated!');
     } catch (e) { }
   };
 
   const handleEndRoom = async (roomId) => {
-    if (!window.confirm(`⚠️ Terminate cluster session ${roomId}?`)) return;
+    if (!window.confirm(`⚠️ Terminate user session ${roomId}?`)) return;
     try {
       // We use the socket event directly via the server listener I added
       // But we can also use an API endpoint. For simplicity, we can just emit if we had socket here.
@@ -154,7 +155,7 @@ export function AdminDashboard() {
         body: JSON.stringify({ ip, message: '⚠️ WARNING: Your behavior flag has been raised. Platform de-authorization imminent.' }),
       });
       fetchStats(key);
-      setToast(`⚠️ Warning broadcast to node ${ip}`);
+      setToast(`⚠️ Warning broadcast to user ${ip}`);
     } catch (e) { }
   };
 
@@ -204,7 +205,7 @@ export function AdminDashboard() {
       });
       if (res.ok) {
         const data = await res.json();
-        setToast(`💥 System Flush: ${data.kicked} nodes terminated.`);
+        setToast(`💥 System Flush: ${data.kicked} users disconnected.`);
         setIsKillswitchConfirm(false);
         fetchStats(key);
       }
@@ -217,8 +218,35 @@ export function AdminDashboard() {
       const res = await fetch(`https://ipapi.co/${ip}/json/`);
       const data = await res.json();
       if (data.error) return alert('IP lookup failed');
-      alert(`Node Detail: ${data.city}, ${data.region_code}, ${data.country_name} · ISP: ${data.org}`);
+      alert(`User Detail: ${data.city}, ${data.region_code}, ${data.country_name} · ISP: ${data.org}`);
     } catch (e) { alert('Lookup terminal failed'); }
+  };
+
+  const handleExportCSV = (data, filename) => {
+    if (!data || !data.length) return setToast('⚠️ No data structure found for export');
+
+    // Safely extract all unique headers from JSON objects
+    const headers = Array.from(new Set(data.flatMap(Object.keys)));
+
+    // Escape standard CSV strings
+    const csvRows = [
+      headers.join(','),
+      ...data.map(row => headers.map(fieldName => {
+        let val = row[fieldName];
+        if (typeof val === 'object') val = JSON.stringify(val);
+        val = String(val || '');
+        // Escape quotes and commas
+        return `"${val.replace(/"/g, '""')}"`;
+      }).join(','))
+    ];
+
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${filename}_${Date.now()}.csv`;
+    a.click();
+    setToast(`📥 Exported ${filename}.csv`);
   };
 
   useEffect(() => {
@@ -255,8 +283,8 @@ export function AdminDashboard() {
         <div className="max-w-md w-full p-10 rounded-[40px] bg-black border border-white/10 backdrop-blur-3xl shadow-[0_0_100px_rgba(99,102,241,0.2)] animate-in-zoom">
           <div className="flex flex-col items-center mb-8">
             <img src="/apple-touch-icon.png" alt="MM" className="w-20 h-20 mb-6 drop-shadow-[0_0_20px_rgba(6,182,212,0.4)]" />
-            <h1 className="text-2xl font-black uppercase tracking-[0.2em] italic">Admin <span className="text-cyan-400">Hub</span></h1>
-            <p className="text-[10px] text-white/20 mt-2 font-black uppercase tracking-[0.3em]">Encrypted Uplink Required</p>
+            <h1 className="text-2xl font-black uppercase tracking-[0.2em] italic">Admin <span className="text-cyan-400">Dashboard</span></h1>
+            <p className="text-[10px] text-white/20 mt-2 font-black uppercase tracking-[0.3em]">Authorized Access Required</p>
           </div>
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
@@ -264,21 +292,21 @@ export function AdminDashboard() {
                 type="password"
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
-                placeholder="Access Key Terminal..."
+                placeholder="Enter Admin Key..."
                 className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 focus:outline-none focus:border-cyan-500/50 transition-all text-center tracking-widest font-black uppercase text-xs"
               />
             </div>
             <button className="w-full py-4 bg-cyan-500 text-black rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-xl shadow-cyan-600/20 hover:scale-[1.02] active:scale-95 transition-all">
-              Initialize Matrix
+              Login to Dashboard
             </button>
             <button
               type="button"
               onClick={() => window.location.href = '/'}
               className="w-full text-[10px] text-white/20 hover:text-white/40 transition-colors uppercase tracking-[0.4em] font-black mt-6"
             >
-              ← System Exit
+              ← Back to Site
             </button>
-            {error && <p className="text-rose-400 text-[10px] text-center font-black uppercase mt-4 animate-shake">Invalid Encryption Key</p>}
+            {error && <p className="text-rose-400 text-[10px] text-center font-black uppercase mt-4 animate-shake">Invalid Admin Key</p>}
           </form>
         </div>
       </div>
@@ -286,7 +314,7 @@ export function AdminDashboard() {
   }
 
   const UsageChart = ({ data }) => {
-    if (!data || data.length < 2) return <div className="h-40 flex items-center justify-center text-white/10 text-xs italic">Waiting for data cycles...</div>;
+    if (!data || data.length < 2) return <div className="h-40 flex items-center justify-center text-white/10 text-xs italic">Waiting for data...</div>;
     const maxUsers = Math.max(...data.map(d => d.users), 10);
     return (
       <div className="h-40 flex items-end gap-1 px-2 border-b border-l border-white/5 bg-black/20 rounded-lg">
@@ -327,20 +355,20 @@ export function AdminDashboard() {
             <img src="/apple-touch-icon.png" alt="M" className="w-10 h-10 object-contain drop-shadow-[0_0_10px_#06b6d4]" />
             <div className="flex flex-col">
               <span className="font-black text-sm tracking-[0.2em] italic uppercase leading-none">Mana <span className="text-cyan-400">Admin</span></span>
-              <span className="text-[8px] font-black text-white/20 uppercase tracking-widest mt-1">Uplink Stable</span>
+              <span className="text-[8px] font-black text-white/20 uppercase tracking-widest mt-1">System Online</span>
             </div>
           </div>
 
           <nav className="flex flex-col gap-1.5">
             {[
               { id: 'overview', label: 'Overview', icon: '📊' },
-              { id: 'users', label: 'User Nodes', icon: '👤' },
+              { id: 'users', label: 'Active Users', icon: '👤' },
               { id: 'creators', label: 'Creator Hub', icon: '⭐' },
               { id: 'room-monitoring', label: 'Live Monitoring', icon: '👁️' },
               { id: 'economy', label: 'Economy Hub', icon: '🪙' },
-              { id: 'security', label: 'Security Firewall', icon: '🛡️' },
-              { id: 'ads', label: 'Ads Matrix', icon: '💰' },
-              { id: 'logic', label: 'System Parameters', icon: '⚙️' },
+              { id: 'security', label: 'Security & Moderation', icon: '🛡️' },
+              { id: 'ads', label: 'Ads Manager', icon: '💰' },
+              { id: 'logic', label: 'System Settings', icon: '⚙️' },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -357,8 +385,8 @@ export function AdminDashboard() {
             <div className="p-6 rounded-3xl bg-white/[0.02] border border-white/5 shadow-inner">
               <div className="text-[8px] font-black uppercase text-white/10 mb-4 tracking-widest px-1 italic">Diagnostics</div>
               <div className="space-y-4">
-                <ResourceBar label="Buffer Memory" value={stats?.memory?.heapUsed || 0} max={stats?.memory?.heapTotal || 1} color="bg-cyan-500" />
-                <ResourceBar label="Thread Load" value={35} max={100} color="bg-indigo-500" />
+                <ResourceBar label="Server Memory" value={stats?.memory?.heapUsed || 0} max={stats?.memory?.heapTotal || 1} color="bg-cyan-500" />
+                <ResourceBar label="CPU Load" value={35} max={100} color="bg-indigo-500" />
               </div>
             </div>
             <button
@@ -376,15 +404,15 @@ export function AdminDashboard() {
             <div>
               <div className="flex items-center gap-3 mb-2">
                 <h1 className="text-4xl font-black tracking-tight italic uppercase m-0">{activeTab.replace('-', ' ')}</h1>
-                <div className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[9px] font-black text-cyan-400 uppercase tracking-widest shadow-xl">Alpha 2.5</div>
+                <div className="px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[9px] font-black text-cyan-400 uppercase tracking-widest shadow-xl">v2.5</div>
               </div>
-              <p className="text-white/20 text-[11px] font-black uppercase tracking-widest">Authorized Oversight Hub · Tracking {stats?.users || 0} Synchronized Nodes</p>
+              <p className="text-white/20 text-[11px] font-black uppercase tracking-widest">Administrative Management Dashboard · Tracking {stats?.users || 0} Connected Users</p>
             </div>
             <div className="flex items-center gap-4">
               <div className="flex flex-col items-end">
                 <span className="text-[9px] font-black text-emerald-400 uppercase tracking-[0.3em] flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_10px_#10b981]" />
-                  Uplink Terminal Secure
+                  Administrative Access Secure
                 </span>
                 <span className="text-[10px] text-white/10 font-black uppercase italic mt-1">Uptime: {Math.floor((stats?.stats?.uptimeSeconds || 0) / 3600)}H {Math.floor(((stats?.stats?.uptimeSeconds || 0) % 3600) / 60)}M</span>
               </div>
@@ -396,9 +424,9 @@ export function AdminDashboard() {
               {/* Massive Counters */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
-                  { label: 'Synchronized Peers', value: stats?.users || 0, color: 'text-cyan-400', icon: '👤', shadow: 'shadow-cyan-900/10' },
-                  { label: 'Active Clusters', value: stats?.rooms || 0, color: 'text-indigo-400', icon: '🏠', shadow: 'shadow-indigo-900/10' },
-                  { label: 'Global Sessions', value: stats?.stats?.totalConnections || 0, color: 'text-purple-400', icon: '🔄', shadow: 'shadow-purple-900/10' },
+                  { label: 'Active Users', value: stats?.users || 0, color: 'text-cyan-400', icon: '👤', shadow: 'shadow-cyan-900/10' },
+                  { label: 'Active Rooms', value: stats?.rooms || 0, color: 'text-indigo-400', icon: '🏠', shadow: 'shadow-indigo-900/10' },
+                  { label: 'Total Connections', value: stats?.stats?.totalConnections || 0, color: 'text-purple-400', icon: '🔄', shadow: 'shadow-purple-900/10' },
                   { label: 'System Wealth', value: stats?.coinStats?.totalCoinsInSystem || 0, color: 'text-amber-400', icon: '🪙', shadow: 'shadow-amber-900/10' },
                 ].map(s => (
                   <div key={s.label} className={`p-8 rounded-[40px] bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all group relative overflow-hidden ${s.shadow}`}>
@@ -412,7 +440,7 @@ export function AdminDashboard() {
               <div className="grid lg:grid-cols-3 gap-10">
                 <div className="lg:col-span-2 p-10 rounded-[50px] bg-white/[0.02] border border-white/5 shadow-2xl">
                   <div className="flex justify-between items-center mb-10">
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400">Flux Velocity · Terminal Cycles</h3>
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400">User Activity Graph</h3>
                     <span className="text-[9px] font-black text-white/10 uppercase tracking-widest italic">Last 60m Activity</span>
                   </div>
                   <UsageChart data={stats?.statsHistory} />
@@ -426,7 +454,7 @@ export function AdminDashboard() {
                       <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden shadow-inner"><div className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400" style={{ width: '72%' }} /></div>
                     </div>
                     <div className="space-y-3">
-                      <div className="flex justify-between text-[11px] font-black uppercase italic"><span className="text-white/40 tracking-widest">Text Packets</span> <span className="text-indigo-400">28%</span></div>
+                      <div className="flex justify-between text-[11px] font-black uppercase italic"><span className="text-white/40 tracking-widest">Text Messages</span> <span className="text-indigo-400">28%</span></div>
                       <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden shadow-inner"><div className="h-full bg-gradient-to-r from-indigo-600 to-indigo-400" style={{ width: '28%' }} /></div>
                     </div>
                     <div className="mt-12 pt-8 border-t border-white/5">
@@ -447,21 +475,21 @@ export function AdminDashboard() {
 
               <div className="grid lg:grid-cols-2 gap-10">
                 <div className="p-10 rounded-[50px] bg-[#050505] border border-white/10 shadow-2xl">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 mb-8 italic">📢 Global Broadcast Matrix</h3>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 mb-8 italic">📢 Global Announcement</h3>
                   <form onSubmit={handleSendAnnouncement} className="space-y-6">
                     <textarea
                       value={announcement}
                       onChange={(e) => setAnnouncement(e.target.value)}
-                      placeholder="Broadcast content for all peer nodes..."
+                      placeholder="Message for all users..."
                       className="w-full bg-white/5 border border-white/10 rounded-3xl px-6 py-6 text-sm min-h-[120px] outline-none focus:border-cyan-500/50 transition-all font-bold tracking-tight shadow-inner"
                     />
-                    <button className="w-full py-5 bg-cyan-500 text-black rounded-3xl text-[11px] font-black uppercase tracking-[0.3em] shadow-xl shadow-cyan-600/30 hover:bg-white transition-all active:scale-95">Push Global Transmission</button>
+                    <button className="w-full py-5 bg-cyan-500 text-black rounded-3xl text-[11px] font-black uppercase tracking-[0.3em] shadow-xl shadow-cyan-600/30 hover:bg-white transition-all active:scale-95">Send Global Announcement</button>
                   </form>
                 </div>
                 <div className="p-10 rounded-[50px] bg-rose-500/[0.02] border border-rose-500/10 shadow-2xl overflow-hidden relative">
                   <div className="absolute -top-10 -right-10 w-40 h-40 bg-rose-500/5 rounded-full blur-3xl" />
                   <div className="flex justify-between items-center mb-8 relative z-10">
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-rose-500 italic">🚩 Metadata Violations</h3>
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-rose-500 italic">🚩 Reported Content</h3>
                     <span className="text-[9px] font-black bg-rose-500 text-white px-3 py-1 rounded-full shadow-lg">{stats?.openReportsCount || 0} NEW DATA</span>
                   </div>
                   <div className="space-y-4 max-h-[180px] overflow-y-auto pr-4 custom-scrollbar relative z-10">
@@ -469,15 +497,15 @@ export function AdminDashboard() {
                       <div key={r.id} className="p-4 rounded-[20px] bg-black/40 border border-white/5 flex items-center justify-between group hover:border-rose-500/30 transition-all">
                         <div>
                           <div className="text-[10px] font-black text-rose-400 uppercase tracking-widest">{r.reason}</div>
-                          <div className="text-[9px] text-white/20 font-black mt-1 uppercase">NODE: {r.targetIp}</div>
+                          <div className="text-[9px] text-white/20 font-black mt-1 uppercase">USER: {r.targetIp}</div>
                         </div>
-                        <button onClick={() => handleResolveReport(r.id)} className="text-[9px] font-black uppercase text-white/20 hover:text-rose-400 transition-all">Resolve_Clear →</button>
+                        <button onClick={() => handleResolveReport(r.id)} className="text-[9px] font-black uppercase text-white/20 hover:text-rose-400 transition-all">Resolve Report →</button>
                       </div>
                     ))}
                     {(!stats?.reports || stats.reports.length === 0) && (
                       <div className="flex flex-col items-center justify-center py-10 opacity-10 grayscale">
                         <div className="text-4xl mb-4">🛡️</div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em]">Protocol Nominal</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.3em]">System Status: Nominal</p>
                       </div>
                     )}
                   </div>
@@ -493,14 +521,15 @@ export function AdminDashboard() {
                   <span className="absolute left-6 top-1/2 -translate-y-1/2 text-white/10 text-xl group-focus-within:text-cyan-400 transition-colors">🔍</span>
                   <input
                     type="text"
-                    placeholder="Search Node Identity (IP, Nick, Country)..."
+                    placeholder="Search Users (IP, Nick, Country)..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full bg-white/[0.03] border border-white/10 rounded-[30px] pl-16 pr-8 py-5 text-sm focus:outline-none focus:border-cyan-500/50 transition-all font-bold tracking-tight shadow-inner"
                   />
                 </div>
                 <div className="flex gap-4">
-                  <button onClick={() => fetchStats(key)} className="px-8 py-5 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-white/10 transition-all shadow-xl">Refresh Flux</button>
+                  <button onClick={() => handleExportCSV(filteredUsers, 'platform_users')} className="px-8 py-5 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-cyan-500/20 hover:text-cyan-400 hover:border-cyan-500/30 transition-all shadow-xl">Export CSV</button>
+                  <button onClick={() => fetchStats(key)} className="px-8 py-5 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-white/10 transition-all shadow-xl">Refresh Data</button>
                 </div>
               </div>
 
@@ -509,10 +538,10 @@ export function AdminDashboard() {
                   <table className="w-full text-left text-sm border-collapse">
                     <thead>
                       <tr className="bg-white/[0.02] border-b border-white/5 text-[10px] uppercase font-black tracking-[0.3em] text-white/20 italic">
-                        <th className="px-10 py-6">Peer Identity</th>
-                        <th className="px-10 py-6">Node Metadata</th>
-                        <th className="px-10 py-6">Economy Stat</th>
-                        <th className="px-10 py-6 text-right">Moderation Override</th>
+                        <th className="px-10 py-6">User Info</th>
+                        <th className="px-10 py-6">Connection Details</th>
+                        <th className="px-10 py-6">Wallet Balance</th>
+                        <th className="px-10 py-6 text-right">Moderation Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/[0.03]">
@@ -530,7 +559,7 @@ export function AdminDashboard() {
                             </div>
                           </td>
                           <td className="px-10 py-8">
-                            <div className="font-mono text-xs text-white/30 mb-1.5 font-bold tracking-tight uppercase">Addr: {u.ip}</div>
+                            <div className="font-mono text-xs text-white/30 mb-1.5 font-bold tracking-tight uppercase">IP: {u.ip}</div>
                             <div className="flex items-center gap-2">
                               <span className={`w-2 h-2 rounded-full ${u.mode === 'idle' ? 'bg-white/20' : 'bg-emerald-500 animate-pulse'}`} />
                               <span className="text-[10px] font-black uppercase text-white/20 tracking-tighter italic">{u.mode} mode active</span>
@@ -538,7 +567,7 @@ export function AdminDashboard() {
                           </td>
                           <td className="px-10 py-8">
                             <div className="text-amber-500 font-black flex items-center gap-2 text-sm italic">🪙 {u.coins || 0}</div>
-                            {u.coins > 200 && <span className="text-[10px] uppercase font-black text-amber-500/20 tracking-widest mt-1 block">Elite Node</span>}
+                            {u.coins > 200 && <span className="text-[10px] uppercase font-black text-amber-500/20 tracking-widest mt-1 block">Elite User</span>}
                           </td>
                           <td className="px-10 py-8 text-right">
                             <div className="flex gap-3 justify-end opacity-20 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
@@ -550,7 +579,7 @@ export function AdminDashboard() {
                         </tr>
                       ))}
                       {filteredUsers.length === 0 && (
-                        <tr><td colSpan="4" className="py-24 text-center text-white/10 italic text-sm font-black uppercase tracking-[0.5em]">No matching node data found</td></tr>
+                        <tr><td colSpan="4" className="py-24 text-center text-white/10 italic text-sm font-black uppercase tracking-[0.5em]">No matching user data found</td></tr>
                       )}
                     </tbody>
                   </table>
@@ -563,11 +592,11 @@ export function AdminDashboard() {
             <div className="space-y-10 animate-fade-in">
               <div className="flex flex-col md:flex-row gap-6 items-center justify-between">
                 <div className="flex flex-col">
-                  <h2 className="text-2xl font-black italic uppercase tracking-tight">Active Room <span className="text-cyan-400">Stream</span></h2>
-                  <p className="text-[10px] text-white/30 font-black uppercase tracking-widest mt-1">Live visualization of all peer clusters</p>
+                  <h2 className="text-2xl font-black italic uppercase tracking-tight">Active Room <span className="text-cyan-400">Overview</span></h2>
+                  <p className="text-[10px] text-white/30 font-black uppercase tracking-widest mt-1">Live visualization of all active rooms</p>
                 </div>
                 <div className="px-5 py-2 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black text-cyan-400 uppercase tracking-widest">
-                  {stats?.rooms || 0} LIVE CLUSTERS
+                  {stats?.rooms || 0} LIVE ROOMS
                 </div>
               </div>
 
@@ -581,12 +610,12 @@ export function AdminDashboard() {
 
                     <div className="mb-6">
                       <div className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.2em] mb-1 italic">{room.mode.replace('_', ' ')}</div>
-                      <h4 className="text-xl font-black text-white tracking-tight uppercase italic">{room.interest} CLUSTER</h4>
+                      <h4 className="text-xl font-black text-white tracking-tight uppercase italic">{room.interest} ROOM</h4>
                     </div>
 
                     <div className="bg-black/60 rounded-3xl p-6 mb-8 border border-white/5">
                       <div className="flex justify-between items-center mb-6">
-                        <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">Peer Identity List</span>
+                        <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">User Identity List</span>
                         <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest italic">{room.participantCount} Active</span>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -607,12 +636,17 @@ export function AdminDashboard() {
                     </div>
 
                     <div className="mt-auto grid grid-cols-1 gap-3">
-                      <button className="w-full py-3.5 bg-white/5 hover:bg-white text-white hover:text-black transition-all rounded-2xl text-[10px] font-black uppercase tracking-widest">Visual Analysis Hub</button>
+                      <button
+                        onClick={() => onJoinRoom && onJoinRoom(room.id, room.mode, room.interest)}
+                        className="w-full py-3.5 bg-white/5 hover:bg-white text-white hover:text-black transition-all rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/10"
+                      >
+                        View Room →
+                      </button>
                       <button
                         onClick={() => handleEndRoom(room.id)}
                         className="w-full py-3.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white transition-all rounded-2xl text-[10px] font-black uppercase tracking-widest border border-rose-500/20"
                       >
-                        Terminate Cluster
+                        End Room
                       </button>
                     </div>
                   </div>
@@ -620,7 +654,7 @@ export function AdminDashboard() {
                 {(!stats?.roomList || stats.roomList.length === 0) && (
                   <div className="lg:col-span-3 py-40 flex flex-col items-center opacity-10">
                     <div className="text-6xl mb-6">🌑</div>
-                    <p className="text-sm font-black uppercase tracking-[0.5em]">No active clusters detected</p>
+                    <p className="text-sm font-black uppercase tracking-[0.5em]">No active rooms detected</p>
                   </div>
                 )}
               </div>
@@ -630,16 +664,19 @@ export function AdminDashboard() {
           {activeTab === 'creators' && (
             <div className="space-y-10 animate-fade-in">
               <div className="p-10 rounded-[50px] bg-gradient-to-br from-cyan-500/5 to-transparent border border-cyan-500/10 shadow-2xl">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 mb-8 italic">⭐ Influence Appraisal Pipeline</h3>
+                <div className="flex justify-between items-center mb-8">
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 italic">⭐ Creator Approval Queue</h3>
+                  <button onClick={() => handleExportCSV(creators, 'platform_creators')} className="px-6 py-3 bg-white/5 border border-white/10 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] hover:bg-cyan-500/20 hover:text-cyan-400 border-cyan-500/30 transition-all shadow-xl">Export CSV</button>
+                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="text-[10px] uppercase font-black tracking-widest text-white/20 border-b border-white/5 italic">
-                        <th className="py-4">Node Handle</th>
+                        <th className="py-4">Creator Handle</th>
                         <th className="py-4">Platform</th>
-                        <th className="py-4">Metrics (Coins/Rs)</th>
+                        <th className="py-4">Metrics (Coins/Clicks)</th>
                         <th className="py-4">Status</th>
-                        <th className="py-4 text-right">Appraisal Override</th>
+                        <th className="py-4 text-right">Approval Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/[0.03]">
@@ -647,13 +684,13 @@ export function AdminDashboard() {
                         <tr key={c.id} className="hover:bg-white/[0.01] transition-all group">
                           <td className="py-6 flex flex-col">
                             <span className="font-black text-white italic group-hover:text-cyan-400 transition-colors uppercase tracking-widest">{c.handle_name}</span>
-                            <a href={c.profile_link} target="_blank" className="text-[9px] text-white/20 hover:text-white transition-colors mt-1">Uplink Profile →</a>
+                            <a href={c.profile_link} target="_blank" className="text-[9px] text-white/20 hover:text-white transition-colors mt-1">View Profile →</a>
                           </td>
                           <td className="py-6 text-xs text-white/40 font-black uppercase tracking-widest">{c.platform}</td>
                           <td className="py-6 text-xs font-black uppercase tracking-widest">
                             <span className="text-cyan-400 italic">🪙 {c.coins_earned}</span>
                             <span className="mx-2 text-white/5">/</span>
-                            <span className="text-emerald-400 italic">₹{c.earnings_rs}</span>
+                            <span className="text-indigo-400 italic">🖱️ {c.referral_count || 0}</span>
                           </td>
                           <td className="py-6">
                             <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${c.status === 'approved' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'}`}>
@@ -674,7 +711,7 @@ export function AdminDashboard() {
               </div>
 
               <div className="p-10 rounded-[50px] bg-gradient-to-br from-emerald-500/5 to-transparent border border-emerald-500/10 shadow-2xl">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-400 mb-8 italic">💸 Physical Wealth Disbursement (Withdrawals)</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-400 mb-8 italic">💸 Payment Requests (Withdrawals)</h3>
                 <div className="space-y-4">
                   {withdrawals?.map(w => (
                     <div key={w.id} className="p-6 rounded-[30px] bg-white/[0.02] border border-white/5 flex items-center justify-between group">
@@ -688,7 +725,7 @@ export function AdminDashboard() {
                       </div>
                     </div>
                   ))}
-                  {withdrawals?.length === 0 && <div className="py-10 text-center opacity-10 text-xs font-black uppercase tracking-[0.5em]">No pending disbursement signals</div>}
+                  {withdrawals?.length === 0 && <div className="py-10 text-center opacity-10 text-xs font-black uppercase tracking-[0.5em]">No pending requests found</div>}
                 </div>
               </div>
             </div>
@@ -699,8 +736,8 @@ export function AdminDashboard() {
               <div className="p-10 rounded-[50px] bg-gradient-to-br from-amber-500/5 to-transparent border border-amber-500/10 shadow-2xl">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
                   <div>
-                    <h2 className="text-2xl font-black italic uppercase tracking-tight">Sponsor <span className="text-amber-500">Uplink Matrix</span></h2>
-                    <p className="text-[10px] text-white/30 font-black uppercase tracking-widest mt-1">Manage global advertisement synchronization</p>
+                    <h2 className="text-2xl font-black italic uppercase tracking-tight">Ads <span className="text-amber-500">Management</span></h2>
+                    <p className="text-[10px] text-white/30 font-black uppercase tracking-widest mt-1">Manage platform advertisement settings</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Global State:</span>
@@ -728,13 +765,13 @@ export function AdminDashboard() {
                         <textarea
                           value={adForm[slot.id]}
                           onChange={(e) => setAdForm(prev => ({ ...prev, [slot.id]: e.target.value }))}
-                          placeholder="Paste HTML/JS Script Node..."
+                          placeholder="Paste Ad Script code here..."
                           className="w-full bg-black/40 border border-white/10 rounded-[28px] p-6 text-xs h-[240px] focus:border-amber-500/40 transition-all font-mono shadow-inner outline-none text-amber-500/60"
                         />
                       </div>
                     ))}
                   </div>
-                  <button className="w-full py-5 bg-amber-500 text-black rounded-3xl text-[11px] font-black uppercase tracking-[0.4em] shadow-xl shadow-amber-900/40 hover:bg-white transition-all active:scale-95">Synchronize Ad Matrix Hub</button>
+                  <button className="w-full py-5 bg-amber-500 text-black rounded-3xl text-[11px] font-black uppercase tracking-[0.4em] shadow-xl shadow-amber-900/40 hover:bg-white transition-all active:scale-95">Save Ads Configuration</button>
                 </form>
               </div>
             </div>
@@ -745,11 +782,11 @@ export function AdminDashboard() {
               <div className="p-12 rounded-[50px] bg-[#050505] border border-amber-500/10 flex flex-col lg:flex-row gap-12 items-center shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-[100px] -mr-32 -mt-32" />
                 <div className="flex-1 relative z-10">
-                  <h2 className="text-3xl font-black italic uppercase tracking-tight mb-4">Total Wealth <span className="text-amber-500">Circulation</span></h2>
-                  <p className="text-sm text-white/30 mb-10 leading-relaxed font-bold italic uppercase tracking-wide">Monitoring real-time inflation and user terminal wealth distribution within the Mana Mingle ecosystem.</p>
+                  <h2 className="text-3xl font-black italic uppercase tracking-tight mb-4">Economy <span className="text-amber-500">Overview</span></h2>
+                  <p className="text-sm text-white/30 mb-10 leading-relaxed font-bold italic uppercase tracking-wide">Monitoring real-time coin distribution and user balance across the system.</p>
                   <div className="grid grid-cols-2 gap-6">
                     <div className="p-8 rounded-[32px] bg-white/[0.02] border border-white/5 shadow-inner">
-                      <div className="text-[10px] font-black text-amber-500/60 uppercase mb-3 tracking-[0.2em] italic">Authorized Wallets</div>
+                      <div className="text-[10px] font-black text-amber-500/60 uppercase mb-3 tracking-[0.2em] italic">User Wallets</div>
                       <div className="text-4xl font-black text-white italic tracking-tighter">{stats?.coinStats?.totalUsers || 0}</div>
                     </div>
                     <div className="p-8 rounded-[32px] bg-white/[0.02] border border-white/5 shadow-inner">
@@ -766,16 +803,16 @@ export function AdminDashboard() {
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
                       <span className="text-4xl font-black text-amber-500 italic">75%</span>
-                      <span className="text-[9px] font-black text-white/10 uppercase tracking-[0.3em] mt-1">Cap. Velocity</span>
+                      <span className="text-[9px] font-black text-white/10 uppercase tracking-[0.3em] mt-1">Capacity Usage</span>
                     </div>
                   </div>
-                  <div className="mt-8 text-[10px] font-black text-amber-500 uppercase tracking-[0.4em] animate-pulse">Economy: Nominal</div>
+                  <div className="mt-8 text-[10px] font-black text-amber-500 uppercase tracking-[0.4em] animate-pulse">Status: Stable</div>
                 </div>
               </div>
 
               <div className="grid lg:grid-cols-2 gap-10">
                 <div className="p-10 rounded-[50px] bg-white/[0.02] border border-white/5 shadow-2xl">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-amber-500 mb-8 italic">Top Wealth Nodes</h3>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-amber-500 mb-8 italic">Top Coin Holders</h3>
                   <div className="space-y-4">
                     {Object.entries(stats?.userWallets || {}).sort(([, a], [, b]) => b - a).slice(0, 5).map(([ip, bal], i) => (
                       <div key={ip} className="flex items-center justify-between p-5 rounded-[24px] bg-black/40 border border-white/5 group hover:border-amber-500/20 transition-all">
@@ -795,13 +832,13 @@ export function AdminDashboard() {
                   </div>
                 </div>
                 <div className="p-10 rounded-[50px] bg-white/[0.02] border border-white/5 shadow-2xl">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 mb-8 italic">Economy Logic Core</h3>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 mb-8 italic">Economy Parameters</h3>
                   <div className="space-y-4">
                     {[
-                      { label: 'Initial Uplink Credit', val: '30 🪙' },
-                      { label: 'Daily Cycle Recovery', val: '30 🪙 + Bonus' },
-                      { label: 'Premium Overlay Cost', val: '12 🪙 / min' },
-                      { label: '3D Emotional Data', val: '5 🪙 / unit' }
+                      { label: 'Starting Coins Balance', val: '30 🪙' },
+                      { label: 'Daily Bonus Coins', val: '30 🪙 + Bonus' },
+                      { label: 'Premium Filter Cost', val: '12 🪙 / min' },
+                      { label: 'Premium Emojis', val: '5 🪙 / unit' }
                     ].map(item => (
                       <div key={item.label} className="flex items-center justify-between p-5 rounded-[24px] bg-black/60 border border-white/5 shadow-inner">
                         <div className="text-[10px] font-black uppercase tracking-widest text-white/40">{item.label}</div>
@@ -818,33 +855,33 @@ export function AdminDashboard() {
             <div className="space-y-10 animate-fade-in">
               <div className="grid lg:grid-cols-2 gap-10">
                 <div className="p-10 rounded-[50px] bg-rose-500/[0.02] border border-rose-500/10 shadow-2xl">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-rose-500 mb-8 italic flex items-center gap-3">🚫 System Firewall (Banned)</h3>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-rose-500 mb-8 italic flex items-center gap-3">🚫 Banned IP List</h3>
                   <div className="space-y-4 max-h-[360px] overflow-y-auto pr-4 custom-scrollbar">
                     {stats?.blockedIps?.map(ip => (
                       <div key={ip} className="flex justify-between items-center p-5 rounded-3xl bg-black border border-rose-500/20 group hover:border-rose-500/50 transition-all shadow-inner">
-                        <div className="font-mono text-xs text-rose-500 font-bold uppercase tracking-tight">NODE: {ip}</div>
-                        <button onClick={() => handleUnblockIp(ip)} className="text-[9px] font-black uppercase text-white/20 hover:text-emerald-400 transition-colors">De-Authorize ban →</button>
+                        <div className="font-mono text-xs text-rose-500 font-bold uppercase tracking-tight">IP: {ip}</div>
+                        <button onClick={() => handleUnblockIp(ip)} className="text-[9px] font-black uppercase text-white/20 hover:text-emerald-400 transition-colors">Remove ban →</button>
                       </div>
                     ))}
                     {(!stats?.blockedIps || stats.blockedIps.length === 0) && (
                       <div className="py-24 text-center opacity-10 flex flex-col items-center">
                         <div className="text-4xl mb-6">🛰️</div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.4em]">Firewall Wide Open</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.4em]">No blocked IPs</p>
                       </div>
                     )}
                   </div>
                 </div>
                 <div className="p-10 rounded-[50px] bg-amber-500/[0.02] border border-amber-500/10 shadow-2xl">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-amber-500 mb-8 italic flex items-center gap-3">⚠️ Node Watchlist (Warned)</h3>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-amber-500 mb-8 italic flex items-center gap-3">⚠️ User Watchlist (Warned)</h3>
                   <div className="space-y-4 max-h-[360px] overflow-y-auto pr-4 custom-scrollbar">
                     {stats?.warnedIps?.map(ip => (
                       <div key={ip} className="flex justify-between items-center p-5 rounded-3xl bg-black border border-amber-500/20 group hover:border-amber-500/50 transition-all shadow-inner">
-                        <div className="font-mono text-xs text-amber-500 font-bold uppercase tracking-tight">NODE: {ip}</div>
+                        <div className="font-mono text-xs text-amber-500 font-bold uppercase tracking-tight">IP: {ip}</div>
                         <button onClick={async () => {
                           try {
                             await fetch(`${API_BASE}/api/admin/unwarn`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-key': key }, body: JSON.stringify({ ip }) });
                             fetchStats(key);
-                            setToast('Watcher terminal closed.');
+                            setToast('Warning cleared.');
                           } catch (e) { }
                         }} className="text-[9px] font-black uppercase text-white/20 hover:text-white transition-colors">Clear Warning →</button>
                       </div>
@@ -852,7 +889,7 @@ export function AdminDashboard() {
                     {(!stats?.warnedIps || stats.warnedIps.length === 0) && (
                       <div className="py-24 text-center opacity-10 flex flex-col items-center">
                         <div className="text-4xl mb-6">👁️</div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.4em]">No nodes flagged</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.4em]">No users flagged</p>
                       </div>
                     )}
                   </div>
@@ -861,17 +898,17 @@ export function AdminDashboard() {
 
               <div className="p-12 rounded-[60px] bg-rose-500/[0.02] border border-rose-500/20 text-center shadow-2xl relative overflow-hidden group">
                 <div className="absolute inset-0 bg-gradient-to-t from-rose-900/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <h3 className="text-3xl font-black italic tracking-tighter text-rose-600 mb-4 uppercase">Protocol Zero Termination</h3>
-                <p className="text-[11px] text-rose-500/40 max-w-lg mx-auto mb-10 font-bold italic uppercase tracking-widest leading-relaxed">Absolute emergency termination of all high-frequency socket connections, localized cache flushing, and global route reset.</p>
+                <h3 className="text-3xl font-black italic tracking-tighter text-rose-600 mb-4 uppercase">Emergency System Reset</h3>
+                <p className="text-[11px] text-rose-500/40 max-w-lg mx-auto mb-10 font-bold italic uppercase tracking-widest leading-relaxed">Absolute emergency termination of all active sessions and clearing of temporary system data.</p>
 
                 {!isKillswitchConfirm ? (
                   <button onClick={() => setIsKillswitchConfirm(true)} className="px-20 py-6 rounded-[30px] bg-rose-600 text-white font-black uppercase tracking-[0.4em] shadow-[0_20px_50px_rgba(225,29,72,0.3)] hover:scale-[1.02] hover:bg-rose-500 transition-all active:scale-95 text-xs">
-                    Execute Killswitch Protocol
+                    Execute Emergency Reset
                   </button>
                 ) : (
                   <div className="flex gap-4 justify-center animate-in-zoom">
-                    <button onClick={handleKillswitch} className="px-10 py-6 rounded-[30px] bg-white text-rose-600 shadow-[0_0_50px_rgba(159,18,57,1)] font-black text-[11px] uppercase tracking-widest animate-pulse">Confirm Final De-Auth</button>
-                    <button onClick={() => setIsKillswitchConfirm(false)} className="px-10 py-6 rounded-[30px] bg-white/5 text-white font-black text-[11px] uppercase tracking-widest border border-white/10">Abort System Flush</button>
+                    <button onClick={handleKillswitch} className="px-10 py-6 rounded-[30px] bg-white text-rose-600 shadow-[0_0_50px_rgba(159,18,57,1)] font-black text-[11px] uppercase tracking-widest animate-pulse">Confirm System Reset</button>
+                    <button onClick={() => setIsKillswitchConfirm(false)} className="px-10 py-6 rounded-[30px] bg-white/5 text-white font-black text-[11px] uppercase tracking-widest border border-white/10">Cancel Reset</button>
                   </div>
                 )}
               </div>
@@ -882,12 +919,12 @@ export function AdminDashboard() {
             <div className="space-y-10 animate-fade-in">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {[
-                  { field: 'adsEnabled', label: 'Ad Matrix Hub', desc: 'Sync global sponsor blocks', active: stats?.adsEnabled },
-                  { field: 'allowDevTools', label: 'Console Overrides', desc: 'Allow F12 identity hacks', active: stats?.allowDevTools },
-                  { field: 'maintenanceMode', label: 'Void Lock Mode', desc: 'Seal the matrix for repair', active: stats?.maintenanceMode, color: 'bg-rose-500' },
-                  { field: 'safetyAiEnabled', label: 'AI Guard Sentinel', desc: 'LLM behavioural filtering', active: stats?.safetyAiEnabled, color: 'bg-cyan-500' },
-                  { field: 'coinsEnabled', label: 'Economy Subsystem', desc: 'Authorize coin circulation', active: stats?.coinsEnabled !== false },
-                  { field: 'guestRegistration', label: 'Proxy Access Grids', desc: 'Authorize generic peer data', active: stats?.guestRegistration !== false },
+                  { field: 'adsEnabled', label: 'Ads Manager', desc: 'Manage advertisement visibility', active: stats?.adsEnabled },
+                  { field: 'allowDevTools', label: 'Developer Tools', desc: 'Allow browser console access', active: stats?.allowDevTools },
+                  { field: 'maintenanceMode', label: 'Maintenance Mode', desc: 'Disable platform access for maintenance', active: stats?.maintenanceMode, color: 'bg-rose-500' },
+                  { field: 'safetyAiEnabled', label: 'Safety AI Monitor', desc: 'LLM behavioural filtering', active: stats?.safetyAiEnabled, color: 'bg-cyan-500' },
+                  { field: 'coinsEnabled', label: 'Coin Management', desc: 'Authorize coin circulation', active: stats?.coinsEnabled !== false },
+                  { field: 'guestRegistration', label: 'Guest Access', desc: 'Allow anonymous user mapping', active: stats?.guestRegistration !== false },
                 ].map(f => (
                   <div key={f.field} className="p-10 rounded-[40px] bg-white/[0.02] border border-white/5 flex flex-col justify-between group hover:border-cyan-500/30 transition-all min-h-[180px] shadow-2xl relative overflow-hidden">
                     <div className="absolute -inset-2 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none group-hover:from-white/[0.05]" />
@@ -924,10 +961,12 @@ export function AdminDashboard() {
       {/* Tablet/Mobile Overlay Warning */}
       <div className="lg:hidden fixed inset-0 z-[5000] bg-black p-12 flex flex-col items-center justify-center text-center">
         <img src="/apple-touch-icon.png" alt="Logo" className="w-24 h-24 mb-10 opacity-20" />
-        <h2 className="text-2xl font-black italic uppercase tracking-tighter mb-4">Terminal Restriction</h2>
-        <p className="text-[11px] text-white/30 font-black uppercase tracking-[0.2em] leading-relaxed mb-12">The Admin Matrix requires a desktop viewpoint for visualization clusters and command mapping. High-frequency oversight is restricted on mobile nodes.</p>
-        <button onClick={() => window.location.href = '/'} className="px-10 py-5 bg-white/5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/10 hover:bg-white hover:text-black transition-all">Return to Global Hub</button>
+        <h2 className="text-2xl font-black italic uppercase tracking-tighter mb-4">Device Restriction</h2>
+        <p className="text-[11px] text-white/30 font-black uppercase tracking-[0.2em] leading-relaxed mb-12">The Administrative Dashboard requires a desktop view for proper management. Access is restricted on mobile devices.</p>
+        <button onClick={() => window.location.href = '/'} className="px-10 py-5 bg-white/5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/10 hover:bg-white hover:text-black transition-all">Return to Home</button>
       </div>
     </div>
   );
 }
+
+export default AdminDashboard;

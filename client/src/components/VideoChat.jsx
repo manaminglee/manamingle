@@ -120,18 +120,32 @@ function VanishingMessage({ m, isMe }) {
   const sStr = (timeLeft % 60).toString().padStart(2, '0');
 
   return (
-    <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-fade-in mt-2`}>
-      <div className={`relative max-w-[85%] px-3 py-2 rounded-lg text-sm flex gap-2 items-end group ${isMe ? 'bg-[#1a7f37] text-white' : 'bg-white/10 text-white/90'}`}>
-        <p className="break-words leading-relaxed">{m.text}</p>
-        <span className={`text-[9px] font-mono shrink-0 mb-0.5 ${timeLeft <= 10 ? 'text-amber-400 animate-pulse font-bold' : 'opacity-50'}`}>
-          {mStr}:{sStr}
-        </span>
+    <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-fade-in`}>
+      <div className={`relative max-w-[85%] px-3 py-2 rounded-lg text-sm flex flex-col gap-1 transition-all ${isMe ? 'bg-[#1a7f37] text-white rounded-tr-none' : 'bg-white/10 text-white/90 rounded-tl-none border border-white/5'}`}>
+        {m.replyTo && (
+          <div className="mb-2 p-2 rounded-md bg-black/20 border-l-2 border-indigo-400 text-[10px] opacity-70 italic">
+            <div className="font-bold not-italic mb-0.5">{m.replyTo.nickname}</div>
+            {m.replyTo.text}
+          </div>
+        )}
+        <div className="flex gap-2 items-end">
+          <p className="break-words leading-relaxed whitespace-pre-wrap">{m.text}</p>
+          <span className={`text-[9px] font-mono shrink-0 mb-0.5 ${timeLeft <= 10 ? 'text-amber-400 animate-pulse font-bold' : 'opacity-50'}`}>
+            {mStr}:{sStr}
+          </span>
+        </div>
       </div>
     </div>
   );
 }
 
 export function VideoChat({ socket, connected, country, onlineCount, interest = 'general', nickname = 'Anonymous', isCreator = false, adsEnabled = false, onBack, onJoined, onFindNewPartner, coinState }) {
+  // Use either internal coins state or passed coinState
+  const [coins, setCoins] = useState(coinState?.balance || 0);
+
+  useEffect(() => {
+    if (coinState?.balance !== undefined) setCoins(coinState.balance);
+  }, [coinState?.balance]);
   const { balance, streak, canClaim, nextClaim, claimCoins, history, addHistory } = coinState || {};
   const { iceServers } = useIceServers();
   const [messages, setMessages] = useState([]);
@@ -139,6 +153,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   const [roomId, setRoomId] = useState(null);
   const [peer, setPeer] = useState(null);
   const [status, setStatus] = useState('idle'); // Start in idle mode to show preparation screen
+  const [replyingTo, setReplyingTo] = useState(null);
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
   const [strangerCameraOff, setStrangerCameraOff] = useState(false);
@@ -603,7 +618,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     }, 1000);
 
     const deductionInterval = setInterval(() => {
-      if (balanceRef.current >= 12) {
+      if (coins >= 12) {
         if (socket) socket.emit('spend-coins', { amount: 12, reason: 'Premium Video Filter Maintenance' });
         if (addHistory) addHistory('Premium Filter (1 min)', -12);
       } else {
@@ -620,7 +635,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       setShowFilterMenu(false);
       return;
     }
-    if (balance < 12) {
+    if (coins < 12) {
       alert('You need at least 12 coins to enable premium video filters.');
       return;
     }
@@ -1023,12 +1038,10 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   };
 
   const send3dEmoji = (emojiObj) => {
-    if (balance < 5) return alert('Need 5 coins for 3D Emoji!');
+    if (coins < 5) return alert('Need 5 coins for 3D Emoji!');
     const r = roomIdRef.current;
     if (socket && r) {
       socket.emit('send-3d-emoji', { roomId: r, emoji: emojiObj });
-      // Deduct locally for visual feedback
-      socket.emit('spend-coins', { amount: 5, reason: '3D Emoji' });
       setShowEmojiPicker(false);
     }
   };
@@ -1038,7 +1051,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
     if (!file) return;
     const type = file.type.startsWith('video') ? 'video' : 'image';
     const cost = type === 'video' ? 15 : 10;
-    if (balance < cost) return alert(`Need ${cost} coins!`);
+    if (coins < cost) return alert(`Need ${cost} coins!`);
 
     if (type === 'video') {
       const video = document.createElement('video');
@@ -1116,17 +1129,16 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
 
   const sendMsg = () => {
     const t = input.trim();
-    const r = roomIdRef.current; // Use Ref for reliability
-    if (!t || !socket || !r) {
-      console.warn('[VIDEO_CHAT] Cannot send: missing room or content', { t: !!t, socket: !!socket, r });
-      return;
+    const r = roomIdRef.current;
+    if (!t || !socket || !r) return;
+    const payload = { roomId: r, text: t };
+    if (replyingTo) {
+      payload.replyTo = { id: replyingTo.id, text: replyingTo.text, nickname: replyingTo.nickname || 'Stranger' };
     }
-    socket.emit('send-message', { roomId: r, text: t });
-    // Optimistic addition removed to prevent duplication: 
-    // The server broadcasts 'chat-message' back to the sender, which onMsg handles.
-    // Clear typing indicator
+    socket.emit('send-message', payload);
     socket.emit('typing', { roomId: r, isTyping: false });
     setInput('');
+    setReplyingTo(null);
     setTimeout(() => inputRef.current?.focus(), 10);
   };
 
@@ -1213,7 +1225,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
   };
 
   const startRecording = () => {
-    if (!peer?.stream) return alert('No active node stream to record.');
+    if (!peer?.stream) return alert('No active user stream to record.');
     const recorder = new MediaRecorder(peer.stream, { mimeType: 'video/webm' });
     chunksRef.current = [];
     recorder.ondataavailable = (e) => {
@@ -1224,13 +1236,13 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Creator_Matrix_Clip_${Date.now()}.webm`;
+      a.download = `Creator_Capture_${Date.now()}.webm`;
       a.click();
     };
     recorder.start();
     recorderRef.current = recorder;
     setIsRecording(true);
-    setToast('🎥 Matrix Recording Active');
+    setToast('🎥 Recording Active');
   };
 
   const stopRecording = () => {
@@ -1257,13 +1269,13 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
               onClick={isRecording ? stopRecording : startRecording}
               className={`px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[8px] font-black uppercase tracking-widest transition-all ${isRecording ? 'text-rose-500 animate-pulse border-rose-500/50' : 'text-white/40 hover:text-white'}`}
             >
-              {isRecording ? 'Rec active' : 'Rec node'}
+              {isRecording ? 'Rec active' : 'Rec user'}
             </button>
           )}
           <button onClick={() => setShowFilterMenu(true)} className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition">Filters</button>
-          {country && <span className="text-[14px] leading-none opacity-80" title={`Node: ${country}`}>{countryToFlag(country)}</span>}
-          <span className="text-[10px] text-white/30 hidden sm:inline">{(typeof onlineCount === 'object' ? onlineCount?.count : onlineCount) || 0} online</span>
-          <button onClick={() => setShowCoinHistory(true)} className="text-amber-500/90 font-bold text-xs flex items-center gap-1 hover:bg-white/5 px-2 py-1 rounded transition border border-amber-500/20">🪙 {balance}</button>
+          {country && <span className="text-[14px] leading-none opacity-80" title={`Location: ${country}`}>{countryToFlag(country)}</span>}
+          <span className="text-[10px] text-white/30 inline">{(typeof onlineCount === 'object' ? onlineCount?.count : onlineCount) || 0} online</span>
+          <button onClick={() => setShowCoinHistory(true)} className="text-amber-500/90 font-bold text-xs flex items-center gap-1 hover:bg-white/5 px-2 py-1 rounded transition border border-amber-500/20">🪙 {coins}</button>
           {!showChat && status === 'connected' && (
             <button onClick={() => setShowChat(true)} className="p-1.5 sm:hidden text-white/40 hover:text-white">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
@@ -1293,15 +1305,15 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                 <p className="text-white/60 text-sm mb-2">Talk to strangers!</p>
                 <p className="text-white/40 text-xs mb-8 max-w-xs text-center">Click Start to begin a random video chat with someone from around the world.</p>
                 <button onClick={handleStart} disabled={!connected} className="px-12 py-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black uppercase tracking-widest text-sm transition-all shadow-xl shadow-indigo-500/20">
-                  Initialize Scan
+                  Start Exploration
                 </button>
               </div>
             )}
             {status === 'searching' && (
               <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-[#050505]">
                 <div className="w-20 h-20 rounded-full border-2 border-indigo-500/20 border-t-indigo-500 animate-spin mb-8" />
-                <p className="text-white font-black uppercase tracking-[0.2em] text-xs mb-2">Searching Active Nodes</p>
-                <p className="text-white/30 text-[10px] uppercase font-bold tracking-widest letter-spacing-2">Establishing Uplink...</p>
+                <p className="text-white font-black uppercase tracking-[0.2em] text-xs mb-2">Searching for Users</p>
+                <p className="text-white/30 text-[10px] uppercase font-bold tracking-widest letter-spacing-2">Establishing Connection...</p>
                 <button onClick={handleStop} className="mt-12 text-xs font-black uppercase tracking-widest text-rose-500/50 hover:text-rose-500 transition-colors">Abort</button>
               </div>
             )}
@@ -1347,21 +1359,21 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
                 {peer?.isCreator ? (
                   <div className="flex items-center gap-1.5">
                     <span className="text-cyan-400">
-                      {countryToFlag(peer?.country)} {peer?.nickname || 'Stranger Hub'}
+                      {countryToFlag(peer?.country)} {peer?.nickname || 'Stranger'}
                       <BlueTick />
                     </span>
                   </div>
                 ) : (
                   <>
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    {countryToFlag(peer?.country)} Stranger Node
+                    {countryToFlag(peer?.country)} Stranger Matching
                   </>
                 )}
               </div>
               {partnerLeft && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 backdrop-blur-md z-[60]">
-                  <p className="text-white font-black uppercase tracking-widest text-xs">Node Disconnected</p>
-                  <p className="text-white/30 text-[10px] mt-2 uppercase font-bold tracking-widest">Re-initializing Scan...</p>
+                  <p className="text-white font-black uppercase tracking-widest text-xs">Connection Lost</p>
+                  <p className="text-white/30 text-[10px] mt-2 uppercase font-bold tracking-widest">Searching for new match...</p>
                 </div>
               )}
               <button onClick={handleReport} className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded bg-black/50 hover:bg-rose-500/20 text-white/60 hover:text-rose-400 transition-colors border border-white/5" title="Report">
@@ -1391,12 +1403,38 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
               )}
               {messages.map((m, i) => {
                 const isMe = m.socketId === socket.id || m.fromSelf;
-                return <VanishingMessage key={m.id || i} m={m} isMe={isMe} />;
+                return (
+                  <div key={m.id || i} className={`flex flex-col group ${isMe ? 'items-end' : 'items-start'}`}>
+                    {!m.system && (
+                      <div className="flex items-center gap-2 mb-1 px-1">
+                        <span className="text-[9px] font-bold text-white/20 uppercase">{isMe ? 'You' : (m.nickname || 'Stranger')}</span>
+                        {!isMe && (
+                          <button 
+                            onClick={() => {
+                              setReplyingTo(m);
+                              inputRef.current?.focus();
+                            }} 
+                            className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-indigo-400 font-bold"
+                          >
+                            Reply
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    <VanishingMessage m={m} isMe={isMe} />
+                  </div>
+                );
               })}
               <div ref={chatEndRef} />
             </div>
 
             <div className="p-3 bg-white/[0.01] border-t border-white/[0.06] space-y-2">
+              {replyingTo && (
+                <div className="mb-2 p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-between shadow-xl animate-slide-in-up">
+                  <div className="text-[10px] text-indigo-300 italic truncate pr-4">Replying to {replyingTo.nickname}: {replyingTo.text}</div>
+                  <button onClick={() => setReplyingTo(null)} className="text-indigo-300 hover:text-white">✕</button>
+                </div>
+              )}
               {smartReplies.length > 0 && (
                 <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                   {smartReplies.map((r, idx) => (
@@ -1517,7 +1555,7 @@ export function VideoChat({ socket, connected, country, onlineCount, interest = 
               </button>
             ))}
           </div>
-          {balance < 5 && <div className="mt-3 text-[10px] text-center text-rose-400 font-medium bg-rose-500/10 py-1 rounded">Not enough coins!</div>}
+          {coins < 5 && <div className="mt-3 text-[10px] text-center text-rose-400 font-medium bg-rose-500/10 py-1 rounded">Not enough coins!</div>}
         </div>
       )}
       {/* Coin History Modal */}

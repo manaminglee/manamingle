@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 const DEFAULT_ICE = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'turn:a.relay.metered.ca:80', username: 'e8dd65b92f3c0ab9bda3c714', credential: '2xMGSyyWIYfJTh3m' },
+    { urls: 'turn:a.relay.metered.ca:443', username: 'e8dd65b92f3c0ab9bda3c714', credential: '2xMGSyyWIYfJTh3m' }
 ];
 
 function normalizeIceServer(server) {

@@ -39,6 +39,7 @@ export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nick
   const [participantCount, setParticipantCount] = useState(1);
   const [messages, setMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
+  const [replyingTo, setReplyingTo] = useState(null);
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [isTranslatorActive, setIsTranslatorActive] = useState(false);
   const [icebreaker] = useState(() => ICEBREAKERS[Math.floor(Math.random() * ICEBREAKERS.length)]);
@@ -57,12 +58,21 @@ export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nick
     if (!isQueuing) setTimeout(() => inputRef.current?.focus(), 200);
   }, [isQueuing]);
 
+  useEffect(() => {
+    if (socket && roomIdProp && !hasJoinedRef.current) {
+      socket.emit('join-specific-group', { roomId: roomIdProp, nickname: nickname || 'Admin' });
+    }
+  }, [socket, roomIdProp]);
+
   const sendMessage = () => {
     const t = chatInput.trim();
     const rid = roomIdRef.current || roomId;
     if (!t || !socket || !rid) return;
-    socket.emit('send-message', { roomId: rid, text: t });
+    const payload = { roomId: rid, text: t };
+    if (replyingTo) payload.replyTo = { id: replyingTo.id, text: replyingTo.text, nickname: replyingTo.nickname || 'Stranger' };
+    socket.emit('send-message', payload);
     setChatInput('');
+    setReplyingTo(null);
   };
 
   const generateAiSpark = async () => {
@@ -388,7 +398,21 @@ export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nick
                           {m.nickname || 'Stranger'}
                         </span>
                       )}
-                      <div className={`msg-bubble ${isMe ? 'me' : 'them'} animate-bubble-pop`} style={!isMe ? { borderColor: `${color}30` } : {}}>
+                      <div className={`msg-bubble ${isMe ? 'me' : 'them'} flex flex-col gap-1 animate-bubble-pop relative group`} style={!isMe ? { borderColor: `${color}30` } : {}}>
+                        {!m.system && (
+                          <button 
+                            onClick={() => setReplyingTo(m)} 
+                            className={`absolute -top-3 ${isMe ? '-left-3' : '-right-3'} opacity-0 group-hover:opacity-100 bg-white/10 hover:bg-white/20 p-1 rounded-full text-xs transition-opacity z-10`}
+                            title="Reply"
+                          >
+                            ↩️
+                          </button>
+                        )}
+                        {m.replyTo && (
+                          <div className="text-[10px] opacity-60 mb-1 border-l-2 border-white/20 pl-2 italic">
+                            <span className="font-bold">{m.replyTo.nickname || 'Someone'}</span>: {m.replyTo.text?.slice(0, 40)}{m.replyTo.text?.length > 40 ? '...' : ''}
+                          </div>
+                        )}
                         {m.media ? (
                           <div className="max-w-[200px] rounded-lg overflow-hidden border border-white/10">
                             {m.type === 'video' ? (
@@ -398,7 +422,7 @@ export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nick
                             )}
                           </div>
                         ) : (
-                          <>
+                          <div className="break-words">
                             {isTranslatorActive && !isMe ? (
                               <div className="flex flex-col gap-1">
                                 {m.translated ? (
@@ -415,7 +439,7 @@ export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nick
                                 )}
                               </div>
                             ) : m.text}
-                          </>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -425,6 +449,17 @@ export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nick
               </>
             )}
           </div>
+
+          {replyingTo && (
+              <div className="mx-3 mt-2 mb-[-6px] bg-black/60 backdrop-blur-md border border-white/10 rounded-xl px-4 py-2 flex justify-between items-center z-[100] animate-in-zoom relative">
+                <div className="flex items-center gap-2 overflow-hidden">
+                   <span className="text-xs">↩️</span>
+                   <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Replying to {replyingTo.nickname || 'Stranger'}:</span>
+                   <span className="text-xs text-white/80 truncate opacity-60 italic">"{replyingTo.text?.slice(0, 40)}{replyingTo.text?.length > 40 ? '...' : ''}"</span>
+                </div>
+                <button onClick={() => setReplyingTo(null)} className="text-white/40 hover:text-white p-1 ml-2">✕</button>
+              </div>
+           )}
 
           {/* Input */}
           <div className="flex-shrink-0 p-3 border-t border-white/[0.06] flex gap-1.5 sm:gap-2 min-w-0 items-center">
@@ -466,7 +501,8 @@ export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nick
                         <button
                           key={e.char}
                           onClick={() => send3dEmoji(e)}
-                          className="w-8 h-8 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-lg text-lg transition-all"
+                          className={`w-8 h-8 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-lg text-lg transition-all ${coins < 5 ? 'opacity-30 cursor-not-allowed' : ''}`}
+                          disabled={coins < 5}
                         >
                           {e.char}
                         </button>

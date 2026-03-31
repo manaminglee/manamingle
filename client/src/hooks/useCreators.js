@@ -44,11 +44,11 @@ export function useCreators() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ handle, platform, link })
       });
+      const data = await res.json();
       if (res.ok) {
         fetchStatus();
-        return { success: true };
+        return { success: true, accessKey: data.accessKey, password: data.password };
       }
-      const data = await res.json();
       return { success: false, error: data.error };
     } catch (e) {
       return { success: false, error: 'Network failure' };
@@ -64,7 +64,7 @@ export function useCreators() {
       });
       return await res.json();
     } catch (e) {
-       return { error: 'Sync failed' };
+       return { error: 'Verification failed' };
     }
   };
 
@@ -97,7 +97,7 @@ export function useCreators() {
         setCreatorStatus(result.data);
         return { success: true };
       }
-      return { success: false, error: result.error || 'Neural Key Mismatch' };
+      return { success: false, error: result.error || 'Credential Mismatch' };
     } catch (e) {
       return { success: false, error: 'Network Failure' };
     }

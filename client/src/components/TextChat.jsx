@@ -58,7 +58,7 @@ const SEARCHING_STATUSES = [
 
 const MAX_MEDIA_SIZE_MB = 5;
 
-function VanishingMessage({ m, isMe }) {
+function VanishingMessage({ m, isMe, onReply }) {
   const [timeLeft, setTimeLeft] = useState(90);
 
   useEffect(() => {
@@ -92,21 +92,37 @@ function VanishingMessage({ m, isMe }) {
 
   return (
     <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-message-pop mt-2`}>
-        <div className={`msg-bubble ${isMe ? 'me' : 'them'} flex gap-2 items-end relative group min-w-[60px]`}>
-            {m.media ? (
-                <div className="max-w-[180px] rounded-lg overflow-hidden border border-white/10">
-                    {m.type === 'video' ? (
-                        <video src={m.content} controls className="w-full" autoPlay loop muted />
-                    ) : (
-                        <img src={m.content} className="w-full h-auto" alt="media" />
-                    )}
-                </div>
-            ) : (
-                <p className="break-words leading-relaxed whitespace-pre-wrap">{m.text}</p>
+        <div className={`msg-bubble ${isMe ? 'me' : 'them'} flex flex-col gap-1 relative group min-w-[60px]`}>
+            {!m.system && (
+              <button 
+                onClick={() => onReply && onReply(m)} 
+                className={`absolute -top-3 ${isMe ? '-left-3' : '-right-3'} opacity-0 group-hover:opacity-100 bg-white/10 hover:bg-white/20 p-1 rounded-full text-xs transition-opacity z-10`}
+                title="Reply"
+              >
+                ↩️
+              </button>
             )}
-            <span className={`text-[9px] font-mono shrink-0 mb-[-2px] ${timeLeft <= 10 ? 'text-amber-400 animate-pulse font-bold' : 'opacity-40'}`}>
-                {mStr}:{sStr}
-            </span>
+            {m.replyTo && (
+              <div className="text-[10px] opacity-60 mb-1 border-l-2 border-white/20 pl-2 italic">
+                <span className="font-bold">{m.replyTo.nickname || 'Someone'}</span>: {m.replyTo.text?.slice(0, 40)}{m.replyTo.text?.length > 40 ? '...' : ''}
+              </div>
+            )}
+            <div className="flex gap-2 items-end">
+                {m.media ? (
+                    <div className="max-w-[180px] rounded-lg overflow-hidden border border-white/10">
+                        {m.type === 'video' ? (
+                            <video src={m.content} controls className="w-full" autoPlay loop muted />
+                        ) : (
+                            <img src={m.content} className="w-full h-auto" alt="media" />
+                        )}
+                    </div>
+                ) : (
+                    <p className="break-words leading-relaxed whitespace-pre-wrap">{m.text}</p>
+                )}
+                <span className={`text-[9px] font-mono shrink-0 mb-[-2px] ${timeLeft <= 10 ? 'text-amber-400 animate-pulse font-bold' : 'opacity-40'}`}>
+                    {mStr}:{sStr}
+                </span>
+            </div>
         </div>
     </div>
   );
@@ -131,6 +147,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
   const [connectedSecs, setConnectedSecs] = useState(0);
   const [showRating, setShowRating] = useState(false);
   const [showSkipSuggestion, setShowSkipSuggestion] = useState(false);
+  const [replyingTo, setReplyingTo] = useState(null);
   const roomIdRef = useRef(null);
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -442,8 +459,11 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
       return;
     }
     socket.emit('typing', { roomId: r, isTyping: false });
-    socket.emit('send-message', { roomId: r, text: t });
+    const payload = { roomId: r, text: t };
+    if (replyingTo) payload.replyTo = { id: replyingTo.id, text: replyingTo.text, nickname: replyingTo.nickname };
+    socket.emit('send-message', payload);
     setInput('');
+    setReplyingTo(null);
     inputRef.current?.focus();
   };
 
@@ -498,10 +518,10 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.03]" />
       </div>
 
-      {/* AI SAFETY LAYER */}
+      {/* SAFETY LAYER */}
       <div className="absolute top-[84px] left-1/2 -translate-x-1/2 z-[100] pointer-events-none px-6 py-2 bg-emerald-500/5 border border-emerald-500/20 rounded-full flex items-center gap-3 animate-pulse">
          <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_10px_#34d399]" />
-         <span className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-400 italic">Neural Guard Active</span>
+         <span className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-400 italic">Safety Monitor Active</span>
       </div>
 
       {/* HEADER */}
@@ -522,7 +542,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
           <div className="hidden sm:block">
             <h1 className="text-[10px] font-black uppercase tracking-[0.5em] text-white">Mana Mingle</h1>
             <p className="text-[8px] font-bold text-white/20 uppercase tracking-widest mt-1">
-              # {interest || 'General'} Matrix Hub
+              # {interest || 'General'} Group Chat
             </p>
           </div>
         </div>
@@ -535,7 +555,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
               </div>
               <div className="flex px-3 py-1.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-[9px] font-black text-white/40 uppercase tracking-widest gap-2 items-center">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]" />
-                {onlineCount?.toLocaleString()} Nodes Live
+                {onlineCount?.toLocaleString()} Users Online
               </div>
             </>
           )}
@@ -543,7 +563,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
             <button
               onClick={() => setIsTranslatorActive(!isTranslatorActive)}
               className={`p-2.5 rounded-xl border transition-all ${isTranslatorActive ? 'bg-cyan-500/10 border-cyan-500/50 text-cyan-400' : 'bg-white/5 border-white/5 text-white/30 hover:text-white hover:border-white/20'}`}
-              title="AI Neural Translator"
+              title="AI Smart Translator"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
@@ -566,7 +586,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
                     <img src={active3dEmoji.emoji.url} className="w-40 h-40 object-contain" alt="3d" />
                   </picture>
                   <span className="bg-black/60 backdrop-blur-xl px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/10 text-cyan-400 shadow-2xl">
-                    Stranger Transmitted {active3dEmoji.emoji.char}
+                    Stranger Sent {active3dEmoji.emoji.char}
                   </span>
                </div>
             </div>
@@ -584,7 +604,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
                   <div className="flex items-center gap-2 mt-1">
                      <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_5px_#22d3ee]" />
                      <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">
-                       Linked Node • {String(Math.floor(connectedSecs / 60)).padStart(2, '0')}:{String(connectedSecs % 60).padStart(2, '0')}
+                       Connected • {String(Math.floor(connectedSecs / 60)).padStart(2, '0')}:{String(connectedSecs % 60).padStart(2, '0')}
                      </span>
                   </div>
                 </div>
@@ -603,7 +623,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
                   onClick={() => handleSkip()}
                   className="px-6 py-2.5 rounded-xl bg-rose-500/5 border border-rose-500/20 text-rose-400 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/10 transition-all active:scale-95"
                 >
-                  Abort Sync
+                  End Chat
                 </button>
               </div>
             </div>
@@ -621,12 +641,12 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
               </div>
               <div className="space-y-4 max-w-sm">
                 <h2 className="text-xl font-black italic uppercase tracking-tighter text-white">
-                  {status === 'idle' ? 'Initiate Text Uplink' : SEARCHING_STATUSES[searchStatusIndex]}
+                  {status === 'idle' ? 'Start Text Chat' : SEARCHING_STATUSES[searchStatusIndex]}
                 </h2>
                 <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.3em] leading-relaxed">
                   {status === 'idle' 
-                    ? 'Synchronize across the neural network with random global nodes.' 
-                    : 'System is analyzing interaction vectors for optimal node pairing...'}
+                    ? 'Connect with people across the globe. Privacy protected.' 
+                    : 'System is matching you with an available person...'}
                 </p>
               </div>
               {status === 'searching' && (
@@ -644,10 +664,10 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
             <div className="flex-1 flex flex-col items-center justify-center p-12 text-center gap-6">
               <div className="w-20 h-20 rounded-3xl bg-rose-500/5 border border-rose-500/20 flex items-center justify-center text-4xl animate-pulse">👋</div>
               <div className="space-y-3">
-                <h2 className="text-lg font-black italic uppercase text-rose-400 tracking-tighter">Sync Terminated</h2>
+                <h2 className="text-lg font-black italic uppercase text-rose-400 tracking-tighter">Chat Ended</h2>
                 <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest leading-relaxed">
-                   Stranger left the matrix.<br />
-                   <span className="text-cyan-400 animate-pulse">Auto-Seeking new nodes in 2s...</span>
+                   Stranger has left the chat.<br />
+                   <span className="text-cyan-400 animate-pulse">Searching for new match in 2s...</span>
                 </p>
               </div>
             </div>
@@ -658,13 +678,13 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
             <div className="flex-1 overflow-y-auto custom-scrollbar p-8 space-y-4 min-h-0" id="text-chat-messages">
               {messages.length === 0 && (
                 <div className="text-[10px] font-black uppercase tracking-[0.4em] text-white/10 text-center py-10 italic">
-                   Matrix Uplink Secure. Begin Transmission.
+                   Connection Secure. Begin Conversation.
                 </div>
               )}
               {messages.map((m, i) => {
                 const isMe = isFromMe(m);
                 if (mutedStranger && !isMe && !m.system) return null;
-                return <VanishingMessage key={m.id || i} m={m} isMe={isMe} />;
+                return <VanishingMessage key={m.id || i} m={m} isMe={isMe} onReply={(msg) => setReplyingTo(msg)} />;
               })}
               {strangerTyping && (
                 <div className="flex items-center gap-3 animate-message-pop opacity-50">
@@ -673,7 +693,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
                     <div className="w-1 h-1 bg-white rounded-full animate-bounce [animation-delay:0.2s]" />
                     <div className="w-1 h-1 bg-white rounded-full animate-bounce [animation-delay:0.4s]" />
                   </div>
-                  <span className="text-[9px] font-black uppercase tracking-widest text-white/30">Node Typing...</span>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-white/30">Stranger is typing...</span>
                 </div>
               )}
               <div ref={chatEndRef} />
@@ -690,8 +710,19 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
                   onClick={() => handleSkip()}
                   className="px-6 py-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-black uppercase tracking-widest shadow-2xl backdrop-blur-xl"
                 >
-                  Low Activity? Skip to next node →
+                  Low Activity? Skip to next person →
                 </button>
+              </div>
+           )}
+
+           {replyingTo && (
+              <div className="absolute -top-12 left-4 right-4 bg-black/60 backdrop-blur-md border border-white/10 rounded-xl px-4 py-2 flex justify-between items-center z-[100] animate-in-zoom">
+                <div className="flex items-center gap-2 overflow-hidden">
+                   <span className="text-xs">↩️</span>
+                   <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Replying to {replyingTo.nickname || 'Stranger'}:</span>
+                   <span className="text-xs text-white/80 truncate opacity-60 italic">"{replyingTo.text?.slice(0, 40)}{replyingTo.text?.length > 40 ? '...' : ''}"</span>
+                </div>
+                <button onClick={() => setReplyingTo(null)} className="text-white/40 hover:text-white p-1 ml-2">✕</button>
               </div>
            )}
 
@@ -701,14 +732,14 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
                   onClick={handleStart}
                   className="flex-1 h-16 rounded-3xl bg-cyan-500 text-black font-black uppercase tracking-[0.3em] italic text-xs hover:bg-white transition-all shadow-[0_0_30px_rgba(6,182,212,0.3)] hover:scale-[1.02] active:scale-[0.98]"
                 >
-                  Initiate Sync
+                  Start Chat
                 </button>
               ) : (
                 <button
                   onClick={handleSkip}
                   className="w-32 h-16 rounded-3xl bg-white/[0.03] border border-white/5 hover:border-cyan-500/40 text-white/40 hover:text-cyan-400 font-black uppercase tracking-widest text-[10px] transition-all italic hover:bg-cyan-500/5 shadow-inner"
                 >
-                  {status === 'searching' ? 'Abort' : 'Skip Node'}
+                  {status === 'searching' ? 'Abort' : 'Skip User'}
                 </button>
               )}
 
@@ -721,7 +752,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
                     value={input}
                     onChange={handleInputChange}
                     onKeyDown={(e) => e.key === 'Enter' && sendMsg()}
-                    placeholder={isAiGenerating ? 'AI Analysis in Progress...' : 'Transmit Data Package...'}
+                    placeholder={isAiGenerating ? 'AI Assistant is thinking...' : 'Type a message...'}
                     disabled={isAiGenerating}
                     className="w-full h-16 bg-white/[0.03] border border-white/10 focus:border-cyan-500/40 rounded-3xl px-8 text-sm outline-none transition-all placeholder:text-white/10 uppercase font-black tracking-widest backdrop-blur-3xl italic"
                   />
@@ -768,7 +799,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
                      >✨</button>
                      {showEmojiPicker && (
                        <div className="absolute bottom-full left-0 mb-4 p-5 bg-black/90 backdrop-blur-3xl border border-white/10 rounded-[40px] w-[280px] shadow-[0_0_50px_rgba(0,0,0,0.8)] animate-in-zoom z-[500]">
-                          <div className="text-[9px] font-black uppercase tracking-[0.3em] text-white/20 mb-4">Expressive Nodes (Free)</div>
+                          <div className="text-[9px] font-black uppercase tracking-[0.3em] text-white/20 mb-4">Expressive Icons (Free)</div>
                           <div className="grid grid-cols-6 gap-2 mb-6">
                              {['😊','😂','🔥','❤️','✨','💎','🚀','🎉','🤔','😮','👑','🍕'].map(c => (
                                <button key={c} onClick={() => {
@@ -779,7 +810,7 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
                              ))}
                           </div>
                           
-                          <div className="text-[9px] font-black uppercase tracking-[0.3em] text-cyan-400/40 mb-4">Neural Payloads (5🪙)</div>
+                          <div className="text-[9px] font-black uppercase tracking-[0.3em] text-cyan-400/40 mb-4">Premium Emojis (5🪙)</div>
                           <div className="grid grid-cols-4 gap-2">
                              {EMOJIS_3D.map(e => (
                                <button key={e.char} onClick={() => send3dEmoji(e)} className="w-12 h-12 rounded-xl bg-white/[0.03] border border-white/5 hover:border-cyan-500/40 flex items-center justify-center text-xl transition-all shadow-inner">{e.char}</button>
@@ -796,15 +827,15 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
                   className={`px-5 py-2.5 rounded-2xl border transition-all text-[9px] font-black uppercase tracking-widest flex items-center gap-2 ${isAiGenerating ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 animate-pulse' : 'bg-white/5 border-white/5 text-white/30 hover:border-cyan-500/40 hover:text-cyan-400'}`}
                 >
                   <svg className={`w-3.5 h-3.5 ${isAiGenerating ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                  {isAiGenerating ? 'AI Analyzing...' : 'AI Icebreaker'}
+                  {isAiGenerating ? 'AI thinking...' : 'AI Icebreaker'}
                 </button>
              </div>
            )}
         </div>
 
         <div className="flex justify-between items-center px-4 font-black uppercase text-[8px] tracking-[0.5em] text-white/5">
-           <span>Neural Encryption Active</span>
-           <span>Node {socket?.id?.substring(0, 8)}</span>
+           <span>Secure Encryption Active</span>
+           <span>User ID {socket?.id?.substring(0, 8)}</span>
         </div>
       </main>
 
@@ -813,8 +844,8 @@ export function TextChat({ socket, connected, country, onlineCount, interest = '
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-8 bg-black/90 backdrop-blur-3xl animate-in-zoom" onClick={() => setShowRating(false)}>
           <div className="bg-black border border-white/10 rounded-[40px] p-10 max-w-sm w-full text-center shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
             <div className="text-4xl mb-6 scale-125 animate-bounce">⭐</div>
-            <h3 className="text-xl font-black italic uppercase italic tracking-tighter text-white mb-4">Node Feedback</h3>
-            <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-10 leading-relaxed">System requires interaction quality assessment for neural routing optimization.</p>
+            <h3 className="text-xl font-black italic uppercase italic tracking-tighter text-white mb-4">How was your chat?</h3>
+            <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-10 leading-relaxed">Help us improve your experience by rating this conversation.</p>
             <div className="flex gap-2">
               {['Poor', 'Neutral', 'Elite'].map((label, idx) => (
                 <button 

@@ -12,7 +12,7 @@ export function useSocket() {
   const [nickname, setNickname] = useState('Anonymous');
   const [isCreator, setIsCreator] = useState(false);
   const [contentFlagged, setContentFlagged] = useState(null);
-
+  const [coins, setCoins] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
 
   useEffect(() => {
@@ -56,14 +56,14 @@ export function useSocket() {
           if (typeof data.allowDevTools !== 'undefined') setAllowDevTools(!!data.allowDevTools);
         }
       });
+      s.on('coins-updated', (data) => {
+        if (typeof data?.coins !== 'undefined') setCoins(data.coins);
+      });
     })();
     return () => {
-      if (s) s.disconnect();
-      setSocket(null);
-      setConnected(false);
-      setCountry(null);
-      setOnlineCount(0);
-      setAdsEnabled(false);
+      // We no longer disconnect on unmount to keep socket alive throughout the session
+      // if (s) s.disconnect(); 
+      // setSocket(null);
     };
   }, []);
 
@@ -86,6 +86,16 @@ export function useSocket() {
         // ignore network errors; socket event will eventually update
       }
     })();
+    (async () => {
+      try {
+        const res = await fetch(`${apiBase}/api/user/coins`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && typeof data?.coins !== 'undefined') {
+          setCoins(data.coins);
+        }
+      } catch { }
+    })();
     return () => {
       cancelled = true;
     };
@@ -101,6 +111,7 @@ export function useSocket() {
     nickname,
     isCreator,
     isBlocked,
-    contentFlagged
+    contentFlagged,
+    coins
   };
 }

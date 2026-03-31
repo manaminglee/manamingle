@@ -26,7 +26,7 @@ export default function App() {
   const [roomId, setRoomId] = useState(null);
   const [preloadDone, setPreloadDone] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
-  const { socket, connected, country, onlineCount, adsEnabled, allowDevTools, nickname, isCreator, isBlocked, contentFlagged } = useSocket();
+  const { socket, connected, country, onlineCount, adsEnabled, allowDevTools, nickname, isCreator, isBlocked, contentFlagged, coins } = useSocket();
   const coinState = useCoins();
 
 
@@ -81,6 +81,14 @@ export default function App() {
   };
 
   const handleJoined = (rid) => setRoomId(rid);
+  
+  const handleAdminJoin = (rid, m, intst) => {
+    setRoomId(rid);
+    setMode(m);
+    setInterest(intst || 'general');
+    setAppState(STATES.CHAT);
+    window.history.pushState({ roomId: rid, mode: m }, '');
+  };
 
   const handleLeaveRoom = () => {
     handleBack();
@@ -111,7 +119,7 @@ export default function App() {
   };
 
   const renderContent = () => {
-    if (appState === STATES.ADMIN) return <AdminDashboard />;
+    if (appState === STATES.ADMIN) return <AdminDashboard onJoinRoom={handleAdminJoin} />;
     if (isBlocked) {
       return (
         <div className="min-h-screen bg-[#070811] flex items-center justify-center p-6 text-white font-sans text-center">

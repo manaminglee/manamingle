@@ -4,6 +4,7 @@ import { useLatency } from '../hooks/useLatency';
 import { CoinBadge } from './CoinBadge';
 import { useCreators } from '../hooks/useCreators';
 import { countryToFlag } from '../utils/countryFlag';
+import { ParticleText } from './ParticleText';
 
 const BlueTick = () => (
   <span className="inline-flex items-center justify-center w-3 h-3 bg-cyan-500 rounded-full ml-1.5 shadow-[0_0_10px_#06b6d4]">
@@ -16,7 +17,7 @@ const BlueTick = () => (
 
 const INTERESTS = [
   { id: 'telugu', label: 'Telugu', desc: 'Find Telugu peers' },
-  { id: 'music', label: 'Music', desc: 'Sync auditory beats' },
+  { id: 'music', label: 'Music', desc: 'Connect with music lovers' },
   { id: 'gaming', label: 'Gaming', desc: 'Find your squad' },
   { id: 'movies', label: 'Movies', desc: 'Cinema data feed' },
   { id: 'sports', label: 'Sports', desc: 'Kinetic tracking' },
@@ -25,32 +26,32 @@ const INTERESTS = [
 
 const MODALS = {
   privacy: {
-    title: '🛡️ Privacy Guard',
+    title: '🛡️ Privacy Protection',
     body: `Zero-Trace Policy: \n\n• No accounts. No logs. No history.\n• Sessions are wiped instantly on exit.\n• E2EE direct peer connections.\n• 100% Anonymous metadata.`,
   },
   integrity: {
-    title: '🤝 Safe Space',
-    body: `Community Guidelines: \n\n• Respect all users.\n• No explicit material.\n• No bullying or harassment.\n• Instant ban for violations.`,
+    title: '🤝 Community Safety',
+    body: `Guidelines: \n\n• Respect all users.\n• No explicit material.\n• No bullying or harassment.\n• Instant ban for violations.`,
   },
   safety: {
-    title: '🏛️ Security Infrastructure',
-    body: `Our core defenses: \n\n• 24/7 AI-driven content analysis.\n• Secure P2P communication tunnel.\n• Zero-retention session storage.\n• Rate-limiting against spambots.\n• Administrator oversight with visual monitoring.`,
+    title: '🏛️ Security Systems',
+    body: `Our core defenses: \n\n• 24/7 AI-driven content analysis.\n• Secure P2P communication.\n• Zero-retention session storage.\n• Rate-limiting against spambots.\n• Administrator oversight with visual monitoring.`,
   },
   dev: {
-    title: '💻 Developer Uplink',
-    body: `Open Source & Secure: \n\n• Built on WebRTC / Socket.io.\n• Native React / Node.js stack.\n• Scalable cluster methodology.\n• Secure API endpoints with HMAC protection.\n• Performance-first architecture.`,
+    title: '💻 Technology Stack',
+    body: `Modern & Secure: \n\n• Built on WebRTC / Socket.io.\n• Modern React / Node.js stack.\n• Scalable architecture.\n• Secure API endpoints.\n• Performance-first logic.`,
   },
   bug: {
-    title: '🛠️ Bug Bounty Program',
-    body: `Identify vulnerabilities: \n\n• We reward critical bug reports.\n• Direct contact: manaminglee@gmail.com.\n• Rapid patching within 24-48 hours.\n• Help build a safer social matrix.`,
+    title: '🛠️ Bug Bounty',
+    body: `Identify vulnerabilities: \n\n• We reward critical bug reports.\n• Direct contact: manaminglee@gmail.com.\n• Rapid patching within 24-48 hours.\n• Help build a safer network.`,
   }
 };
 
 const INSIGHTS = [
-  "Trending now: Retro music syncing in EU clusters.",
-  "New Matrix: Casual tech debates active in the US node.",
-  "AI Analysis: Peer synchronization speed is at its peak.",
-  "System Pulse: 2,400+ anonymous links verified in the last hour.",
+  "Trending now: Retro music enthusiasts in EU regions.",
+  "Trending Chat: Casual debates active in the US.",
+  "AI Analysis: Connection speed is at its peak.",
+  "System Status: 2,400+ active sessions verified in the last hour.",
   "User Feedback: Telugu-based video feeds are trending today."
 ];
 
@@ -58,7 +59,7 @@ const INSIGHTS = [
 const AdSection = ({ position, script }) => {
   if (!script) return (
     <div className="w-full bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-center my-6">
-      <span className="text-[10px] font-black uppercase tracking-widest text-white/10 italic">Sponsor Uplink Overlay [{position}]</span>
+      <span className="text-[10px] font-black uppercase tracking-widest text-white/10 italic">Sponsored Content [{position}]</span>
     </div>
   );
   return (
@@ -183,7 +184,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
           <div className="relative w-48 h-48 flex items-center justify-center">
             <div className="absolute inset-0 border-t border-cyan-400 rounded-full animate-spin shadow-[0_0_20px_#06b6d440]" />
             <img src="/apple-touch-icon.png" alt="Logo" className="w-16 h-16 object-contain animate-pulse" />
-            <span className="absolute bottom-10 text-[10px] font-black uppercase tracking-widest text-cyan-400 animate-pulse">Establishing Uplink...</span>
+            <span className="absolute bottom-10 text-[10px] font-black uppercase tracking-widest text-cyan-400 animate-pulse">Connecting...</span>
           </div>
         </div>
       )}
@@ -192,7 +193,10 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
       <header className="fixed top-0 left-0 right-0 z-[150] h-20 px-8 flex items-center justify-between bg-black/20 backdrop-blur-3xl border-b border-white/5">
         <div className="flex items-center gap-4">
           <img src="/apple-touch-icon.png" alt="Logo" className="w-10 h-10 object-contain drop-shadow-[0_0_10px_#06b6d4]" />
-          <h1 className="text-sm font-black uppercase tracking-[0.4em]">Mana Mingle</h1>
+          <div className="flex flex-col">
+            <h1 className="text-sm font-black uppercase tracking-[0.4em]">Mana Mingle</h1>
+            <span className="text-[7px] font-black uppercase tracking-[0.2em] text-cyan-400/40">by WeConnect</span>
+          </div>
         </div>
         <div className="flex items-center gap-4">
           {connected && balance !== undefined && (
@@ -203,21 +207,21 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
             <span>{(onlineCount ?? 0)} Live</span>
           </div>
           {creatorStatus && (
-             <div className="flex items-center gap-3">
-               <div className="hidden sm:flex items-center px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[9px] font-black text-white/40 uppercase tracking-tighter italic">
-                 @{creatorStatus.handle_name}
-                 {creatorStatus.status === 'approved' && <BlueTick />}
-               </div>
-               <button 
-                 onClick={() => { 
-                   window.localStorage.setItem('mm_logout_flag', 'true');
-                   window.localStorage.removeItem('mm_creatorId'); 
-                   window.location.reload(); 
-                 }}
-                 className="p-2 bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg text-[8px] font-black uppercase tracking-widest transition-all"
-                 title="Terminate Node Session"
-               >Logout</button>
-             </div>
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:flex items-center px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[9px] font-black text-white/40 uppercase tracking-tighter italic">
+                @{creatorStatus.handle_name}
+                {creatorStatus.status === 'approved' && <BlueTick />}
+              </div>
+              <button
+                onClick={() => {
+                  window.localStorage.setItem('mm_logout_flag', 'true');
+                  window.localStorage.removeItem('mm_creatorId');
+                  window.location.reload();
+                }}
+                className="p-2 bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg text-[8px] font-black uppercase tracking-widest transition-all"
+                title="Logout Session"
+              >Logout</button>
+            </div>
           )}
         </div>
       </header>
@@ -227,11 +231,14 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
 
         {adsEnabled && <AdSection position="hero" script={adScripts?.hero} />}
 
-        <div className="text-center mb-16 space-y-4">
+        <div className="text-center mb-0 w-full">
+          <ParticleText text="MANA MINGLE" className="mb-0" />
+          <p className="text-[9px] font-black uppercase tracking-[0.8em] text-cyan-400 mb-8 animate-pulse">Powered by WeConnect</p>
+          
           <h2 className="text-4xl md:text-7xl font-black tracking-tighter leading-none italic m-0 animate-in-zoom text-white">
             Connect <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-500">Instantly.</span>
           </h2>
-          <p className="text-[11px] text-white/30 max-w-lg mx-auto font-bold uppercase tracking-widest leading-relaxed">
+          <p className="text-[11px] text-white/30 max-w-lg mx-auto font-bold uppercase tracking-widest leading-relaxed mt-4">
             Zero registration. Private P2P. Secure Global Hub.
           </p>
         </div>
@@ -245,7 +252,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
             <div className="relative z-10 flex flex-col items-center">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_10px_#00E5FF]" />
-                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 italic">Passion Matrix Filter</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 italic">Select Interests</span>
               </div>
 
               <div className="flex flex-wrap justify-center gap-1.5 mb-8">
@@ -278,8 +285,8 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                 <div className="flex flex-wrap justify-center gap-1.5 mt-5">
                   {interests.map(i => (
                     <div key={i.id} className="flex items-center gap-2 bg-cyan-400 text-black px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest shadow-[0_0_15px_#06b6d440]">
-                       {i.label}
-                       <button onClick={() => removeInterest(i.id)} className="hover:scale-125 transition-transform">✕</button>
+                      {i.label}
+                      <button onClick={() => removeInterest(i.id)} className="hover:scale-125 transition-transform">✕</button>
                     </div>
                   ))}
                 </div>
@@ -310,8 +317,8 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                   {m.icon}
                 </div>
                 <div>
-                   <h3 className="text-sm font-black uppercase tracking-widest italic text-white group-hover:text-cyan-400 transition-colors">{m.name}</h3>
-                   <p className="text-[8px] font-bold text-white/20 uppercase tracking-[0.2em] mt-1">Uplink Encrypted</p>
+                  <h3 className="text-sm font-black uppercase tracking-widest italic text-white group-hover:text-cyan-400 transition-colors">{m.name}</h3>
+                  <p className="text-[8px] font-bold text-white/20 uppercase tracking-[0.2em] mt-1">Secure Connection</p>
                 </div>
               </div>
             </button>
@@ -324,10 +331,10 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
             <div className="absolute top-0 right-0 p-4 opacity-10 font-mono text-[80px] pointer-events-none italic font-black">AI</div>
             <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/40 mb-4 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-              Pulse Intelligence Discovery
+              Smart Matching Discovery
             </h4>
             <p className="text-sm font-medium text-white/70 italic leading-relaxed">
-              System is analyzing global interaction nodes... Our decentralized P2P matrix ensures that every connection is uniquely encrypted. Currently observing a high density of clusters in creative and tech corridors. Target a specific interest to initiate a focused uplink.
+              System is analyzing global connections... Our secure network ensures that every user is uniquely protected. Currently observing high activity in creative and tech communities. Target a specific interest to initiate a connection.
             </p>
           </div>
         </section>
@@ -337,42 +344,42 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
           <div className="relative w-full h-[400px] flex items-center justify-center">
             {/* MOCKED REAL-TIME MAP/GLOBE ANIMATION */}
             <div className="absolute inset-0 flex items-center justify-center opacity-30">
-               <div className="w-[300px] h-[300px] rounded-full border border-cyan-500/20 animate-pulse" />
-               <div className="absolute w-[450px] h-[450px] rounded-full border border-indigo-500/10 animate-spin-slow" />
-               <div className="absolute w-[600px] h-[600px] rounded-full border border-white/[0.03] animate-reverse-spin-slow" />
+              <div className="w-[300px] h-[300px] rounded-full border border-cyan-500/20 animate-pulse" />
+              <div className="absolute w-[450px] h-[450px] rounded-full border border-indigo-500/10 animate-spin-slow" />
+              <div className="absolute w-[600px] h-[600px] rounded-full border border-white/[0.03] animate-reverse-spin-slow" />
             </div>
 
             <div className="relative z-10 text-center">
-               <div className="mb-8 scale-150 grayscale brightness-150 opacity-20 hover:grayscale-0 hover:opacity-100 transition-all duration-1000 cursor-help">
-                  <span className="text-[120px] animate-float">🌍</span>
-               </div>
-               <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-400 mb-2 italic">Active Neural Traffic Hub</h4>
-               <div className="flex gap-12 mt-8">
-                  <div className="text-center group">
-                    <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1 group-hover:text-cyan-400 transition-colors">Americas</div>
-                    <div className="text-xl font-black italic text-white group-hover:scale-110 transition-transform tabular-nums">{regionalCounts.americas.toLocaleString()}</div>
-                  </div>
-                  <div className="text-center group">
-                    <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1 group-hover:text-indigo-400 transition-colors">Eurasia</div>
-                    <div className="text-xl font-black italic text-white group-hover:scale-110 transition-transform tabular-nums">{regionalCounts.eurasia.toLocaleString()}</div>
-                  </div>
-                  <div className="text-center group">
-                    <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1 group-hover:text-emerald-400 transition-colors">Oceania</div>
-                    <div className="text-xl font-black italic text-white group-hover:scale-110 transition-transform tabular-nums">{regionalCounts.oceania.toLocaleString()}</div>
-                  </div>
-               </div>
+              <div className="mb-8 scale-150 grayscale brightness-150 opacity-20 hover:grayscale-0 hover:opacity-100 transition-all duration-1000 cursor-help">
+                <span className="text-[120px] animate-float">🌍</span>
+              </div>
+              <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-400 mb-2 italic">Global Presence Map</h4>
+              <div className="flex gap-12 mt-8">
+                <div className="text-center group">
+                  <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1 group-hover:text-cyan-400 transition-colors">Americas</div>
+                  <div className="text-xl font-black italic text-white group-hover:scale-110 transition-transform tabular-nums">{regionalCounts.americas.toLocaleString()}</div>
+                </div>
+                <div className="text-center group">
+                  <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1 group-hover:text-indigo-400 transition-colors">Eurasia</div>
+                  <div className="text-xl font-black italic text-white group-hover:scale-110 transition-transform tabular-nums">{regionalCounts.eurasia.toLocaleString()}</div>
+                </div>
+                <div className="text-center group">
+                  <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1 group-hover:text-emerald-400 transition-colors">Oceania</div>
+                  <div className="text-xl font-black italic text-white group-hover:scale-110 transition-transform tabular-nums">{regionalCounts.oceania.toLocaleString()}</div>
+                </div>
+              </div>
             </div>
 
             {/* FLOATING DATA DOTS */}
             {[...Array(12)].map((_, i) => (
-              <div 
-                key={i} 
-                className="absolute w-1 h-1 bg-cyan-400 rounded-full animate-float-pixel" 
-                style={{ 
-                  left: `${Math.random() * 100}%`, 
+              <div
+                key={i}
+                className="absolute w-1 h-1 bg-cyan-400 rounded-full animate-float-pixel"
+                style={{
+                  left: `${Math.random() * 100}%`,
                   top: `${Math.random() * 100}%`,
                   animationDelay: `${i * 200}ms`
-                }} 
+                }}
               />
             ))}
           </div>
@@ -384,12 +391,12 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-50" />
             <div className="relative z-10 flex flex-col items-center">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-6">
-                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_#22d3ee]" />
-                 Creator Matrix Hub
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_#22d3ee]" />
+                Creator Hub
               </div>
-              <h3 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter mb-4 leading-none text-white">Command your <span className="text-cyan-400 drop-shadow-[0_0_20px_rgba(6,182,212,0.4)]">Influence.</span></h3>
-              <p className="text-[10px] md:text-xs font-bold text-white/30 uppercase tracking-[0.4em] mb-12 max-w-md mx-auto leading-relaxed italic">Monetize every discovery node. Unify your decentralized presence.</p>
-              
+              <h3 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter mb-4 leading-none text-white">Share your <span className="text-cyan-400 drop-shadow-[0_0_20px_rgba(6,182,212,0.4)]">Influence.</span></h3>
+              <p className="text-[10px] md:text-xs font-bold text-white/30 uppercase tracking-[0.4em] mb-12 max-w-md mx-auto leading-relaxed italic">Monetize your reach. Grow your online presence with ManaMingle.</p>
+
               <div className="flex flex-wrap items-center justify-center gap-6">
                 <button
                   onClick={() => setShowCreatorModal(true)}
@@ -398,30 +405,30 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                   <span className="text-lg group-hover/btn:rotate-12 transition-transform">⭐</span>
                   {creatorStatus?.handle_name ? 'Open Hub' : 'Apply Now'}
                 </button>
-                
+
                 {(!creatorStatus || !creatorStatus.handle_name) && (
                   <button
                     onClick={() => setShowLoginModal(true)}
                     className="px-14 py-5 bg-black/60 border border-white/10 text-white font-black uppercase tracking-widest text-[11px] rounded-3xl hover:bg-white hover:text-black hover:scale-105 transition-all backdrop-blur-3xl shadow-xl active:scale-95"
                   >
-                    Neural Login
+                    Creator Login
                   </button>
                 )}
               </div>
 
               {creatorStatus?.handle_name && (
-                 <div className="mt-10 flex flex-wrap items-center justify-center gap-6 text-[10px] font-black uppercase tracking-widest text-white/20 italic">
-                    <span className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/5">
-                       <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" /> 
-                       Node Linked: {creatorStatus.handle_name}
-                    </span>
-                    <button 
-                       onClick={() => { localStorage.setItem('mm_logout_flag', '1'); localStorage.removeItem('mm_creatorId'); window.location.reload(); }} 
-                       className="px-3 py-1.5 rounded-full border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all text-rose-500/60"
-                    >
-                       De-Authorize Node →
-                    </button>
-                 </div>
+                <div className="mt-10 flex flex-wrap items-center justify-center gap-6 text-[10px] font-black uppercase tracking-widest text-white/20 italic">
+                  <span className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+                    Account Linked: {creatorStatus.handle_name}
+                  </span>
+                  <button
+                    onClick={() => { localStorage.setItem('mm_logout_flag', '1'); localStorage.removeItem('mm_creatorId'); window.location.reload(); }}
+                    className="px-3 py-1.5 rounded-full border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all text-rose-500/60"
+                  >
+                    Logout Session →
+                  </button>
+                </div>
               )}
             </div>
             <div className="absolute -bottom-10 -right-10 text-9xl opacity-[0.03] group-hover:opacity-[0.1] transition-all pointer-events-none rotate-12">⚡</div>
@@ -449,14 +456,14 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
           <div className="max-w-xs space-y-6">
             <img src="/apple-touch-icon.png" alt="Logo" className="w-12 h-12 border border-white/10 p-1 rounded-xl drop-shadow-[0_0_10px_#06b6d4]" />
             <p className="text-[10px] font-black uppercase tracking-widest text-white/20 leading-relaxed">
-              The definitive high-frequency discovery protocol. 
-              Optimized for zero-trace synchronization across the global matrix.
+              The definitive platform for global interaction.
+              Optimized for privacy and security across the entire platform.
             </p>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-10 flex-1">
             <div className="space-y-4">
-              <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400">Legal Matrix</h5>
+              <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400">Legal Center</h5>
               <div className="flex flex-col gap-2">
                 {['Privacy', 'Integrity', 'Safety'].map(m => (
                   <button key={m} onClick={() => setModal(m.toLowerCase())} className="text-[10px] font-bold text-left uppercase text-white/30 hover:text-cyan-400 transition-colors">{m} Center</button>
@@ -464,24 +471,24 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
               </div>
             </div>
             <div className="space-y-4">
-              <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-400">System Uplink</h5>
+              <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-400">Help & Resources</h5>
               <div className="flex flex-col gap-2">
                 {['Dev', 'Bug'].map(m => (
-                  <button key={m} onClick={() => setModal(m.toLowerCase())} className="text-[10px] font-bold text-left uppercase text-white/30 hover:text-indigo-400 transition-colors">{m === 'Dev' ? 'Developer' : 'Bug Bounty'} Hub</button>
+                  <button key={m} onClick={() => setModal(m.toLowerCase())} className="text-[10px] font-bold text-left uppercase text-white/30 hover:text-indigo-400 transition-colors">{m === 'Dev' ? 'Technology' : 'Bug Bounty'} Hub</button>
                 ))}
-                <button onClick={() => setModal('safety')} className="text-[10px] font-bold text-left uppercase text-white/30 hover:text-indigo-400 transition-colors">Infrastructure</button>
+                <button onClick={() => setModal('safety')} className="text-[10px] font-bold text-left uppercase text-white/30 hover:text-indigo-400 transition-colors">Security Overview</button>
               </div>
             </div>
             <div className="space-y-4 col-span-2 md:col-span-1">
-              <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-400">Support Terminal</h5>
+              <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-400">Support Center</h5>
               <p className="text-[10px] font-bold text-white/20 leading-relaxed uppercase tracking-widest">Global load balancing active. Secure correspondence hub.</p>
-              <a href="mailto:manaminglee@gmail.com" className="text-[10px] font-black text-cyan-400 underline uppercase hover:text-white">Email Console</a>
+              <a href="mailto:manaminglee@gmail.com" className="text-[10px] font-black text-cyan-400 underline uppercase hover:text-white">Email Support</a>
             </div>
           </div>
         </div>
         <div className="max-w-7xl mx-auto pt-20 mt-20 border-t border-white/[0.03] flex justify-between items-center text-white/5 text-[9px] font-black uppercase tracking-[0.6em]">
-          <span>© 2026 MANA MINGLE MATRIX</span>
-          <span className="hidden sm:inline">P2P ENCRYPTED SOCIAL NETWORK</span>
+          <span>© 2026 MANA MINGLE | POWERED BY <span className="text-white/20">WECONNECT</span></span>
+          <span className="hidden sm:inline">SECURE ANONYMOUS NETWORK</span>
         </div>
       </footer>
 
@@ -489,15 +496,15 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
       {showCreatorModal && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl animate-in-zoom" onClick={() => setShowCreatorModal(false)}>
           <div className="relative w-full max-w-lg bg-black border border-white/10 rounded-[50px] p-10 overflow-y-auto max-h-[90vh]" onClick={e => e.stopPropagation()}>
-            <button 
-              onClick={() => setShowCreatorModal(false)} 
+            <button
+              onClick={() => setShowCreatorModal(false)}
               className="absolute top-6 right-8 text-white/20 hover:text-white transition-colors"
             >✕</button>
 
             <div className="text-center mb-8">
               <div className="w-16 h-16 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mx-auto mb-4 text-2xl shadow-[0_0_20px_#06b6d430]">⭐</div>
               <h3 className="text-2xl font-black italic uppercase tracking-tighter text-white">Creator Hub</h3>
-              <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-2">Monetization Node Infrastructure</p>
+              <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-2">Monetization Dashboard</p>
             </div>
 
             {!creatorStatus ? (
@@ -508,12 +515,12 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                   </p>
                 </div>
                 <div className="space-y-4">
-                  <input 
-                    type="text" 
-                    placeholder="@handle_name" 
+                  <input
+                    type="text"
+                    placeholder="@handle_name"
                     className="w-full h-14 bg-white/5 border border-white/5 focus:border-cyan-500/30 rounded-2xl px-6 text-sm outline-none text-white"
                     value={creatorForm.handle}
-                    onChange={e => setCreatorForm({...creatorForm, handle: e.target.value})}
+                    onChange={e => setCreatorForm({ ...creatorForm, handle: e.target.value })}
                   />
                   <div className="relative group">
                     <button
@@ -545,48 +552,56 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                       </div>
                     )}
                   </div>
-                  <input 
-                    type="url" 
-                    placeholder="Platform Profile Link" 
+                  <input
+                    type="url"
+                    placeholder="Platform Profile Link"
                     className="w-full h-14 bg-white/5 border border-white/5 focus:border-cyan-500/30 rounded-2xl px-6 text-sm outline-none text-white"
                     value={creatorForm.link}
-                    onChange={e => setCreatorForm({...creatorForm, link: e.target.value})}
+                    onChange={e => setCreatorForm({ ...creatorForm, link: e.target.value })}
                   />
-                  <button 
+                  <button
                     onClick={async () => {
                       const res = await registerCreator(creatorForm.handle, creatorForm.platform, creatorForm.link);
                       if (res.success) {
-                        alert(`Application Transmitted! \n\nIMPORTANT: Take a screenshot of your Matrix ID: ${res.accessKey} \nUse this to check your earnings later.`);
+                        const content = `MANAMINGLE CREATOR CREDENTIALS\n\nHandle: @${creatorForm.handle}\nCreator ID: ${res.accessKey}\nPassword: ${res.password}\nReferral Link: ${window.location.origin}/?ref=${res.accessKey}\n\nNote: If you lose these, contact the admin team at manaminglee@gmail.com`;
+                        const blob = new Blob([content], { type: 'text/plain' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `mm_creator_${creatorForm.handle}.txt`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        alert(`Application Submitted! \n\nCredentials Downloaded. \nCreator ID: ${res.accessKey} \nPassword: ${res.password}`);
                         window.location.reload();
                       }
                       else alert(res.error);
                     }}
                     className="w-full h-14 bg-cyan-400 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all shadow-xl shadow-cyan-500/20"
-                  >Initialize Matrix Node</button>
-                  
+                  >Register as Creator</button>
+
                   <div className="pt-6 border-t border-white/5">
                     <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest text-center mb-4 italic">Returning Creator?</p>
                     <div className="flex gap-2">
-                       <input 
-                         type="text" 
-                         id="creator-id-input"
-                         placeholder="Paste Matrix ID" 
-                         className="flex-1 h-12 bg-white/5 border border-white/5 rounded-xl px-4 text-[10px] outline-none font-black tracking-widest uppercase text-white"
-                       />
-                       <button 
-                         onClick={async () => {
-                           const id = document.getElementById('creator-id-input').value;
-                           const res = await fetch(`${import.meta.env.VITE_SOCKET_URL || ''}/api/creators/status?id=${id}`);
-                           const data = await res.json();
-                           if (data.data) {
-                             window.localStorage.setItem('mm_creatorId', id);
-                             window.location.reload();
-                           } else {
-                             alert('Matrix ID invalid.');
-                           }
-                         }}
-                         className="px-6 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500 hover:text-white transition-all"
-                       >Sync</button>
+                      <input
+                        type="text"
+                        id="creator-id-input"
+                        placeholder="Paste Account ID"
+                        className="flex-1 h-12 bg-white/5 border border-white/5 rounded-xl px-4 text-[10px] outline-none font-black tracking-widest uppercase text-white"
+                      />
+                      <button
+                        onClick={async () => {
+                          const id = document.getElementById('creator-id-input').value;
+                          const res = await fetch(`${import.meta.env.VITE_SOCKET_URL || ''}/api/creators/status?id=${id}`);
+                          const data = await res.json();
+                          if (data.data) {
+                            window.localStorage.setItem('mm_creatorId', id);
+                            window.location.reload();
+                          } else {
+                            alert('Creator ID invalid.');
+                          }
+                        }}
+                        className="px-6 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500 hover:text-white transition-all"
+                      >Activate</button>
                     </div>
                   </div>
                 </div>
@@ -594,18 +609,18 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
             ) : (
               <div className="space-y-8 animate-in-zoom">
                 <div className="p-8 rounded-[32px] bg-white/[0.02] border border-white/5 space-y-4 text-center">
-                   <div className="text-[10px] font-black uppercase tracking-[0.4em] text-white/30">Node Identity</div>
-                   <h4 className="text-3xl font-black italic uppercase tracking-tighter text-white">
-                     @{creatorStatus.handle_name}
-                     {creatorStatus.status === 'approved' && <BlueTick />}
-                   </h4>
-                   <div className="flex justify-center gap-4">
-                     {creatorStatus.status === 'approved' ? (
-                       <span className="px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest shadow-[0_0_20px_#10b98130]">Portal Active</span>
-                     ) : (
-                       <span className="px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-black uppercase tracking-widest animate-pulse">Waiting for manual appraisal</span>
-                     )}
-                   </div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.4em] text-white/30">Account Identity</div>
+                  <h4 className="text-3xl font-black italic uppercase tracking-tighter text-white">
+                    @{creatorStatus.handle_name}
+                    {creatorStatus.status === 'approved' && <BlueTick />}
+                  </h4>
+                  <div className="flex justify-center gap-4">
+                    {creatorStatus.status === 'approved' ? (
+                      <span className="px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest shadow-[0_0_20px_#10b98130]">Account Active</span>
+                    ) : (
+                      <span className="px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-black uppercase tracking-widest animate-pulse">Waiting for manual appraisal</span>
+                    )}
+                  </div>
                 </div>
 
                 {creatorStatus.status === 'approved' && (
@@ -614,56 +629,71 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                       <div className="p-6 rounded-[32px] bg-white/[0.03] border border-white/5">
                         <div className="text-[9px] font-black uppercase tracking-widest text-white/20 mb-1">Earned</div>
                         <div className="text-xl font-black italic text-emerald-400">₹{creatorStatus.earnings_rs || 0}</div>
-                        <div className="text-[8px] font-bold text-white/10 uppercase mt-1 italic">Neural Earnings</div>
+                        <div className="text-[8px] font-bold text-white/10 uppercase mt-1 italic">Creator Earnings</div>
                       </div>
                       <div className="p-6 rounded-[32px] bg-white/[0.03] border border-white/5">
-                        <div className="text-[9px] font-black uppercase tracking-widest text-white/20 mb-1">Matrix ID</div>
-                        <div className="text-xl font-black italic text-indigo-400">{creatorStatus.referral_code}</div>
-                        <div className="text-[8px] font-bold text-white/10 uppercase mt-1 italic">Unique Access</div>
+                        <div className="text-[9px] font-black uppercase tracking-widest text-white/20 mb-1">Referral Clicks</div>
+                        <div className="text-xl font-black italic text-indigo-400">{creatorStatus.referral_count || 0}</div>
+                        <div className="text-[8px] font-bold text-white/10 uppercase mt-1 italic">Total Referrals</div>
                       </div>
                     </div>
 
                     <div className="p-8 rounded-[32px] bg-indigo-500/5 border border-indigo-500/10 space-y-4">
-                       <div className="text-center">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 italic">Neural Credentials</span>
-                          <p className="text-[8px] font-black text-white/20 uppercase mt-1">Use these to login from any IP node</p>
-                       </div>
-                       <div className="grid grid-cols-1 gap-3">
-                          <div className="bg-black/40 rounded-2xl p-4 border border-white/5 flex justify-between items-center group">
-                             <div>
-                                <div className="text-[8px] font-black uppercase text-white/20 mb-1">Universal Handle</div>
-                                <div className="text-xs font-black text-white italic uppercase">{creatorStatus.handle_name}</div>
-                             </div>
-                             <span className="text-[10px] opacity-10 group-hover:opacity-40 transition-opacity">🆔</span>
+                      <div className="text-center">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 italic">Profile Details</span>
+                        <p className="text-[8px] font-black text-white/20 uppercase mt-1">Use these to login from any device</p>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3">
+                        <div className="bg-black/40 rounded-2xl p-4 border border-white/5 flex justify-between items-center group">
+                          <div>
+                            <div className="text-[8px] font-black uppercase text-white/20 mb-1">Public Handle</div>
+                            <div className="text-xs font-black text-white italic uppercase">{creatorStatus.handle_name}</div>
                           </div>
-                          <div className="bg-black/40 rounded-2xl p-4 border border-white/5 flex justify-between items-center group">
-                             <div>
-                                <div className="text-[8px] font-black uppercase text-white/20 mb-1">Access Passphrase</div>
-                                <div className="text-xs font-black text-emerald-400 italic uppercase select-all">{creatorStatus.password}</div>
-                             </div>
-                             <span className="text-[10px] opacity-10 group-hover:opacity-40 transition-opacity">🔒</span>
+                          <span className="text-[10px] opacity-10 group-hover:opacity-40 transition-opacity">🆔</span>
+                        </div>
+                        <div className="bg-black/40 rounded-2xl p-4 border border-white/5 flex justify-between items-center group">
+                          <div>
+                            <div className="text-[8px] font-black uppercase text-white/20 mb-1">Account Password</div>
+                            <div className="text-xs font-black text-emerald-400 italic uppercase select-all">{creatorStatus.password}</div>
                           </div>
-                       </div>
+                          <span className="text-[10px] opacity-10 group-hover:opacity-40 transition-opacity">🔒</span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const content = `MANAMINGLE CREATOR CREDENTIALS\n\nHandle: @${creatorStatus.handle_name}\nCreator ID: ${creatorStatus.referral_code}\nPassword: ${creatorStatus.password}\nReferral Link: ${window.location.origin}/?ref=${creatorStatus.referral_code}\n\nNote: If you have forgotten these, reach the admin team at manaminglee@gmail.com`;
+                            const blob = new Blob([content], { type: 'text/plain' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `mm_creator_${creatorStatus.handle_name}.txt`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                            alert('Credentials Downloaded to Device.');
+                          }}
+                          className="w-full py-4 rounded-xl bg-white/5 border border-white/10 text-white/40 text-[9px] font-black uppercase tracking-[0.2em] hover:bg-white hover:text-black transition-all"
+                        >Download Account Details →</button>
+                        <p className="text-[7px] text-center font-black uppercase tracking-widest text-white/10 italic">Forgotten? Reach Admin Team</p>
+                      </div>
                     </div>
 
                     <div className="p-8 rounded-[32px] bg-white/[0.01] border border-white/5">
-                       <div className="flex justify-between items-center mb-4 px-2">
-                          <span className="text-[9px] font-black uppercase tracking-widest text-white/20">Authorized Node IPs</span>
-                          <span className="text-[8px] font-black text-emerald-400 uppercase italic animate-pulse">Synced</span>
-                       </div>
-                       <div className="flex flex-wrap gap-2">
-                          {(creatorStatus.authorized_ips || []).map(ipNode => (
-                             <span key={ipNode} className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/5 text-[9px] font-bold text-white/30 uppercase tracking-widest">{ipNode}</span>
-                          ))}
-                       </div>
+                      <div className="flex justify-between items-center mb-4 px-2">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-white/20">Authorized IP Addresses</span>
+                        <span className="text-[8px] font-black text-emerald-400 uppercase italic animate-pulse">Verified</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {(creatorStatus.authorized_ips || []).map(ipNode => (
+                          <span key={ipNode} className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/5 text-[9px] font-bold text-white/30 uppercase tracking-widest">{ipNode}</span>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
 
                 <div className="space-y-4 pt-6 border-t border-white/5">
                   <div className="flex justify-between items-center px-4">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-white/30">Referral Matrix Link</span>
-                    {creatorStatus.status === 'approved' && <span className="text-[9px] font-bold text-emerald-400 uppercase italic animate-pulse">Sync Enabled</span>}
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/30">Referral Link</span>
+                    {creatorStatus.status === 'approved' && <span className="text-[9px] font-bold text-emerald-400 uppercase italic animate-pulse">Referral Ready</span>}
                   </div>
                   <div className="flex gap-2">
                     <input
@@ -676,21 +706,21 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                       <button
                         onClick={() => {
                           navigator.clipboard.writeText(`${window.location.origin}?ref=${creatorStatus.referral_code}`);
-                          alert('Referral Matrix Link Copied');
+                          alert('Referral Link Copied');
                         }}
                         className="px-8 h-14 rounded-2xl bg-cyan-400 text-black font-black uppercase tracking-widest text-[10px] hover:bg-white transition-all shadow-xl shadow-cyan-500/20"
-                      >Sync</button>
+                      >Copy Link</button>
                     )}
                   </div>
                 </div>
 
                 {creatorStatus.status === 'approved' && creatorStatus.earnings_rs >= 1500 && (
-                  <button 
+                  <button
                     onClick={async () => {
                       const upi = prompt('Enter UPI ID for withdrawal:');
                       if (upi) {
                         const res = await requestWithdrawal(upi);
-                        if (res.success) alert('Withdrawal Signal Transmitted.');
+                        if (res.success) alert('Withdrawal Request Sent.');
                         else alert(res.error);
                       }
                     }}
@@ -699,7 +729,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                 )}
 
                 <div className="text-[9px] font-bold text-white/10 text-center uppercase tracking-widest italic pt-4">
-                  Matrix Logic: 10 Coins / Click | 10000 Coins = ₹150 | Min Withdrawal ₹1500
+                  Earnings Logic: 10 Coins / Click | 10000 Coins = ₹150 | Min Withdrawal ₹1500
                 </div>
               </div>
             )}
@@ -714,38 +744,38 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
             <button onClick={() => setShowLoginModal(false)} className="absolute top-6 right-8 text-white/20 hover:text-white transition-colors">✕</button>
             <div className="text-center mb-8">
               <div className="w-16 h-16 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto mb-4 text-2xl shadow-[0_0_20px_#6366f120]">🔑</div>
-              <h3 className="text-xl font-black italic uppercase tracking-tighter text-white">Neural Portal</h3>
+              <h3 className="text-xl font-black italic uppercase tracking-tighter text-white">Creator Login</h3>
               <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-2">Creator Hub Authorization</p>
             </div>
             <div className="space-y-4">
-               <input 
-                 type="text" 
-                 placeholder="Matrix Handle" 
-                 value={loginForm.handle}
-                 onChange={e => setLoginForm({...loginForm, handle: e.target.value})}
-                 className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl px-6 text-sm outline-none text-white focus:border-indigo-500/30 transition-all font-bold"
-               />
-               <input 
-                 type="password" 
-                 placeholder="Neural Key" 
-                 value={loginForm.password}
-                 onChange={e => setLoginForm({...loginForm, password: e.target.value})}
-                 className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl px-6 text-sm outline-none text-white focus:border-indigo-500/30 transition-all tracking-widest"
-               />
-               <button 
-                  onClick={async () => {
-                    setLoginError('');
-                    const res = await login(loginForm.handle, loginForm.password);
-                    if (res.success) {
-                        setShowLoginModal(false);
-                        setLoginForm({ handle: '', password: '' });
-                    } else {
-                        setLoginError(res.error);
-                    }
-                  }}
-                  className="w-full h-14 bg-indigo-600 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white hover:text-black transition-all shadow-xl shadow-indigo-600/20 active:scale-95"
-                >Authorize Neural Uplink</button>
-               {loginError && <p className="text-rose-500 text-[10px] text-center font-black uppercase tracking-widest mt-4 animate-shake">{loginError}</p>}
+              <input
+                type="text"
+                placeholder="Creator Handle"
+                value={loginForm.handle}
+                onChange={e => setLoginForm({ ...loginForm, handle: e.target.value })}
+                className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl px-6 text-sm outline-none text-white focus:border-indigo-500/30 transition-all font-bold"
+              />
+              <input
+                type="password"
+                placeholder="Password"
+                value={loginForm.password}
+                onChange={e => setLoginForm({ ...loginForm, password: e.target.value })}
+                className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl px-6 text-sm outline-none text-white focus:border-indigo-500/30 transition-all tracking-widest"
+              />
+              <button
+                onClick={async () => {
+                  setLoginError('');
+                  const res = await login(loginForm.handle, loginForm.password);
+                  if (res.success) {
+                    setShowLoginModal(false);
+                    setLoginForm({ handle: '', password: '' });
+                  } else {
+                    setLoginError(res.error);
+                  }
+                }}
+                className="w-full h-14 bg-indigo-600 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white hover:text-black transition-all shadow-xl shadow-indigo-600/20 active:scale-95"
+              >Login as Creator</button>
+              {loginError && <p className="text-rose-500 text-[10px] text-center font-black uppercase tracking-widest mt-4 animate-shake">{loginError}</p>}
             </div>
           </div>
         </div>
