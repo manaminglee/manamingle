@@ -122,6 +122,11 @@ BEGIN
         ALTER TABLE creators ADD COLUMN referral_count INTEGER DEFAULT 0;
     END IF;
 
+    -- Add coins_earned if missing
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='creators' AND column_name='coins_earned') THEN
+        ALTER TABLE creators ADD COLUMN coins_earned INTEGER DEFAULT 0;
+    END IF;
+
     -- Fix ID column types if they were accidentally set to UUID
     -- This checks if the column is NOT text (e.g. if it's uuid)
     IF (SELECT data_type FROM information_schema.columns WHERE table_name='creators' AND column_name='id') <> 'text' THEN
@@ -138,7 +143,16 @@ BEGIN
         ALTER TABLE referral_logs ADD CONSTRAINT referral_logs_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES creators(id) ON DELETE CASCADE;
         ALTER TABLE withdrawals ADD CONSTRAINT withdrawals_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES creators(id) ON DELETE CASCADE;
     END IF;
+
+    -- Fix user_coins columns if any are missing
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='user_coins' AND column_name='last_claim_date') THEN
+        ALTER TABLE user_coins ADD COLUMN last_claim_date TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='user_coins' AND column_name='streak') THEN
+        ALTER TABLE user_coins ADD COLUMN streak INTEGER DEFAULT 1;
+    END IF;
 END $$;
+
 
 
 
