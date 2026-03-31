@@ -88,6 +88,10 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
   const [codeCopied, setCodeCopied] = useState(false);
   const [statusCheckCode, setStatusCheckCode] = useState('');
   const [checkingStatus, setCheckingStatus] = useState(false);
+  const [showCreatorModal, setShowCreatorModal] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginForm, setLoginForm] = useState({ handle: '', password: '' });
+  const [loginError, setLoginError] = useState('');
   const { creatorStatus, registerCreator, verifyReferral, requestWithdrawal, login, checkStatus, reRequestApproval } = useCreators();
   const startRef = useRef(null);
 
