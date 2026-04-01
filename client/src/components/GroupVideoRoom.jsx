@@ -403,7 +403,25 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
     if (localStreamReady && localStreamRef.current && localVideoRef.current) {
       localVideoRef.current.srcObject = localStreamRef.current;
     }
-  }, [localStreamReady]);
+  }, [localStreamReady, facingMode]);
+
+  // Apply tracks to all active peer connections when local stream changes
+  useEffect(() => {
+    const s = localStreamRef.current;
+    if (!s) return;
+    const vt = s.getVideoTracks()[0];
+    const at = s.getAudioTracks()[0];
+    
+    peerConnectionsRef.current.forEach((pc) => {
+      if (pc.signalingState === 'closed') return;
+      const senders = pc.getSenders();
+      const vs = senders.find(s => s.track?.kind === 'video');
+      const as = senders.find(s => s.track?.kind === 'audio');
+      
+      if (vs && vt) vs.replaceTrack(vt).catch(() => {});
+      if (as && at) as.replaceTrack(at).catch(() => {});
+    });
+  }, [localStreamReady, facingMode]);
 
   // Setup local audio analyzer for speaking detection
   useEffect(() => {

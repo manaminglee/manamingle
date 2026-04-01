@@ -476,16 +476,32 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
     return () => navigator.mediaDevices.removeEventListener?.('devicechange', loadDevices);
   }, [selectedVideoDeviceId, selectedAudioDeviceId]);
 
+  // Apply tracks to all active peer connections when local stream changes
+  useEffect(() => {
+    if (!localStream) return;
+    const vt = localStream.getVideoTracks()[0];
+    const at = localStream.getAudioTracks()[0];
+    
+    peerConnectionsRef.current.forEach((pc) => {
+      if (pc.signalingState === 'closed') return;
+      const senders = pc.getSenders();
+      const vs = senders.find(s => s.track?.kind === 'video');
+      const as = senders.find(s => s.track?.kind === 'audio');
+      
+      if (vs && vt) vs.replaceTrack(vt).catch(() => {});
+      if (as && at) as.replaceTrack(at).catch(() => {});
+    });
+  }, [localStream]);
+
   // Apply quality constraints when lowBandwidth / autoBandwidth toggles
   useEffect(() => {
-    const stream = localStreamRef.current;
-    if (!stream) return;
-    const vt = stream.getVideoTracks()[0];
+    if (!localStream) return;
+    const vt = localStream.getVideoTracks()[0];
     if (!vt) return;
     const targetLow = lowBandwidth || (autoBandwidth && latency != null && latency > 260);
     const c = targetLow ? { width: 640, height: 480, frameRate: 15 } : { width: 1280, height: 720 };
     vt.applyConstraints(c).catch(() => { });
-  }, [lowBandwidth, autoBandwidth, latency]);
+  }, [lowBandwidth, autoBandwidth, latency, localStream]);
 
   useEffect(() => {
     if (localVideoRef.current && localStream) {
