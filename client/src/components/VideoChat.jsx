@@ -938,8 +938,8 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       setRoomId(data.roomId);
       const p = data.peer;
       if (p?.socketId) {
-        peerInfoRef.current.set(p.socketId, { nickname: p.nickname, country: p.country });
-        setPeer({ socketId: p.socketId, nickname: p.nickname, country: p.country, stream: null });
+        peerInfoRef.current.set(p.socketId, { nickname: p.nickname, country: p.country, isCreator: p.isCreator });
+        setPeer({ socketId: p.socketId, nickname: p.nickname, country: p.country, isCreator: p.isCreator, stream: null });
         if (socket.id < p.socketId) {
           if (localStreamRef.current) doOffer(p.socketId);
           else pendingOfferRef.current = p.socketId;
@@ -998,8 +998,16 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
     const onSignal = async (data) => {
       const from = data.fromSocketId;
       if (!from || from === socket.id) return;
-      if (data.fromNickname || data.fromCountry) {
-        peerInfoRef.current.set(from, { nickname: data.fromNickname, country: data.fromCountry });
+      if (data.fromNickname || data.fromCountry || data.fromIsCreator) {
+        peerInfoRef.current.set(from, { 
+          nickname: data.fromNickname, 
+          country: data.fromCountry,
+          isCreator: !!data.fromIsCreator
+        });
+        setPeer(prev => {
+          if (prev?.socketId === from) return { ...prev, isCreator: !!data.fromIsCreator };
+          return prev;
+        });
       }
       if (data.type === 'offer') {
         if (localStreamRef.current) doAnswer(from, data.signal);
