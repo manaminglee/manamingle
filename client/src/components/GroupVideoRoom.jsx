@@ -182,6 +182,9 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
   const [remoteRaisedHands, setRemoteRaisedHands] = useState(new Set()); // socketIds
   const [localReactions, setLocalReactions] = useState([]); // {id, emoji, x, y}
   const audioAnalyzersRef = useRef(new Map()); // socketId -> analyzer
+  const typingTimerRef = useRef(null);
+  const toastTimerRef = useRef(null);
+  const inputRef = useRef(null);
   const connTimerRef = useRef(null);
 
   useEffect(() => {
