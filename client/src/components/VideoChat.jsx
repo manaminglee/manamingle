@@ -196,7 +196,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
     if (coinState?.balance !== undefined) setCoins(coinState.balance);
   }, [coinState?.balance]);
   const { balance, streak, canClaim, nextClaim, claimCoins, history, addHistory } = coinState || {};
-  const [iceServers] = useState(useIceServers().iceServers);
+  const { iceServers } = useIceServers();
   const [messages, setMessages] = useState([]);
   const [sparks, setSparks] = useState([]);
   const [input, setInput] = useState('');
