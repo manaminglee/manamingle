@@ -868,6 +868,11 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           socket.emit('webrtc-signal', { roomId: rid, targetSocketId: remoteId, type: 'answer', signal: pc.localDescription });
+          
+          // Drain early ICE candidates
+          const pend = pendingCandidatesRef.current.get(remoteId) || [];
+          for (const c of pend) await pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
+          pendingCandidatesRef.current.set(remoteId, []);
       }
     } catch (err) { 
       console.warn('[WEBRTC] Perfect Negotiation Error:', err);
@@ -996,9 +1001,10 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
           try {
             if (pc.signalingState !== 'have-local-offer') return;
             await pc.setRemoteDescription(new RTCSessionDescription(data.signal));
+            // Drain early ICE candidates
             const pend = pendingCandidatesRef.current.get(from) || [];
             for (const c of pend) {
-              try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch { /* ignore */ }
+              try { if (c) await pc.addIceCandidate(new RTCIceCandidate(c)); } catch { /* ignore */ }
             }
             pendingCandidatesRef.current.set(from, []);
           } catch (err) { console.error('setRemoteDescription error', err); }
