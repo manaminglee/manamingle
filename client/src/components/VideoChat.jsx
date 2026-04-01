@@ -269,6 +269,13 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
   const pipDragRef = useRef(null);
   const pcRef = useRef(null);
   const roomIdRef = useRef(null);
+  const isMounted = useRef(true);
+  const statusRef = useRef(status);
+  
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const localStreamRef = useRef(null);
@@ -280,6 +287,11 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const inputRef = useRef(null);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
 
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 640 : false);
   useEffect(() => {
@@ -544,7 +556,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
     setGoodVibesSent(false); setGoodVibesMatch(false); setCameraBlur(false);
     setStrangerFilter('none'); setStrangerBlur(false);
     setTimeout(() => {
-      if (status !== 'idle') {
+      if (statusRef.current !== 'idle') {
         socket?.emit('find-partner', { mode: 'video', interest: interest || 'general', nickname: nickname || 'Anonymous' });
         onFindNewPartner?.();
       }
@@ -623,52 +635,36 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
   };
 
   const handleEsc = useCallback(() => {
-    if (status === 'connected' || status === 'searching') {
-      handleSkip();
+    if (status === 'connected' || status === 'searching' || status === 'disconnected') {
+      handleStop();
     } else {
       handleBack();
     }
-  }, [status, handleSkip, handleBack]);
+  }, [status, handleStop, handleBack]);
 
   useEffect(() => {
-    const pressedKeys = new Set();
     const handleDown = (e) => {
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
-      pressedKeys.add(e.code);
-      if (pressedKeys.has('Space') && pressedKeys.has('KeyS')) {
-        e.preventDefault();
-        handleStop();
-        return;
-      }
-      if (e.key === 'Escape') {
+      
+      if (e.code === 'Space' || e.key === 'ArrowRight') {
         e.preventDefault();
         handleSkip();
+        return;
+      }
+      if (e.key === 'Escape' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handleEsc();
         return;
       }
       if (e.code === 'KeyM') { e.preventDefault(); toggleMute(); }
       if (e.code === 'KeyV') { e.preventDefault(); toggleCamera(); }
       if (e.code === 'KeyB') { e.preventDefault(); setCameraBlur(prev => !prev); }
       if (e.code === 'KeyC') { e.preventDefault(); setShowChat(prev => !prev); }
+      if (e.key.toLowerCase() === 's' && status === 'idle') { e.preventDefault(); handleStart(); }
     };
-
-    const handleUp = (e) => pressedKeys.delete(e.code);
 
     window.addEventListener('keydown', handleDown);
-    window.addEventListener('keyup', handleUp);
-
-    const legacyHandler = (e) => {
-      const target = e.target;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
-      if (e.key.toLowerCase() === 's' && status !== 'connected') handleStart();
-      if (e.key === 'Escape') handleEsc();
-    };
-    window.addEventListener('keydown', legacyHandler);
-
-    return () => {
-      window.removeEventListener('keydown', handleDown);
-      window.removeEventListener('keyup', handleUp);
-      window.removeEventListener('keydown', legacyHandler);
-    };
+    return () => window.removeEventListener('keydown', handleDown);
   }, [handleSkip, handleStop, toggleMute, toggleCamera, handleStart, handleEsc, status]);
 
   const toggleInterestTag = (tag) => {
@@ -989,7 +985,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       playDisconnectSound();
 
       setTimeout(() => {
-        if (!isMounted || status === 'idle' || status === 'searching') return;
+        if (!isMounted.current || statusRef.current === 'idle' || statusRef.current === 'searching') return;
         handleSkip();
       }, 700);
 
@@ -1439,6 +1435,18 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       </main>
 
       <footer className="h-14 sm:h-16 px-4 border-t border-white/[0.06] bg-[#0a0a0a] flex items-center justify-between gap-4 z-[120] shrink-0">
+        
+        {/* Left Side: Stop Session */}
+        <div className="flex items-center gap-3">
+          {(status === 'connected' || status === 'searching' || status === 'disconnected') && (
+            <div className="flex flex-col items-center gap-0.5">
+              <button onClick={handleStop} className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-lg" title="Stop Session">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+              <span className="text-[7px] uppercase tracking-tighter text-white/20 font-bold">ESC / ←</span>
+            </div>
+          )}
+        </div>
 
         {/* Middle: Video/Audio Controls */}
         <div className="flex items-center gap-1.5 sm:gap-3 bg-white/[0.03] px-3 py-1.5 rounded-xl border border-white/5">
@@ -1492,19 +1500,11 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
             </button>
           )}
           <div className="flex flex-col items-center gap-0.5">
-            <button onClick={handleSkip} className="relative px-6 py-2 rounded-xl bg-[#9a6700] hover:bg-[#bf8700] text-white font-black uppercase tracking-widest text-[10px] transition-all active:scale-95 shadow-xl shadow-amber-900/40" aria-label="Skip">
+            <button onClick={handleSkip} className="relative px-6 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-widest text-[10px] transition-all active:scale-95 shadow-xl shadow-indigo-500/20" aria-label="Skip">
               {status === 'searching' ? 'Cancel' : 'Next User'}
             </button>
-            <span className="text-[7px] uppercase tracking-tighter text-white/20 font-bold">ESC</span>
+            <span className="text-[7px] uppercase tracking-tighter text-white/20 font-bold">SPACE / →</span>
           </div>
-          {(status === 'connected' || status === 'searching' || status === 'disconnected') && (
-            <div className="flex flex-col items-center gap-0.5">
-              <button onClick={handleStop} className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-lg" title="Stop Session">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-              <span className="text-[7px] uppercase tracking-tighter text-white/20 font-bold">STOP</span>
-            </div>
-          )}
         </div>
       </footer>
 

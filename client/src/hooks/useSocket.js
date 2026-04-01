@@ -15,7 +15,6 @@ export function useSocket() {
   const [nickname, setNickname] = useState('Anonymous');
   const [isCreator, setIsCreator] = useState(false);
   const [contentFlagged, setContentFlagged] = useState(null);
-  const [coins, setCoins] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
   const [registered, setRegistered] = useState(false);
   const [activeSeconds, setActiveSeconds] = useState(0);
@@ -116,8 +115,7 @@ export function useSocket() {
       });
 
       s.on('coins-updated', (data) => {
-        if (!mounted) return;
-        if (typeof data?.coins !== 'undefined') setCoins(data.coins);
+        // Handled in App.js via listener but logic moved here causes duplication
       });
     })();
 
@@ -132,32 +130,19 @@ export function useSocket() {
     };
   }, []);
 
-  // Fetch initial settings and coins on mount
+  // Fetch initial settings on mount
   useEffect(() => {
     let cancelled = false;
     const fetchInitData = async () => {
       try {
-        const [settingsRes, coinsRes] = await Promise.all([
-          fetch(`${BASE_URL}/api/settings`),
-          // Fix #7: Include credentials so session/cookie-based auth works
-          fetch(`${BASE_URL}/api/user/coins`, { credentials: 'include' }),
-        ]);
-
+        const settingsRes = await fetch(`${BASE_URL}/api/settings`);
         if (!cancelled && settingsRes.ok) {
           const data = await settingsRes.json();
           if (typeof data.adsEnabled !== 'undefined') setAdsEnabled(!!data.adsEnabled);
           if (typeof data.allowDevTools !== 'undefined') setAllowDevTools(!!data.allowDevTools);
         }
-
-        if (!cancelled && coinsRes.ok) {
-          const data = await coinsRes.json();
-          if (typeof data?.coins !== 'undefined') setCoins(data.coins);
-        }
-      } catch {
-        // Silently ignore — coins/settings fetched from socket events too
-      }
+      } catch { }
     };
-
     fetchInitData();
     return () => { cancelled = true; };
   }, []);
@@ -170,10 +155,10 @@ export function useSocket() {
     adsEnabled,
     allowDevTools,
     nickname,
+    isCreator,
     isBlocked,
     contentFlagged,
-    coins,
     registered,
     activeSeconds,
-  }), [socket, connected, country, onlineCount, adsEnabled, allowDevTools, nickname, isCreator, isBlocked, contentFlagged, coins, registered, activeSeconds]);
+  }), [socket, connected, country, onlineCount, adsEnabled, allowDevTools, nickname, isCreator, isBlocked, contentFlagged, registered, activeSeconds]);
 }

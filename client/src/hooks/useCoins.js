@@ -32,7 +32,7 @@ export function useCoins() {
     const fetchStatus = async (retries = 3) => {
         try {
             const apiBase = import.meta.env.VITE_SOCKET_URL || '';
-            const res = await fetch(`${apiBase}/api/user/coins`);
+            const res = await fetch(`${apiBase}/api/user/coins`, { credentials: 'include' });
             if (res.ok) {
                 const data = await res.json();
                 setBalance(data.coins);
@@ -55,7 +55,7 @@ export function useCoins() {
     const claimCoins = async () => {
         try {
             const apiBase = import.meta.env.VITE_SOCKET_URL || '';
-            const res = await fetch(`${apiBase}/api/user/claim`, { method: 'POST' });
+            const res = await fetch(`${apiBase}/api/user/claim`, { method: 'POST', credentials: 'include' });
             if (res.ok) {
                 const data = await res.json();
                 setBalance(data.coins);

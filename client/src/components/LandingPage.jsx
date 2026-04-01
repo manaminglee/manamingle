@@ -462,8 +462,12 @@ export function LandingPage({ onJoin, coinState, isJoining = false, initialCreat
             </div>
 
             <div className="relative z-10 text-center">
-              <div className="mb-8 scale-150 grayscale brightness-150 opacity-20 hover:grayscale-0 hover:opacity-100 transition-all duration-1000 cursor-help">
-                <span className="text-[120px] animate-float">🌍</span>
+              <div className="mb-0 flex items-center justify-center grayscale brightness-150 opacity-20 hover:grayscale-0 hover:opacity-100 transition-all duration-1000 cursor-help">
+                 <svg className="w-32 h-32 text-cyan-400 animate-float" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                   <circle cx="12" cy="12" r="10" />
+                   <line x1="2" y1="12" x2="22" y2="12" />
+                   <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                 </svg>
               </div>
               <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-400 mb-2 italic">Global Presence Map</h4>
               <div className="flex gap-12 mt-8">
@@ -594,14 +598,24 @@ export function LandingPage({ onJoin, coinState, isJoining = false, initialCreat
                 </div>
               )}
             </div>
-            <div className="absolute -bottom-10 -right-10 text-9xl opacity-[0.03] group-hover:opacity-[0.1] transition-all pointer-events-none rotate-12">⚡</div>
+            <div className="absolute -bottom-6 -right-6 w-32 h-32 opacity-[0.03] group-hover:opacity-[0.1] transition-all pointer-events-none rotate-12 text-white">
+               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9z" /></svg>
+            </div>
           </div>
         </section>
 
         {/* AI INSIGHT SECTION */}
         <section className="w-full max-w-4xl mx-auto mb-16 animate-fade-in-up">
           <div className="bg-gradient-to-r from-indigo-500/5 via-cyan-500/5 to-indigo-500/5 p-6 rounded-3xl border border-white/5 flex items-center gap-6">
-            <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center text-xl shadow-[0_0_20px_#06b6d430]">🤖</div>
+            <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 shadow-[0_0_20px_#06b6d430]">
+               <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                 <rect x="3" y="11" width="18" height="10" rx="2" />
+                 <circle cx="12" cy="5" r="2" />
+                 <path d="M12 7v4" />
+                 <line x1="8" y1="16" x2="8" y2="16" />
+                 <line x1="16" y1="16" x2="16" y2="16" />
+               </svg>
+            </div>
             <div className="flex-1">
               <div className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-1">AI System Insight</div>
               <p className="text-sm font-bold text-white/60 italic transition-all duration-500">{INSIGHTS[insightIndex]}</p>

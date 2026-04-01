@@ -16,12 +16,12 @@ export const ParticleText = ({ text = "MANA MINGLE", className = "" }) => {
       const isMobile = window.innerWidth < 768;
       canvas.width = window.innerWidth;
       canvas.height = 300;
-      mouse.radius = isMobile ? 80 : 150;
+      mouse.radius = isMobile ? 100 : 150;
       particles = [];
 
       // Draw text to get pixel data
       ctx.fillStyle = 'white';
-      ctx.font = `900 ${isMobile ? '40px' : '70px'} sans-serif`;
+      ctx.font = `900 ${isMobile ? '45px' : '70px'} sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(text, canvas.width / 2, canvas.height / 2);
@@ -29,7 +29,7 @@ export const ParticleText = ({ text = "MANA MINGLE", className = "" }) => {
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const step = isMobile ? 12 : 3; // Significantly lower density for mobile thermal safety
+      const step = isMobile ? 4 : 3; // Improved density for mobile legibility
       for (let y = 0; y < imageData.height; y += step) {
         for (let x = 0; x < imageData.width; x += step) {
           if (imageData.data[(y * 4 * imageData.width) + (x * 4) + 3] > 128) {
