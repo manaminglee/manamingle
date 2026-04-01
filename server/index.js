@@ -1661,6 +1661,25 @@ io.on('connection', (socket) => {
     emitOnlineCount();
   })();
 
+  socket.on('list-group-rooms', (data) => {
+    const { mode } = data || {}; // 'group_video' or 'group_text'
+    const available = [];
+    for (const [rid, room] of rooms.entries()) {
+      if ((!mode || room.mode === mode) && (room.mode === 'group_video' || room.mode === 'group_text')) {
+        available.push({
+          id: room.id,
+          interest: room.interest,
+          mode: room.mode,
+          participantCount: room.users.size,
+          maxSize: room.maxSize,
+          isFull: room.users.size >= room.maxSize,
+          queueLength: (groupQueues.get(room.interestKey) || []).length
+        });
+      }
+    }
+    socket.emit('group-rooms-list', { rooms: available });
+  });
+
   socket.on('report-user', (data) => {
     let targetIp = 'unknown';
     // find opponent in rooms
@@ -1890,8 +1909,18 @@ io.on('connection', (socket) => {
       if (userBlocks.get(otherIp)?.has(ip)) return socket.emit('error', { message: 'Cannot join this room.' });
     }
 
-    const added = addUserToRoom(room, socket.id, { id: userData.id, nickname: userData.nickname, country: userData.country });
-    if (!added) return socket.emit('room-full', { message: 'Room is full.' });
+    const added = addUserToRoom(room, socket.id, { id: userData.id, nickname: userData.nickname, country: userData.country, isCreator: userData.isCreator });
+    if (!added) {
+      const key = room.interestKey;
+      if (key) {
+        if (!groupQueues.has(key)) groupQueues.set(key, []);
+        const q = groupQueues.get(key);
+        q.push({ socketId: socket.id, userData: { id: userData.id, nickname: userData.nickname, country: userData.country, rooms: userData.rooms, isCreator: userData.isCreator } });
+        socket.emit('waiting-in-group-queue', { queuePosition: q.length, interest: room.interest });
+        return;
+      }
+      return socket.emit('room-full', { message: 'Room is full.' });
+    }
 
     userData.rooms.add(room.id);
     socket.join(room.id);

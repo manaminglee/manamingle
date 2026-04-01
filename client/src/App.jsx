@@ -80,20 +80,17 @@ export default function App() {
   };
 
   // Called when user selects a mode from the landing page
-  const handleJoin = (interestVal, _nick, m) => {
+  const handleJoin = (interestVal, _nick, m, rid = null) => {
     if (!socket || !connected || isJoining) return;
     setIsJoining(true);
     const intst = (interestVal || 'general').trim().toLowerCase() || 'general';
     setInterest(intst);
     setMode(m);
+    setRoomId(rid);
     setAppState(STATES.CHAT);
 
     // Push state so back button works
-    window.history.pushState({ mode: m }, '');
-
-    // Note: We no longer emit find-partner here. 
-    // The individual components (VideoChat/TextChat) will emit it on mount 
-    // to avoid race conditions where events arrive before listeners are ready.
+    window.history.pushState({ mode: m, roomId: rid }, '');
 
     setTimeout(() => setIsJoining(false), 500);
   };

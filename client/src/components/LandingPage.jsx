@@ -98,6 +98,11 @@ export function LandingPage({ onJoin, coinState, isJoining = false, initialCreat
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showDashboardModal, setShowDashboardModal] = useState(false);
+  const [showGroupBrowser, setShowGroupBrowser] = useState(false);
+  const [browserMode, setBrowserMode] = useState('group_video');
+  const [browserRooms, setBrowserRooms] = useState([]);
+  const [isBrowserFetching, setIsBrowserFetching] = useState(false);
+  const [customRoomName, setCustomRoomName] = useState('');
   const [profileForm, setProfileForm] = useState({ bio: '', avatar: '' });
   const [loginForm, setLoginForm] = useState({ handle: '', password: '' });
   const [loginError, setLoginError] = useState('');
@@ -207,8 +212,24 @@ export function LandingPage({ onJoin, coinState, isJoining = false, initialCreat
       });
     };
     socket.on('creator-status-changed', handler);
-    return () => socket.off('creator-status-changed', handler);
+
+    const onList = (data) => {
+      setBrowserRooms(data.rooms || []);
+      setIsBrowserFetching(false);
+    };
+    socket.on('group-rooms-list', onList);
+
+    return () => {
+      socket.off('creator-status-changed', handler);
+      socket.off('group-rooms-list', onList);
+    };
   }, [socket, uniqueAccessCode, waitingForApproval]);
+
+  const refreshBrowser = (modeArg) => {
+    if (!socket) return;
+    setIsBrowserFetching(true);
+    socket.emit('list-group-rooms', { mode: modeArg || browserMode });
+  };
 
   const addInterest = (interestArg) => {
     if (!interestArg) return;
@@ -243,6 +264,12 @@ export function LandingPage({ onJoin, coinState, isJoining = false, initialCreat
   };
 
   const handleStartInteraction = (mode) => {
+    if (mode === 'group_video' || mode === 'group_text') {
+      setBrowserMode(mode);
+      setShowGroupBrowser(true);
+      refreshBrowser(mode);
+      return;
+    }
     setScanning(true);
     setTimeout(() => {
       onJoin(interests.length === 0 ? 'general' : interests.map(i => i.label || i).join(', '), 'Anonymous', mode);
@@ -1445,6 +1472,97 @@ export function LandingPage({ onJoin, coinState, isJoining = false, initialCreat
                 onClick={saveProfile}
                 className="w-full h-16 bg-cyan-500 text-black font-black uppercase tracking-widest text-[11px] rounded-2xl hover:bg-white hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-cyan-500/20"
               >Save Identity →</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* GROUP BROWSER MODAL */}
+      {showGroupBrowser && (
+        <div className="fixed inset-0 z-[4000] flex items-center justify-center p-4 sm:p-8 bg-black/95 backdrop-blur-3xl animate-in-zoom" onClick={() => setShowGroupBrowser(false)}>
+          <div className="relative w-full max-w-4xl bg-[#0a0a0a] border border-white/10 rounded-[50px] overflow-hidden flex flex-col max-h-[85vh] shadow-[0_0_120px_rgba(129,140,248,0.15)]" onClick={e => e.stopPropagation()}>
+            <div className="p-8 sm:p-12 pb-6 border-b border-white/[0.05]">
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h3 className="text-3xl font-black italic uppercase tracking-tighter text-white">Join the <span className="text-cyan-400">Realm.</span></h3>
+                  <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.4em] mt-2">Active {browserMode === 'group_video' ? 'Video' : 'Text'} Hubs</p>
+                </div>
+                <button onClick={() => setShowGroupBrowser(false)} className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white hover:text-black transition-all">✕</button>
+              </div>
+
+              {/* CREATE ACTION */}
+              <div className="flex gap-3">
+                <input 
+                  type="text"
+                  placeholder="Enter custom realm name..."
+                  className="flex-1 h-14 bg-white/[0.02] border border-white/5 focus:border-cyan-500/40 rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest outline-none text-white transition-all"
+                  value={customRoomName}
+                  onChange={e => setCustomRoomName(e.target.value)}
+                />
+                <button 
+                  onClick={() => {
+                    if (!customRoomName.trim()) return;
+                    onJoin(customRoomName, 'Anonymous', browserMode);
+                    setShowGroupBrowser(false);
+                  }}
+                  className="px-8 h-14 bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-white hover:text-black transition-all active:scale-95 shadow-xl shadow-indigo-500/10"
+                >Start New →</button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-8 sm:p-12 space-y-4 custom-scrollbar">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-[9px] font-black text-white/20 uppercase tracking-[0.4em]">Available Sessions</h4>
+                <button 
+                  onClick={() => refreshBrowser()}
+                  disabled={isBrowserFetching}
+                  className={`text-[9px] font-black uppercase text-cyan-400/60 hover:text-cyan-400 transition-colors flex items-center gap-2 ${isBrowserFetching ? 'animate-pulse' : ''}`}
+                >
+                  <span className={isBrowserFetching ? 'animate-spin' : ''}>⏳</span> Refresh Broadcasts
+                </button>
+              </div>
+
+              {browserRooms.length === 0 && !isBrowserFetching && (
+                <div className="py-20 text-center opacity-30 italic font-medium text-sm">
+                  No active realms found. Be the first to manifest one.
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {browserRooms.map(room => (
+                  <div key={room.id} className="p-6 rounded-3xl bg-white/[0.02] border border-white/5 flex flex-col justify-between group hover:border-cyan-500/30 transition-all">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="px-3 py-1 bg-white/5 rounded-lg text-[8px] font-black text-white/40 uppercase tracking-widest">ID: {room.id.slice(-6)}</span>
+                        <span className={`text-[8px] font-black uppercase tracking-widest ${room.isFull ? 'text-amber-500' : 'text-emerald-500'}`}>
+                          {room.isFull ? 'FULL / QUEUING' : 'OPEN'}
+                        </span>
+                      </div>
+                      <h4 className="text-xl font-black italic text-white/90 truncate uppercase tracking-tighter">#{room.interest}</h4>
+                      <div className="mt-4 flex items-center gap-3">
+                        <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                          <div className={`h-full transition-all duration-700 ${room.isFull ? 'bg-amber-500' : 'bg-cyan-500'}`} style={{ width: `${(room.participantCount / room.maxSize) * 100}%` }} />
+                        </div>
+                        <span className="text-[10px] font-black text-white/30 tabular-nums">{room.participantCount}/{room.maxSize}</span>
+                      </div>
+                      {room.queueLength > 0 && (
+                        <p className="text-[8px] font-black text-amber-500/40 uppercase tracking-widest mt-2">⚡ {room.queueLength} Strangers in Queue</p>
+                      )}
+                    </div>
+                    
+                    <button 
+                      onClick={() => { onJoin(room.interest, 'Anonymous', room.mode, room.id); setShowGroupBrowser(false); }}
+                      className={`mt-8 w-full py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${room.isFull ? 'bg-white/5 border border-white/10 text-white/40 hover:bg-amber-500 hover:text-black' : 'bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 hover:bg-cyan-500 hover:text-black'}`}
+                    >
+                      {room.isFull ? 'Join Queue →' : 'Initialize Join →'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="px-12 py-6 bg-white/[0.02] border-t border-white/[0.05] italic text-[9px] text-white/10 uppercase tracking-widest text-center">
+              Realm connectivity is facilitated via P2P mesh architecture. Stay vigilant.
             </div>
           </div>
         </div>
