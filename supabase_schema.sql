@@ -212,7 +212,9 @@ CREATE TABLE IF NOT EXISTS activity_logs (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow authenticated read on activity_logs" ON activity_logs;
+DROP POLICY IF EXISTS "Allow server-side insert on activity_logs" ON activity_logs;
+
 CREATE POLICY "Allow authenticated read on activity_logs" ON activity_logs FOR SELECT USING (true);
 CREATE POLICY "Allow server-side insert on activity_logs" ON activity_logs FOR INSERT WITH CHECK (true);
 
