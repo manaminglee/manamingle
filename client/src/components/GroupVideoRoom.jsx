@@ -138,7 +138,8 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
   const [sparks, setSparks] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [muted, setMuted] = useState(false);
-  const [cameraOff, setCameraOff] = useState(false);
+   const [cameraOff, setCameraOff] = useState(false);
+  const [facingMode, setFacingMode] = useState('user');
   const [showChat, setShowChat] = useState(true);
   const [replyingTo, setReplyingTo] = useState(null);
   const [isAiGenerating, setIsAiGenerating] = useState(false);
@@ -352,7 +353,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
     setMediaError(null);
     try {
       const constraints = {
-        video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+        video: { facingMode: { ideal: facingMode }, width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
         audio: { echoCancellation: true, noiseSuppression: true }
       };
       let s = null;
@@ -360,7 +361,10 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
         s = await navigator.mediaDevices.getUserMedia(constraints);
       } catch (e) {
         // Fallback for strict mobile devices
-        s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        s = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: { ideal: facingMode } }, 
+            audio: true 
+        });
       }
       localStreamRef.current = s;
       setLocalStreamReady(true);
@@ -392,7 +396,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
       }
       localStreamRef.current = null;
     };
-  }, []);
+  }, [facingMode]);
 
   // Sync local stream to video element when ref mounts (handles race)
   useEffect(() => {
@@ -1418,6 +1422,14 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
           )}
         </button>
+        <button 
+          onClick={() => setFacingMode(prev => prev === 'user' ? 'environment' : 'user')} 
+          title="Flip camera" 
+          aria-label="Flip camera" 
+          className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-black/60"
+        >
+          🔄
+        </button>
         <button onClick={onLeave} title="Leave call" aria-label="Leave call" className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-full bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-500/30 transition-all focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 focus:ring-offset-black/60">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.683A1 1 0 008.279 3H5z" /></svg>
         </button>
@@ -1452,7 +1464,7 @@ function PiPLocalVideo({ stream, cameraBlur }) {
     if (ref.current && stream) ref.current.srcObject = stream;
   }, [stream]);
   if (!stream) return <div className="w-full h-full flex items-center justify-center bg-indigo-500/20 text-2xl">🙋</div>;
-  return <video ref={ref} autoPlay muted playsInline className="w-full h-full object-cover -scale-x-100" style={cameraBlur ? { filter: 'blur(15px)' } : {}} />;
+  return <video ref={ref} autoPlay muted playsInline className={`w-full h-full object-cover ${facingMode === 'user' ? '-scale-x-100' : ''}`} style={cameraBlur ? { filter: 'blur(15px)' } : {}} />;
 }
 
 function RemoteVideoTile({ stream, socketId }) {

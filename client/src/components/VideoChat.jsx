@@ -208,6 +208,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
   const [cameraOff, setCameraOff] = useState(false);
   const [strangerCameraOff, setStrangerCameraOff] = useState(false);
   const [mutedStranger, setMutedStranger] = useState(false);
+  const [facingMode, setFacingMode] = useState('user');
   const [lowBandwidth, setLowBandwidth] = useState(false);
   const [localStream, setLocalStream] = useState(null);
   const latency = useLatency();
@@ -421,14 +422,17 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
         const baseConstraints = {
           video: selectedVideoDeviceId 
             ? { deviceId: { exact: selectedVideoDeviceId }, width: { ideal: 640 }, height: { ideal: 480 } } 
-            : { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+            : { facingMode: { ideal: facingMode }, width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
           audio: selectedAudioDeviceId ? { deviceId: { exact: selectedAudioDeviceId } } : { echoCancellation: true, noiseSuppression: true },
         };
         try {
           s = await navigator.mediaDevices.getUserMedia(baseConstraints);
         } catch (e) {
           // Robust fallback for mobile
-          s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          s = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: { ideal: facingMode } }, 
+            audio: true 
+          });
         }
         localStreamRef.current = s;
         setLocalStream(s);
@@ -441,7 +445,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
     return () => {
       if (s) s.getTracks().forEach((t) => t.stop());
     };
-  }, [selectedVideoDeviceId, selectedAudioDeviceId]);
+  }, [selectedVideoDeviceId, selectedAudioDeviceId, facingMode]);
 
   // Enumerate audio / video devices
   useEffect(() => {
@@ -1400,13 +1404,20 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
             )}
             {(status === 'idle' || status === 'searching') && (
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-32 h-24 sm:w-40 sm:h-28 rounded-2xl overflow-hidden border border-white/10 bg-black/50 z-10 backdrop-blur-md">
-                <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover -scale-x-100 ${cameraOff ? 'opacity-30' : ''}`} style={{ filter: activeFilter !== 'none' ? activeFilter : 'none' }} />
+                <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover ${facingMode === 'user' ? '-scale-x-100' : ''} ${cameraOff ? 'opacity-30' : ''}`} style={{ filter: activeFilter !== 'none' ? activeFilter : 'none' }} />
+                <button 
+                  onClick={() => setFacingMode(prev => prev === 'user' ? 'environment' : 'user')}
+                  className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 text-white text-xs flex items-center justify-center transition-all z-20"
+                  aria-label="Flip camera"
+                >
+                  🔄
+                </button>
                 <div className="absolute inset-0 border-2 border-white/5 pointer-events-none rounded-2xl" />
               </div>
             )}
             {status === 'connected' && (
               <>
-                <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover -scale-x-100 transition-opacity duration-300 ${cameraOff ? 'opacity-20' : ''}`} style={{ filter: cameraBlur && activeFilter === 'none' ? 'blur(20px)' : (activeFilter !== 'none' ? activeFilter : 'none') }} />
+                <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover ${facingMode === 'user' ? '-scale-x-100' : ''} transition-opacity duration-300 ${cameraOff ? 'opacity-20' : ''}`} style={{ filter: cameraBlur && activeFilter === 'none' ? 'blur(20px)' : (activeFilter !== 'none' ? activeFilter : 'none') }} />
                 <div className="absolute bottom-3 left-3 flex items-center gap-1.5 z-10">
                   {isCreator ? (
                     <div className="flex items-center gap-1 px-2 py-1 rounded bg-black/60 border border-cyan-500/30">
