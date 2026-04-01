@@ -355,7 +355,13 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
         video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
         audio: { echoCancellation: true, noiseSuppression: true }
       };
-      const s = await navigator.mediaDevices.getUserMedia(constraints);
+      let s = null;
+      try {
+        s = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (e) {
+        // Fallback for strict mobile devices
+        s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      }
       localStreamRef.current = s;
       setLocalStreamReady(true);
       setMediaError(null);
@@ -368,7 +374,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
       const name = err?.name || '';
       const msg = err?.message || String(err);
       if (name === 'NotAllowedError' || msg.includes('Permission denied')) {
-        setMediaError({ type: 'denied', message: 'Camera and microphone access was denied.' });
+        setMediaError({ type: 'denied', message: 'Camera and microphone access was denied. Please ensure you have granted permissions in your browser/system settings.' });
       } else if (name === 'NotFoundError' || msg.includes('not found')) {
         setMediaError({ type: 'notfound', message: 'No camera or microphone found.' });
       } else {
@@ -379,40 +385,10 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
   };
 
   useEffect(() => {
-    let s = null;
-    (async () => {
-      try {
-        const constraints = {
-          video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
-          audio: { echoCancellation: true, noiseSuppression: true }
-        };
-        s = await navigator.mediaDevices.getUserMedia(constraints);
-        localStreamRef.current = s;
-        setLocalStreamReady(true);
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = s;
-          localVideoRef.current.play().catch(() => { });
-        }
-      } catch (err) {
-        console.error('getUserMedia error:', err);
-        const name = err?.name || '';
-        const msg = err?.message || String(err);
-        if (name === 'NotAllowedError' || msg.includes('Permission denied')) {
-          setMediaError({ type: 'denied', message: 'Camera and microphone access was denied.' });
-        } else if (name === 'NotFoundError' || msg.includes('not found')) {
-          setMediaError({ type: 'notfound', message: 'No camera or microphone found.' });
-        } else {
-          setMediaError({ type: 'other', message: msg || 'Could not access camera or microphone.' });
-        }
-        setLocalStreamReady(true);
-      }
-    })();
+    requestMediaAccess();
     return () => {
-      if (s) {
-        s.getTracks().forEach((t) => {
-          t.stop();
-          t.enabled = false;
-        });
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((t) => { t.stop(); t.enabled = false; });
       }
       localStreamRef.current = null;
     };
@@ -701,21 +677,20 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
     };
 
     const onUserLeft = (data) => {
-      setParticipantCount((c) => {
-        const next = Math.max(1, (data.participantCount ?? c) - 1);
-        if (next === 1 && !isQueuing && !hasAutoLeftRef.current) {
-          // AUTO-SEEK: Find another room if left alone
-          hasAutoLeftRef.current = true;
-          setTimeout(() => {
-            if (roomIdRef.current) {
-              onLeave();
-            }
-          }, 3000);
-        }
-        return next;
-      });
       const sid = data.socketId;
       if (sid) {
+        // Immediate removal for speed
+        setPeers((p) => p.filter((x) => x.socketId !== sid));
+        
+        setParticipantCount((c) => {
+          const next = Math.max(1, (data.participantCount ?? c) - 1);
+          if (next === 1 && !isQueuing && !hasAutoLeftRef.current) {
+            hasAutoLeftRef.current = true;
+            setTimeout(() => { if (roomIdRef.current) onLeave(); }, 2000);
+          }
+          return next;
+        });
+
         const pc = peerConnectionsRef.current.get(sid);
         if (pc) {
           pc.onicecandidate = null;
@@ -724,7 +699,6 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
           peerConnectionsRef.current.delete(sid);
         }
         const leavingNick = peerNicksRef.current.get(sid);
-        setPeers((p) => p.filter((x) => x.socketId !== sid));
         if (leavingNick) setMessages((m) => [...m, { id: `sys-left-${Date.now()}`, system: true, text: `${leavingNick} left the room` }]);
         playDisconnectSound();
         cleanupAudioAnalyzer(sid);
@@ -1526,8 +1500,8 @@ function RemoteVideoTile({ stream, socketId }) {
   if (!stream) return null;
 
   return (
-    <div className="absolute inset-0 w-full h-full bg-[#0c0e1a]">
-      <video ref={ref} autoPlay playsInline className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${isPlaying && hasVideo ? 'opacity-100' : 'opacity-0'}`} />
+    <div className="absolute inset-0 w-full h-full bg-[#0c0e1a] overflow-hidden">
+      <video ref={ref} autoPlay playsInline className={`absolute inset-0 w-full h-full object-cover -scale-x-100 transition-opacity duration-700 ${isPlaying && hasVideo ? 'opacity-100' : 'opacity-0'}`} />
       {(!isPlaying || !hasVideo) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-indigo-500/10">
           {!isPlaying && hasVideo ? (
