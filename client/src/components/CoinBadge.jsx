@@ -115,46 +115,23 @@ export function CoinBadge({ balance = 0, streak = 1, canClaim, nextClaim = 0, cl
       </button>
 
       {showPopover && (
-        <div className="absolute top-full right-0 mt-3 z-[200] w-64 bg-black/95 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-in-zoom">
-          <div className="space-y-6">
+        <div className="absolute top-full right-0 mt-3 z-[200] w-56 bg-black/95 backdrop-blur-3xl border border-white/10 rounded-3xl p-4 shadow-[0_20px_50px_rgba(0,0,0,0.6)] animate-in-zoom">
+          <div className="space-y-4">
             
-            {/* 3M ACTIVITY REWARD */}
+            {/* 3M ACTIVITY REWARD - MINI VERSION */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                  <div className="flex items-center gap-2">
-                    <span className="text-sm">🎁</span>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-white/60 italic">Stay Active 3M for {REWARD_VAL}</span>
+                    <span className="text-xs">🎁</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-white/70 italic">Stay Active 3M for {REWARD_VAL}</span>
                  </div>
-                 <span className="text-[10px] font-black text-emerald-400 italic tabular-nums">{Math.floor(activeTime / 60)}:{(activeTime % 60).toString().padStart(2, '0')}</span>
+                 <span className="text-[9px] font-black text-emerald-400 italic tabular-nums">{Math.floor(activeTime / 60)}:{(activeTime % 60).toString().padStart(2, '0')}</span>
               </div>
-              <div className="h-2 rounded-full bg-white/5 overflow-hidden p-[1px]">
+              <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
                 <div className="h-full bg-emerald-500 rounded-full transition-all duration-1000" style={{ width: `${activeProgress}%` }} />
               </div>
-              <p className="text-[8px] font-bold text-white/20 uppercase tracking-widest text-center italic">progress counts only when tab is active</p>
+              <p className="text-[7px] font-black text-white/10 uppercase tracking-[0.2em] text-center italic">Uplink active only when visible</p>
             </div>
-
-            <div className="h-px bg-white/5" />
-
-            {/* DAILY REWARD */}
-            {canClaim ? (
-              <div className="space-y-3">
-                <div className="text-[10px] font-black text-amber-400 uppercase tracking-widest text-center">Daily Reward Ready!</div>
-                <button
-                  onClick={handleClaim}
-                  className="w-full py-3 bg-amber-500 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all shadow-xl shadow-amber-500/20"
-                >Claim {REWARD_AMOUNT} Coins</button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-white/30">
-                  <span>Daily Bonus</span>
-                  <span>{formatTimeUntilClaim(nextClaim)}</span>
-                </div>
-                <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
-                  <div className="h-full bg-amber-500/40 transition-all duration-1000" style={{ width: `${progress * 100}%` }} />
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
