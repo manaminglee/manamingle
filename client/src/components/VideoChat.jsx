@@ -253,6 +253,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
   const [filterTimer, setFilterTimer] = useState(0);
   const [strangerFilter, setStrangerFilter] = useState('none');
   const [strangerBlur, setStrangerBlur] = useState(false);
+  const [isModerating, setIsModerating] = useState(false);
   const filterIntervalRef = useRef(null);
   const [myCountry, setMyCountry] = useState(country);
   const [partnerLeft, setPartnerLeft] = useState(false);
@@ -733,8 +734,16 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       setTimeout(() => inputRef.current?.focus(), 500);
       setToast('✅ Connected with a stranger!');
       playConnectSound();
+      
+      // Temporary moderation overlay for 3 seconds
+      setIsModerating(true);
+      const timer = setTimeout(() => setIsModerating(false), 3000);
+      return () => clearTimeout(timer);
     } else if (status === 'disconnected') {
       playDisconnectSound();
+      setIsModerating(false);
+    } else {
+      setIsModerating(false);
     }
   }, [status]);
 
@@ -1413,8 +1422,8 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
           {/* Right: Stranger (only when connected) */}
           {status === 'connected' && (
             <div className={`relative bg-[#0d0d0d] flex-grow min-h-0 ${showChat && isMobile ? 'h-full' : ''}`}>
-              <RemoteVideoComponent stream={peer?.stream} muted={mutedStranger} strangerFilter={strangerFilter} strangerBlur={strangerBlur} />
-              <SafetyShield active={true} label="AI MODERATING" />
+               <RemoteVideoComponent stream={peer?.stream} muted={mutedStranger} strangerFilter={strangerFilter} strangerBlur={strangerBlur} />
+              {isModerating && <SafetyShield active={true} label="AI MODERATING" />}
               {strangerCameraOff && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md z-10">
                    <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-3">

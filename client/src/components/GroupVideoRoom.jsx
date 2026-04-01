@@ -127,7 +127,7 @@ const EMOJIS_3D = [
 ];
 
 export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nickname, isCreator = false, myCountry, socket, isQueuing, onLeave, onFindNewPod, onJoined, coinState }) {
-  const { balance = 0, streak = 0, canClaim = false, nextClaim = 0, claimCoins = () => {} } = coinState || {};
+  const { balance = 0, streak = 0, canClaim = false, nextClaim = 0, claimCoins = () => { } } = coinState || {};
   const { iceServers } = useIceServers();
   const roomIdRef = useRef(null);
   const roomId = roomIdProp ?? roomIdRef.current;
@@ -407,7 +407,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
         setLocalStreamReady(true);
       }
     })();
-    return () => { 
+    return () => {
       if (s) {
         s.getTracks().forEach((t) => {
           t.stop();
@@ -686,7 +686,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
       if (data.isCreator) peerCreatorsRef.current.set(data.socketId, true);
       setMessages((m) => [...m, { id: `sys-${Date.now()}`, system: true, text: `${data.nickname || 'A stranger'} joined 👋` }]);
       playConnectSound();
-      
+
       setPeers((prev) => {
         const isKnown = prev.some((p) => p.socketId === data.socketId);
         if (isKnown) return prev;
@@ -1200,8 +1200,8 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
         </div>
         <div className="flex items-center gap-2">
           {onFindNewPod && (
-            <button 
-              onClick={() => { onLeave(); onFindNewPod(); }} 
+            <button
+              onClick={() => { onLeave(); onFindNewPod(); }}
               className="h-8 px-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[9px] font-bold uppercase tracking-wider hover:bg-indigo-500 hover:text-white transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               New Pod
