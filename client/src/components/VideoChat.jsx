@@ -420,9 +420,12 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
     (async () => {
       try {
         const baseConstraints = {
-          video: selectedVideoDeviceId 
-            ? { deviceId: { exact: selectedVideoDeviceId }, width: { ideal: 640 }, height: { ideal: 480 } } 
-            : { facingMode: { ideal: facingMode }, width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+          video: { 
+            facingMode: { ideal: facingMode }, 
+            width: { ideal: 640 }, 
+            height: { ideal: 480 }, 
+            frameRate: { ideal: 30 } 
+          },
           audio: selectedAudioDeviceId ? { deviceId: { exact: selectedAudioDeviceId } } : { echoCancellation: true, noiseSuppression: true },
         };
         try {
@@ -443,9 +446,10 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       }
     })();
     return () => {
-      if (s) s.getTracks().forEach((t) => t.stop());
+      // Ensure tracks are stopped to allow hardware to flip
+      if (s) s.getTracks().forEach((t) => { t.stop(); t.enabled = false; });
     };
-  }, [selectedVideoDeviceId, selectedAudioDeviceId, facingMode]);
+  }, [selectedAudioDeviceId, facingMode]);
 
   // Enumerate audio / video devices
   useEffect(() => {
