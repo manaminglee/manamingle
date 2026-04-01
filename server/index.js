@@ -364,6 +364,65 @@ app.get('/api/settings', (req, res) => {
   res.json({ adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools });
 });
 
+// 3-Minute Activity Reward (40 Coins)
+app.post('/api/coins/activity-reward', async (req, res) => {
+  const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
+  const now = new Date();
+  const MIN_INTERVAL = 3 * 60 * 1000; // 3 minutes
+
+  try {
+    let userData = null;
+    if (supabase) {
+      const { data } = await supabase.from('user_coins').select('*').eq('ip', ip).single();
+      userData = data;
+    } else {
+      userData = coinUsers.get(ip);
+    }
+
+    if (userData && userData.last_reward_claimed) {
+      const lastClaim = new Date(userData.last_reward_claimed);
+      if (now - lastClaim < MIN_INTERVAL) {
+        return res.status(429).json({ error: 'Uplink synchronization in progress. Wait for cycle.' });
+      }
+    }
+
+    const reward = 40;
+    let newBalance = reward;
+
+    if (supabase) {
+      if (userData) {
+        newBalance = (userData.coins || 0) + reward;
+        await supabase.from('user_coins').update({ 
+          coins: newBalance, 
+          last_reward_claimed: now.toISOString() 
+        }).eq('ip', ip);
+      } else {
+        await supabase.from('user_coins').insert({ 
+          ip, 
+          coins: reward, 
+          last_reward_claimed: now.toISOString(),
+          streak: 1
+        });
+      }
+      // Log for admin verification
+      await supabase.from('activity_logs').insert({ ip, action: 'claimed_3m_bonus', amount: reward });
+    } else {
+      if (userData) {
+        userData.coins = (userData.coins || 0) + reward;
+        userData.last_reward_claimed = now.toISOString();
+        newBalance = userData.coins;
+      } else {
+        const newUser = { coins: reward, streak: 1, last_reward_claimed: now.toISOString() };
+        coinUsers.set(ip, newUser);
+      }
+    }
+
+    res.json({ success: true, balance: newBalance, message: 'Activity recognized. 40 Coins synthesized.' });
+  } catch (e) {
+    res.status(500).json({ error: 'Economy link failure' });
+  }
+});
+
 // TURN server credentials endpoint — always served from env vars, NEVER hardcoded in client
 app.get('/api/turn', (req, res) => {
   const iceServers = [

@@ -12,8 +12,44 @@ export function CoinBadge({ balance = 0, streak = 1, canClaim, nextClaim = 0, cl
   const [isClaiming, setIsClaiming] = useState(false);
   const [showClaimFeedback, setShowClaimFeedback] = useState(false);
   const [deduction, setDeduction] = useState(null);
+  const [activeTime, setActiveTime] = useState(() => Number(localStorage.getItem('mm_active_reward_time') || 0));
   const prevBalance = useRef(balance);
   const popoverRef = useRef(null);
+
+  const REWARD_DUR = 180; // 3 minutes
+  const REWARD_VAL = 40;
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible' && activeTime < REWARD_DUR) {
+        setActiveTime(prev => {
+          const next = prev + 1;
+          localStorage.setItem('mm_active_reward_time', next);
+          return next;
+        });
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [activeTime]);
+
+  // Auto-claim activity reward
+  useEffect(() => {
+    if (activeTime >= REWARD_DUR) {
+      const claimActivity = async () => {
+        try {
+          const API_BASE = import.meta.env.VITE_SOCKET_URL || '';
+          const res = await fetch(`${API_BASE}/api/coins/activity-reward`, { method: 'POST' });
+          if (res.ok) {
+            localStorage.setItem('mm_active_reward_time', '0');
+            setActiveTime(0);
+            setShowClaimFeedback(true);
+            setTimeout(() => setShowClaimFeedback(false), 3000);
+          }
+        } catch (e) { console.error('Activity Sync Failed'); }
+      };
+      claimActivity();
+    }
+  }, [activeTime]);
 
   useEffect(() => {
     if (balance < prevBalance.current) {
@@ -46,13 +82,14 @@ export function CoinBadge({ balance = 0, streak = 1, canClaim, nextClaim = 0, cl
   };
 
   const progress = nextClaim > 0 ? Math.max(0, 1 - nextClaim / CLAIM_INTERVAL_MS) : 1;
+  const activeProgress = (activeTime / REWARD_DUR) * 100;
 
   return (
     <div className="relative flex items-center gap-2" ref={popoverRef}>
       {/* Claim feedback animation */}
       {showClaimFeedback && (
-        <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-amber-400 font-black text-sm animate-float-up pointer-events-none z-[101]">
-          🪙 +{REWARD_AMOUNT}
+        <span className="absolute -top-10 left-1/2 -translate-x-1/2 text-amber-400 font-black text-xs animate-float-up pointer-events-none z-[101] whitespace-nowrap bg-black/60 px-2 py-1 rounded-full border border-amber-500/20">
+          🪙 +{activeTime >= REWARD_DUR ? REWARD_VAL : REWARD_AMOUNT} COINS
         </span>
       )}
       {deduction && (
@@ -62,42 +99,63 @@ export function CoinBadge({ balance = 0, streak = 1, canClaim, nextClaim = 0, cl
       )}
       <button
         type="button"
+        onMouseEnter={() => !compact && setShowPopover(true)}
         onClick={() => setShowPopover(!showPopover)}
-        title="Daily rewards"
-        className="relative flex items-center gap-1 sm:gap-1.5 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 hover:scale-105 hover:shadow-lg hover:shadow-indigo-500/30 transition-all cursor-pointer shrink-0"
+        className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-cyan-500/40 hover:bg-cyan-500/10 transition-all cursor-pointer group"
       >
-        {canClaim && (
-          <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-400 rounded-full animate-pulse ring-2 ring-[#0d0f1c]" />
-        )}
-        <span className={compact ? 'text-xs sm:text-sm' : 'text-sm'}>🪙</span>
-        <span className={`font-bold text-indigo-300 ${compact ? 'text-[10px] sm:text-[11px]' : 'text-[11px]'}`}>{balance}</span>
-        <div className={`bg-white/10 mx-0.5 ${compact ? 'w-px h-2.5 sm:h-3' : 'w-px h-3'}`} />
-        <span className={`font-medium text-white/40 ${compact ? 'text-[9px] sm:text-[10px]' : 'text-[10px]'}`} title="Daily claim streak">🔥 {streak}d</span>
+        <span className="text-sm group-hover:rotate-12 transition-transform">🪙</span>
+        <span className="font-black text-xs text-white tabular-nums">{balance}</span>
+        <div className="w-px h-3 bg-white/10 mx-1" />
+        <span className="text-[9px] font-black uppercase text-white/30 tracking-tighter italic">🔥 {streak}d</span>
+        
+        {/* Tiny live pulse indicator for 3m timer */}
+        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-white/5 rounded-full overflow-hidden">
+          <div className="h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${activeProgress}%` }} />
+        </div>
       </button>
+
       {showPopover && (
-        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-[100] min-w-[180px] px-0 py-1 rounded-xl bg-[#0d0f1c] border border-indigo-500/30 shadow-xl overflow-hidden">
-          <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rotate-45 bg-[#0d0f1c] border-l border-t border-indigo-500/30" />
-          {canClaim ? (
-            <div className="px-3 pb-2">
-              <div className="text-xs text-white/50 text-center mb-1">Daily reward ready</div>
-              <div className="text-sm font-bold text-amber-400 text-center mb-1.5">+{REWARD_AMOUNT} Coins</div>
-              <button
-                type="button"
-                onClick={handleClaim}
-                disabled={isClaiming}
-                className="w-full px-4 py-2.5 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold text-sm rounded-lg hover:from-amber-400 hover:to-orange-400 active:scale-[0.98] transition-all disabled:opacity-70"
-              >
-                {isClaiming ? 'Claiming...' : 'Claim'}
-              </button>
-            </div>
-          ) : (
-            <div className="px-4 py-2.5 text-xs text-white/70 space-y-2">
-              <div>Next claim in {formatTimeUntilClaim(nextClaim)}</div>
-              <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-amber-500/60 to-orange-500/60 rounded-full transition-all duration-1000" style={{ width: `${progress * 100}%` }} />
+        <div className="absolute top-full right-0 mt-3 z-[200] w-64 bg-black/95 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-in-zoom">
+          <div className="space-y-6">
+            
+            {/* 3M ACTIVITY REWARD */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                 <div className="flex items-center gap-2">
+                    <span className="text-sm">🎁</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/60 italic">Stay Active 3M for {REWARD_VAL}</span>
+                 </div>
+                 <span className="text-[10px] font-black text-emerald-400 italic tabular-nums">{Math.floor(activeTime / 60)}:{(activeTime % 60).toString().padStart(2, '0')}</span>
               </div>
+              <div className="h-2 rounded-full bg-white/5 overflow-hidden p-[1px]">
+                <div className="h-full bg-emerald-500 rounded-full transition-all duration-1000" style={{ width: `${activeProgress}%` }} />
+              </div>
+              <p className="text-[8px] font-bold text-white/20 uppercase tracking-widest text-center italic">progress counts only when tab is active</p>
             </div>
-          )}
+
+            <div className="h-px bg-white/5" />
+
+            {/* DAILY REWARD */}
+            {canClaim ? (
+              <div className="space-y-3">
+                <div className="text-[10px] font-black text-amber-400 uppercase tracking-widest text-center">Daily Reward Ready!</div>
+                <button
+                  onClick={handleClaim}
+                  className="w-full py-3 bg-amber-500 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all shadow-xl shadow-amber-500/20"
+                >Claim {REWARD_AMOUNT} Coins</button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-white/30">
+                  <span>Daily Bonus</span>
+                  <span>{formatTimeUntilClaim(nextClaim)}</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                  <div className="h-full bg-amber-500/40 transition-all duration-1000" style={{ width: `${progress * 100}%` }} />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

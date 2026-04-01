@@ -289,7 +289,8 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
       )}
 
       {/* HEADER */}
-      <header className="fixed top-0 left-0 right-0 z-[150] h-16 sm:h-20 px-4 sm:px-8 flex items-center justify-between bg-black/20 backdrop-blur-3xl border-b border-white/5">
+      {!showDashboardModal && (
+        <header className="fixed top-0 left-0 right-0 z-[150] h-16 sm:h-20 px-4 sm:px-8 flex items-center justify-between bg-black/20 backdrop-blur-3xl border-b border-white/5">
         <div className="flex items-center gap-2 sm:gap-4 shrink-0">
           <img src="/apple-touch-icon.png" alt="Logo" className="w-8 h-8 sm:w-10 sm:h-10 object-contain drop-shadow-[0_0_10px_#06b6d4]" />
           <div className="flex flex-col">
@@ -324,9 +325,11 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
           )}
         </div>
       </header>
+      )}
 
       {/* HERO SECTION */}
-      <main className="relative z-10 pt-32 pb-20 px-6 max-w-7xl mx-auto flex flex-col items-center">
+      {!showDashboardModal && (
+        <main className="relative z-10 pt-32 pb-20 px-6 max-w-7xl mx-auto flex flex-col items-center">
 
         {adsEnabled && <AdSection position="hero" script={adScripts?.hero} />}
 
@@ -540,9 +543,9 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                     </span>
                     <button
                       onClick={() => {
-                        setProfileForm({ 
-                          bio: creatorStatus.bio || '', 
-                          avatar: creatorStatus.avatar_url || '' 
+                        setProfileForm({
+                          bio: creatorStatus.bio || '',
+                          avatar: creatorStatus.avatar_url || ''
                         });
                         setShowProfileModal(true);
                       }}
@@ -557,10 +560,10 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                       Logout Session →
                     </button>
                   </div>
-                  
+
                   {creatorStatus.status === 'approved' && (
                     <div className="flex flex-col items-center gap-3">
-                       <button 
+                      <button
                         onClick={async () => {
                           const upi = prompt('Enter UPI ID for Payout:');
                           if (upi) {
@@ -571,10 +574,10 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                         }}
                         className="px-8 py-4 bg-emerald-500 text-black text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-white transition-all shadow-xl active:scale-95 flex items-center gap-2"
                       >
-                         💸 Withdraw Earnings
+                        💸 Withdraw Earnings
                       </button>
                       <div className="text-[9px] font-black text-white/20 uppercase tracking-widest italic animate-pulse">
-                         10,000 Click-throughs = ₹150.00
+                        10,000 Click-throughs = ₹150.00
                       </div>
                     </div>
                   )}
@@ -599,6 +602,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
 
         {adsEnabled && <AdSection position="footer" script={adScripts?.footer} />}
       </main>
+      )}
 
       {/* FOOTER */}
       <footer className="relative z-10 py-20 px-8 bg-black border-t border-white/5">
@@ -831,11 +835,10 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                       <input
                         type="url"
                         placeholder={`e.g. https://instagram.com/${creatorForm.handle.replace(/^@/, '') || 'yourhandle'}`}
-                        className={`flex-1 h-14 bg-white/5 border rounded-2xl px-4 text-sm outline-none text-white transition-all ${
-                          linkValidated ? 'border-emerald-500/50 shadow-[0_0_10px_#10b98120]' :
-                          linkVerifyFailed ? 'border-rose-500/40' :
-                          'border-white/5 focus:border-cyan-500/30'
-                        }`}
+                        className={`flex-1 h-14 bg-white/5 border rounded-2xl px-4 text-sm outline-none text-white transition-all ${linkValidated ? 'border-emerald-500/50 shadow-[0_0_10px_#10b98120]' :
+                            linkVerifyFailed ? 'border-rose-500/40' :
+                              'border-white/5 focus:border-cyan-500/30'
+                          }`}
                         value={creatorForm.link}
                         onChange={e => {
                           setCreatorForm({ ...creatorForm, link: e.target.value });
@@ -877,27 +880,25 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                           }
                         }}
                         title="Background verify — no new tab opened"
-                        className={`h-14 px-4 rounded-2xl font-black text-[9px] uppercase tracking-widest transition-all border min-w-[80px] flex items-center justify-center ${
-                          linkValidated ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' :
-                          linkVerifyFailed ? 'bg-rose-500/20 border-rose-500/40 text-rose-400' :
-                          linkVerifying ? 'bg-white/5 border-white/10 text-white/40 cursor-wait' :
-                          'bg-white/5 border-white/10 text-white/40 hover:border-cyan-500/40 hover:text-cyan-400 disabled:opacity-50'
-                        }`}
+                        className={`h-14 px-4 rounded-2xl font-black text-[9px] uppercase tracking-widest transition-all border min-w-[80px] flex items-center justify-center ${linkValidated ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' :
+                            linkVerifyFailed ? 'bg-rose-500/20 border-rose-500/40 text-rose-400' :
+                              linkVerifying ? 'bg-white/5 border-white/10 text-white/40 cursor-wait' :
+                                'bg-white/5 border-white/10 text-white/40 hover:border-cyan-500/40 hover:text-cyan-400 disabled:opacity-50'
+                          }`}
                       >
                         {linkVerifying ? (
                           <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                           </svg>
                         ) : linkValidated ? '✓ Live' : linkVerifyFailed ? '✗ Dead' : 'Verify'}
                       </button>
                     </div>
-                    <p className={`text-[9px] px-2 ${
-                      linkValidated ? 'text-emerald-400/60' : linkVerifyFailed ? 'text-rose-400/60' : 'text-white/20'
-                    }`}>
+                    <p className={`text-[9px] px-2 ${linkValidated ? 'text-emerald-400/60' : linkVerifyFailed ? 'text-rose-400/60' : 'text-white/20'
+                      }`}>
                       {linkValidated ? '✓ Profile link is reachable and verified.' :
-                       linkVerifyFailed ? '⚠ Link seems unreachable. Double-check the URL.' :
-                       'Auto-filled from your handle. Click Verify to confirm in background.'}
+                        linkVerifyFailed ? '⚠ Link seems unreachable. Double-check the URL.' :
+                          'Auto-filled from your handle. Click Verify to confirm in background.'}
                     </p>
                   </div>
                   <button
@@ -929,14 +930,14 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                     </div>
 
                     <div className="flex gap-4 w-full">
-                       <button 
+                      <button
                         onClick={() => { setShowCreatorModal(false); setShowStatusModal(true); }}
                         className="flex-1 py-4 rounded-xl bg-white/5 border border-white/5 text-[9px] font-black uppercase text-white/40 hover:text-cyan-400 hover:border-cyan-400/20 transition-all tracking-widest"
-                       >Check Status</button>
-                       <button 
+                      >Check Status</button>
+                      <button
                         onClick={() => { setShowCreatorModal(false); setShowLoginModal(true); }}
                         className="flex-1 py-4 rounded-xl bg-white/5 border border-white/5 text-[9px] font-black uppercase text-white/40 hover:text-indigo-400 hover:border-indigo-400/20 transition-all tracking-widest"
-                       >Creator Login</button>
+                      >Creator Login</button>
                     </div>
                   </div>
                 </div>
@@ -961,17 +962,17 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                   <div className="space-y-6">
                     {/* GROWTH VELOCITY ANALYTICS */}
                     <div className="mb-8 animate-in-zoom" style={{ animationDelay: '100ms' }}>
-                  <MiniTrendChart data={[35, 42, 38, 55, 48, 65, 82]} color="#06b6d4" />
-                  <div className="flex justify-between mt-3 px-2 text-[8px] font-black uppercase text-white/10 tracking-[0.3em] italic">
-                    <span className="flex items-center gap-2">
-                       <span className="w-1 h-1 rounded-full bg-cyan-400" />
-                       Performance Trend: Last 7 Days
-                    </span>
-                    <span className="text-emerald-400/40">+64.8% Influence Delta</span>
-                  </div>
-                </div>
+                      <MiniTrendChart data={[35, 42, 38, 55, 48, 65, 82]} color="#06b6d4" />
+                      <div className="flex justify-between mt-3 px-2 text-[8px] font-black uppercase text-white/10 tracking-[0.3em] italic">
+                        <span className="flex items-center gap-2">
+                          <span className="w-1 h-1 rounded-full bg-cyan-400" />
+                          Performance Trend: Last 7 Days
+                        </span>
+                        <span className="text-emerald-400/40">+64.8% Influence Delta</span>
+                      </div>
+                    </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
                       <div className="p-6 rounded-[32px] bg-white/[0.03] border border-white/5">
                         <div className="text-[9px] font-black uppercase tracking-widest text-white/20 mb-1">Earned</div>
                         <div className="text-xl font-black italic text-emerald-400">₹{creatorStatus.earnings_rs || 0}</div>
@@ -1194,11 +1195,10 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                     </div>
                     <div className="flex items-center justify-between pt-3 border-t border-white/5">
                       <span className="text-[10px] font-black uppercase tracking-widest text-white/20">Status</span>
-                      <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                        statusCheckResult.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                        statusCheckResult.status === 'rejected' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
-                        'bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse'
-                      }`}>{statusCheckResult.status === 'approved' ? '✅ Approved' : statusCheckResult.status === 'rejected' ? '❌ Rejected' : '⏳ Pending Review'}</span>
+                      <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${statusCheckResult.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                          statusCheckResult.status === 'rejected' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
+                            'bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse'
+                        }`}>{statusCheckResult.status === 'approved' ? '✅ Approved' : statusCheckResult.status === 'rejected' ? '❌ Rejected' : '⏳ Pending Review'}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-black uppercase tracking-widest text-white/20">Platform</span>
@@ -1242,10 +1242,10 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
 
       {/* CREATOR DASHBOARD MODAL */}
       {showDashboardModal && creatorStatus && (
-        <div className="fixed inset-0 z-[3000] flex flex-col bg-black/98 backdrop-blur-4xl animate-in-zoom overflow-hidden" onClick={() => setShowDashboardModal(false)}>
+        <div className="fixed inset-0 z-[5000] flex flex-col bg-[#050505] animate-in-zoom overflow-hidden" onClick={() => setShowDashboardModal(false)}>
           <div className="flex-1 overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="max-w-6xl mx-auto px-8 py-20">
-              
+
               {/* TOP HEADER */}
               <div className="flex justify-between items-center mb-16 px-4">
                 <div className="flex items-center gap-4">
@@ -1263,23 +1263,24 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
 
               {/* MAIN HUD GRID */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-                
+
                 {/* LEFT: IDENTITY MATRIX */}
                 <div className="lg:col-span-1 space-y-8">
                   <div className="p-10 rounded-[50px] bg-white/[0.02] border border-white/5 relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-6 opacity-5 font-black text-6xl italic group-hover:opacity-10 transition-all">ID</div>
                     <div className="flex flex-col items-center text-center">
-                      <div className="w-40 h-40 rounded-full border-2 border-cyan-400/40 p-2 mb-6 group-hover:scale-105 transition-transform">
-                        <img src={creatorStatus.avatar_url || '/apple-touch-icon.png'} className="w-full h-full object-cover rounded-full" />
+                      <div className="w-40 h-40 rounded-full border-2 border-cyan-400/40 p-2 mb-6 group-hover:scale-105 transition-transform relative">
+                        <div className="absolute inset-0 rounded-full bg-cyan-400/10 animate-pulse" />
+                        <img src={creatorStatus.avatar_url || '/apple-touch-icon.png'} className="w-full h-full object-cover rounded-full relative z-10" />
                       </div>
                       <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">@{creatorStatus.handle_name} <BlueTick /></h3>
                       <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-2">{creatorStatus.platform} Influencer</p>
-                      
+
                       <div className="mt-8 text-[11px] font-bold text-white/60 leading-relaxed max-w-[200px] italic">
                         {creatorStatus.bio || "No biography synced. Update your identity via the Profile Matrix."}
                       </div>
 
-                      <button 
+                      <button
                         onClick={() => {
                           setProfileForm({ bio: creatorStatus.bio || '', avatar: creatorStatus.avatar_url || '' });
                           setShowProfileModal(true);
@@ -1294,7 +1295,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                     <div className="p-5 bg-black/40 rounded-2xl border border-white/5">
                       <div className="text-[8px] font-black text-white/20 uppercase mb-2">Referral URL</div>
                       <div className="text-[11px] font-bold text-white italic truncate mb-4">{`https://manamingle.site/?ref=${creatorStatus.referral_code}`}</div>
-                      <button 
+                      <button
                         onClick={() => {
                           navigator.clipboard.writeText(`https://manamingle.site/?ref=${creatorStatus.referral_code}`);
                           alert('Uplink Copied');
@@ -1307,7 +1308,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
 
                 {/* MIDDLE/RIGHT: FINANCIAL HUD & ANALYTICS */}
                 <div className="lg:col-span-2 space-y-8">
-                  
+
                   {/* WALLET BAR */}
                   <div className="p-12 rounded-[60px] bg-gradient-to-br from-emerald-500/10 to-transparent border border-emerald-500/20 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden group">
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-emerald-500/5 via-transparent to-transparent opacity-40 group-hover:scale-150 transition-all duration-1000" />
@@ -1318,7 +1319,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                       </div>
                       <p className="text-[11px] font-bold text-white/30 uppercase tracking-widest mt-4">Calculated from {creatorStatus.coins_earned || 0} lifetime coins</p>
                     </div>
-                    <button 
+                    <button
                       onClick={async () => {
                         const upi = prompt('Enter UPI ID for Payout:');
                         if (upi) {
@@ -1342,12 +1343,12 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                       <p className="text-[9px] font-bold text-white/20 uppercase tracking-[0.2em] mt-2 italic">Followers reached through profile</p>
                     </div>
                     <div className="p-10 rounded-[50px] bg-white/[0.02] border border-white/5 group hover:border-indigo-500/30 transition-all">
-                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex justify-between items-start mb-4">
                         <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Influence Conversions</span>
                         <span className="text-2xl group-hover:scale-110 transition-transform">🔥</span>
                       </div>
                       <div className="text-5xl font-black italic text-white tabular-nums group-hover:text-indigo-400 transition-colors uppercase">{creatorStatus.referral_count || 0}</div>
-                      <p className="text-[9px] font-bold text-white/20 uppercase tracking-[0.2em] mt-2 italic">Users joined via your uplink</p>
+                      <p className="text-[9px] font-bold text-white/20 uppercase tracking-[0.2em] mt-2 italic">Users joined via your unique uplink</p>
                     </div>
                   </div>
 
@@ -1379,7 +1380,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
         <div className="fixed inset-0 z-[2500] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl animate-in-zoom" onClick={() => setShowProfileModal(false)}>
           <div className="relative w-full max-w-sm bg-[#0a0a0a] border border-white/10 rounded-[50px] p-10 shadow-[0_0_100px_rgba(6,182,212,0.15)]" onClick={e => e.stopPropagation()}>
             <button onClick={() => setShowProfileModal(false)} className="absolute top-8 right-8 text-white/20 hover:text-white transition-colors">✕</button>
-            
+
             <div className="text-center mb-8">
               <h3 className="text-2xl font-black italic uppercase tracking-tighter text-white">Edit Profile</h3>
               <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-2">Personalize your Identity</p>

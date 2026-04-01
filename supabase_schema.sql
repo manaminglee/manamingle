@@ -185,3 +185,18 @@ BEGIN
         END LOOP;
     END;
 END $$;
+
+-- 6. Activity Logs Table
+CREATE TABLE IF NOT EXISTS activity_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ip TEXT NOT NULL,
+  action TEXT NOT NULL,
+  amount INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow authenticated read on activity_logs" ON activity_logs FOR SELECT USING (true);
+CREATE POLICY "Allow server-side insert on activity_logs" ON activity_logs FOR INSERT WITH CHECK (true);
+
+-- End of ManaMingle Supabase Schema
