@@ -51,7 +51,7 @@ function MessageSpark({ x, y }) {
   );
 }
 
-export function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nickname, isCreator = false, myCountry, socket, isQueuing, onLeave, onFindNewPod, onJoined, coinState }) {
+export default function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nickname, isCreator = false, myCountry, socket, isQueuing, onLeave, onFindNewPod, onJoined, coinState }) {
   const { balance, streak, canClaim, nextClaim, claimCoins } = coinState;
   const roomIdRef = useRef(null);
   const roomId = roomIdProp ?? roomIdRef.current;

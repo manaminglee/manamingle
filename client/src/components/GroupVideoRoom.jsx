@@ -126,7 +126,7 @@ const EMOJIS_3D = [
   { char: '👑', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f451/512.webp' },
 ];
 
-export function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nickname, isCreator = false, myCountry, socket, isQueuing, onLeave, onFindNewPod, onJoined, coinState }) {
+export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nickname, isCreator = false, myCountry, socket, isQueuing, onLeave, onFindNewPod, onJoined, coinState }) {
   const { balance = 0, streak = 0, canClaim = false, nextClaim = 0, claimCoins = () => {} } = coinState || {};
   const { iceServers } = useIceServers();
   const roomIdRef = useRef(null);

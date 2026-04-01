@@ -188,7 +188,7 @@ function SafetyShield({ active = false, label = "SAFETY SCAN" }) {
   );
 }
 
-export function VideoChat({ socket, connected, country, onlineCount, interest = 'general', nickname = 'Anonymous', isCreator = false, adsEnabled = false, onBack, onJoined, onFindNewPartner, coinState }) {
+export default function VideoChat({ socket, connected, country, onlineCount, interest = 'general', nickname = 'Anonymous', isCreator = false, adsEnabled = false, onBack, onJoined, onFindNewPartner, coinState }) {
   // Use either internal coins state or passed coinState
   const [coins, setCoins] = useState(coinState?.balance || 0);
 

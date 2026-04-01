@@ -168,7 +168,7 @@ function VanishingMessage({ m, isMe, onReply }) {
   );
 }
 
-export function TextChat({ socket, connected, country, onlineCount, interest = 'general', nickname = 'Anonymous', isCreator = false, onBack, onJoined, onFindNewPartner, adsEnabled, coinState }) {
+export default function TextChat({ socket, connected, country, onlineCount, interest = 'general', nickname = 'Anonymous', isCreator = false, onBack, onJoined, onFindNewPartner, adsEnabled, coinState }) {
   const { balance, streak, canClaim, nextClaim, claimCoins } = coinState;
   const [messages, setMessages] = useState([]);
   const [sparks, setSparks] = useState([]);
