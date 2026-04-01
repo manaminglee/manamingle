@@ -190,7 +190,7 @@ function SafetyShield({ active = false, label = "SAFETY SCAN" }) {
   );
 }
 
-export default function VideoChat({ socket, connected, country, onlineCount, interest = 'general', nickname = 'Anonymous', isCreator = false, adsEnabled = false, onBack, onJoined, onFindNewPartner, coinState }) {
+export default function VideoChat({ socket, connected, country, onlineCount, interest = 'general', nickname = 'Anonymous', isCreator = false, adsEnabled = false, onBack, onJoined, onFindNewPartner, coinState, registered = false, currentActiveSeconds = 0 }) {
   const [coins, setCoins] = useState(coinState?.balance || 0);
   const [showProfileHandle, setShowProfileHandle] = useState(null);
 
@@ -977,7 +977,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       playDisconnectSound();
       
       setTimeout(() => {
-        if (roomIdRef.current) return;
+        if (!isMounted || status === 'idle' || status === 'searching') return;
         handleSkip();
       }, 700);
       
@@ -1271,7 +1271,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
           <button onClick={() => setShowFilterMenu(true)} className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition">Filters</button>
           {country && <span className="text-[14px] leading-none opacity-80" title={`Location: ${country}`}>{countryToFlag(country)}</span>}
           <span className="text-[10px] text-white/30 inline">{(typeof onlineCount === 'object' ? onlineCount?.count : onlineCount) || 0} online</span>
-          <button onClick={() => setShowCoinHistory(true)} className="text-amber-500/90 font-bold text-xs flex items-center gap-1 hover:bg-white/5 px-2 py-1 rounded transition border border-amber-500/20">🪙 {coins}</button>
+          <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} registered={registered} currentActiveSeconds={currentActiveSeconds} />
         </div>
       </header>
 
@@ -1466,7 +1466,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
             </button>
             <span className="text-[7px] uppercase tracking-tighter text-white/20 font-bold">ESC</span>
           </div>
-          {(status === 'connected' || status === 'searching') && (
+          {(status === 'connected' || status === 'searching' || status === 'disconnected') && (
             <div className="flex flex-col items-center gap-0.5">
               <button onClick={handleStop} className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-lg" title="Stop Session">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -1583,8 +1583,11 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
 
 function RemoteVideoComponent({ stream, muted, strangerFilter, strangerBlur }) {
   const ref = useRef(null);
+  const playbackRetryRef = useRef(null);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
+    isMountedRef.current = true;
     const el = ref.current;
     if (!el || !stream) return;
 
@@ -1598,11 +1601,17 @@ function RemoteVideoComponent({ stream, muted, strangerFilter, strangerBlur }) {
       } catch (e) {
         // Fallback for browsers that block autoplay
         const retry = () => {
-             if (el.paused && stream?.active) {
-                 el.play().catch(() => setTimeout(retry, 1000));
-             }
+          if (playbackRetryRef.current) clearTimeout(playbackRetryRef.current);
+          if (!isMountedRef.current) return;
+          if (el) {
+            el.play().catch(() => {
+              playbackRetryRef.current = setTimeout(retry, 2000);
+            });
+          } else {
+            playbackRetryRef.current = setTimeout(retry, 1000);
+          }
         };
-        setTimeout(retry, 500);
+        retry();
       }
     };
     playVideo();
@@ -1614,6 +1623,8 @@ function RemoteVideoComponent({ stream, muted, strangerFilter, strangerBlur }) {
     el.addEventListener('canplay', handleActive);
 
     return () => {
+      isMountedRef.current = false;
+      if (playbackRetryRef.current) clearTimeout(playbackRetryRef.current);
       el.removeEventListener('stalled', handleActive);
       el.removeEventListener('waiting', handleActive);
       el.removeEventListener('canplay', handleActive);

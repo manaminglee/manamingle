@@ -49,7 +49,10 @@ CREATE TABLE IF NOT EXISTS user_coins (
   last_claim BIGINT DEFAULT 0,
   streak INTEGER DEFAULT 1,
   last_claim_date TEXT,
-  last_reward_claimed BOOLEAN DEFAULT FALSE, -- NEW: 3-minute active bonus
+  last_reward_claimed BIGINT DEFAULT 0, -- Timestamp of last payout
+  active_seconds INTEGER DEFAULT 0, -- Current hour progress (0-3600)
+  total_active_seconds INTEGER DEFAULT 0, -- Overall career time
+  registered BOOLEAN DEFAULT FALSE, -- Hit the 3-minute hurdle
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -123,7 +126,19 @@ BEGIN
 
     -- 2. Add missing Economic columns
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='user_coins' AND column_name='last_reward_claimed') THEN
-        ALTER TABLE user_coins ADD COLUMN last_reward_claimed BOOLEAN DEFAULT FALSE;
+        ALTER TABLE user_coins ADD COLUMN last_reward_claimed BIGINT DEFAULT 0;
+    ELSE
+        -- Ensure it is BIGINT for timestamps
+        ALTER TABLE user_coins ALTER COLUMN last_reward_claimed TYPE BIGINT USING (CASE WHEN last_reward_claimed IS TRUE THEN EXTRACT(EPOCH FROM NOW())::BIGINT ELSE 0 END);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='user_coins' AND column_name='active_seconds') THEN
+        ALTER TABLE user_coins ADD COLUMN active_seconds INTEGER DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='user_coins' AND column_name='total_active_seconds') THEN
+        ALTER TABLE user_coins ADD COLUMN total_active_seconds INTEGER DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='user_coins' AND column_name='registered') THEN
+        ALTER TABLE user_coins ADD COLUMN registered BOOLEAN DEFAULT FALSE;
     END IF;
 
     -- 3. Add missing Withdrawal columns

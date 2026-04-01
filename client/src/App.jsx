@@ -19,7 +19,7 @@ const LoadingFallback = () => (
   </div>
 );
 
-const STATES = { LANDING: 'landing', CHAT: 'chat', ADMIN: 'admin' };
+const STATES = { LANDING: 'landing', CHAT: 'chat', ADMIN: 'admin', CREATOR_PROFILE: 'creator_profile' };
 const MODES = { TEXT: 'text', VIDEO: 'video', GROUP_TEXT: 'group_text', GROUP_VIDEO: 'group_video' };
 
 export default function App() {
@@ -27,15 +27,23 @@ export default function App() {
     sessionStorage.getItem('wc_age') === '1' && sessionStorage.getItem('wc_bot') === '1'
   );
 
-  const [appState, setAppState] = useState(
-    window.location.pathname === '/matrix-admin' ? STATES.ADMIN : STATES.LANDING
-  );
+  const [appState, setAppState] = useState(() => {
+    if (window.location.pathname === '/matrix-admin') return STATES.ADMIN;
+    if (window.location.pathname.startsWith('/creator/')) return STATES.CREATOR_PROFILE;
+    return STATES.LANDING;
+  });
+  const [profileHandle, setProfileHandle] = useState(() => {
+    if (window.location.pathname.startsWith('/creator/')) {
+      return window.location.pathname.split('/creator/')[1];
+    }
+    return '';
+  });
   const [mode, setMode] = useState(null);
   const [interest, setInterest] = useState('general');
   const [roomId, setRoomId] = useState(null);
   const [preloadDone, setPreloadDone] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
-  const { socket, connected, country, onlineCount, adsEnabled, allowDevTools, nickname, isCreator, isBlocked, contentFlagged, coins } = useSocket();
+  const { socket, connected, country, onlineCount, adsEnabled, allowDevTools, nickname, isCreator, isBlocked, contentFlagged, coins, registered, activeSeconds } = useSocket();
   const coinState = useCoins();
 
 
@@ -61,31 +69,6 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [appState]);
 
-  // --- 3-MINUTE ACTIVE REWARD TIMER ---
-  const [activeSeconds, setActiveSeconds] = useState(0);
-  const [rewardClaimed, setRewardClaimed] = useState(() => localStorage.getItem('wc_reward_claimed') === '1');
-
-  useEffect(() => {
-    if (!socket || rewardClaimed || coins > 0) return; // If they have coins or already claimed, don't show timer
-
-    const timer = setInterval(() => {
-      if (!document.hidden) {
-        setActiveSeconds((prev) => {
-          const next = prev + 1;
-          if (next >= 180) {
-            socket.emit('claim-active-reward');
-            setRewardClaimed(true);
-            localStorage.setItem('wc_reward_claimed', '1');
-            clearInterval(timer);
-            return 180;
-          }
-          return next;
-        });
-      }
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [socket, rewardClaimed, coins]);
 
   const handleBackInternal = () => {
     if (roomId && socket) socket.emit('leave-room', { roomId });
@@ -176,7 +159,7 @@ export default function App() {
         </div>
       );
     }
-    if (appState === STATES.LANDING) {
+    if (appState === STATES.LANDING || appState === STATES.CREATOR_PROFILE) {
       return (
         <div className="animate-fade-in">
           <LandingPage
@@ -185,6 +168,9 @@ export default function App() {
             onlineCount={onlineCount}
             coinState={coinState}
             isJoining={isJoining}
+            initialCreatorHandle={appState === STATES.CREATOR_PROFILE ? profileHandle : null}
+            registered={registered}
+            currentActiveSeconds={activeSeconds}
           />
         </div>
       );
@@ -205,6 +191,8 @@ export default function App() {
             onJoined={handleJoined}
             onFindNewPartner={handleFindNewPartner}
             coinState={coinState}
+            registered={registered}
+            currentActiveSeconds={activeSeconds}
           />
         </div>
       );
@@ -225,6 +213,8 @@ export default function App() {
             onJoined={handleJoined}
             onFindNewPartner={handleFindNewPartner}
             coinState={coinState}
+            registered={registered}
+            currentActiveSeconds={activeSeconds}
           />
         </div>
       );
@@ -244,6 +234,8 @@ export default function App() {
             onFindNewPod={roomId ? handleFindNewPod : undefined}
             onJoined={handleJoined}
             coinState={coinState}
+            registered={registered}
+            currentActiveSeconds={activeSeconds}
           />
         </div>
       );
@@ -263,6 +255,8 @@ export default function App() {
             onFindNewPod={roomId ? handleFindNewPod : undefined}
             onJoined={handleJoined}
             coinState={coinState}
+            registered={registered}
+            currentActiveSeconds={activeSeconds}
           />
         </div>
       );
@@ -285,11 +279,11 @@ export default function App() {
         {renderContent()}
       </Suspense>
 
-      {/* Global Active Reward Progress (Only show if new at 0 coins) */}
-      {!rewardClaimed && coins === 0 && appState !== STATES.ADMIN && (
+      {/* Global Active Reward Progress (Only show if not registered or seeking next hour) */}
+      {!registered && coins === 0 && appState !== STATES.ADMIN && (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[1000] animate-fade-in pointer-events-none">
           <div className="bg-black/60 backdrop-blur-xl border border-white/10 px-6 py-3 rounded-2xl flex flex-col items-center gap-2 shadow-2xl">
-            <div className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">🎁 Stay active {Math.ceil((180 - activeSeconds) / 60)}m for 40 🪙</div>
+            <div className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">🎁 Verify Identity (3m) for Registration</div>
             <div className="w-40 h-1 bg-white/5 rounded-full overflow-hidden">
                <div className="h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${(activeSeconds / 180) * 100}%` }} />
             </div>

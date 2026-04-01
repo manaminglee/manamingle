@@ -19,6 +19,7 @@ export function AdminDashboard({ onJoinRoom }) {
   const [creators, setCreators] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
   const [history, setHistory] = useState([]);
+  const [economyLogs, setEconomyLogs] = useState([]);
   const [toast, setToast] = useState(null);
   const [adForm, setAdForm] = useState({ hero: '', sidebar: '', footer: '' });
   const socketRef = useRef(null);
@@ -66,6 +67,18 @@ export function AdminDashboard({ onJoinRoom }) {
       if (res.ok) {
         const data = await res.json();
         setHistory(data.history || []);
+      }
+    } catch (e) { }
+  };
+
+  const fetchEconomyLogs = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/economy/logs`, {
+        headers: { 'x-admin-key': key },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setEconomyLogs(data.logs || []);
       }
     } catch (e) { }
   };
@@ -281,7 +294,7 @@ export function AdminDashboard({ onJoinRoom }) {
   // On login: immediately load all data in parallel
   useEffect(() => {
     if (isLogged) {
-      Promise.all([fetchStats(key), fetchCreators(), fetchHistory()]);
+      Promise.all([fetchStats(key), fetchCreators(), fetchHistory(), fetchEconomyLogs()]);
     }
   }, [isLogged]);
 
@@ -335,6 +348,9 @@ export function AdminDashboard({ onJoinRoom }) {
     }
     if (isLogged && activeTab === 'history') {
       fetchHistory();
+    }
+    if (isLogged && activeTab === 'economy') {
+      fetchEconomyLogs();
     }
   }, [activeTab, isLogged]);
 
@@ -946,56 +962,57 @@ export function AdminDashboard({ onJoinRoom }) {
                 </div>
               </div>
 
-              <div className="rounded-[40px] bg-white/[0.02] border border-white/5 overflow-hidden shadow-2xl">
-                <div className="p-8 border-b border-white/5 flex justify-between items-center bg-white/[0.01]">
-                   <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-amber-500 italic">IP-Based Wallet Registry</h3>
-                   <div className="relative group w-72">
-                      <input 
-                        type="text"
-                        placeholder="Filter by IP..."
-                        className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-3 text-[10px] font-black uppercase text-amber-500/60 focus:border-amber-500/40 outline-none"
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                      />
-                   </div>
-                </div>
-                <div className="overflow-x-auto max-h-[600px] custom-scrollbar">
-                  <table className="w-full text-left text-sm border-collapse">
-                    <thead>
-                      <tr className="bg-white/[0.02] border-b border-white/5 text-[9px] uppercase font-black tracking-[0.3em] text-white/20 italic font-mono">
-                        <th className="px-10 py-6">IP ADDRESS & STATUS</th>
-                        <th className="px-10 py-6">PERSISTENCE</th>
-                        <th className="px-10 py-6">STREAK</th>
-                        <th className="px-10 py-6">BALANCE</th>
-                        <th className="px-10 py-6 text-right">ECONOMY CONTROLS</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/[0.03]">
-                      {(stats?.economyList || []).filter(e => !searchQuery || e.ip.includes(searchQuery)).map(u => (
-                        <tr key={u.ip} className="hover:bg-white/[0.01] transition-all group border-b border-white/[0.01]">
-                          <td className="px-10 py-8">
-                             <div className="font-mono text-sm text-white group-hover:text-amber-500 transition-colors font-black tracking-tighter">{u.ip}</div>
-                             <div className="text-[9px] text-white/20 uppercase font-black tracking-widest mt-1">Network Identity Validated</div>
-                          </td>
-                          <td className="px-10 py-8">
-                             <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${u.persisted ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-white/5 text-white/20'}`}>
-                                {u.persisted ? 'Verified Active (DB)' : 'Active Session'}
-                             </span>
-                          </td>
-                          <td className="px-10 py-8 text-indigo-400 font-black italic tracking-widest text-xs">🔥 {u.streak || 1} DAYS</td>
-                          <td className="px-10 py-8">
-                             <div className="text-amber-500 font-black text-lg italic tracking-tighter">🪙 {u.coins || 0}</div>
-                          </td>
-                          <td className="px-10 py-8 text-right">
-                             <div className="flex gap-2 justify-end opacity-20 group-hover:opacity-100 transition-all">
-                                <button onClick={() => handleUpdateCoins(u.ip, 100)} className="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500 hover:text-black rounded-lg text-[9px] font-black uppercase transition-all">+100</button>
-                                <button onClick={() => handleUpdateCoins(u.ip, -100)} className="px-3 py-1.5 bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-500 hover:text-white rounded-lg text-[9px] font-black uppercase transition-all">-100</button>
-                                <button onClick={() => handleUpdateCoins(u.ip, 0, true)} className="px-3 py-1.5 bg-white/5 text-white/40 border border-white/10 hover:bg-white hover:text-black rounded-lg text-[9px] font-black uppercase transition-all">RESET</button>
-                             </div>
-                          </td>
+              <div className="grid lg:grid-cols-2 gap-10">
+                <div className="rounded-[40px] bg-white/[0.02] border border-white/5 overflow-hidden shadow-2xl">
+                  <div className="p-8 border-b border-white/5 flex justify-between items-center bg-white/[0.01]">
+                     <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-amber-500 italic">IP-Based Wallet Registry</h3>
+                  </div>
+                  <div className="overflow-x-auto max-h-[500px] custom-scrollbar">
+                    <table className="w-full text-left text-sm border-collapse">
+                      <thead>
+                        <tr className="bg-white/[0.02] border-b border-white/5 text-[9px] uppercase font-black tracking-[0.3em] text-white/20 italic font-mono">
+                          <th className="px-8 py-4">IP ADDRESS</th>
+                          <th className="px-8 py-4">BALANCE</th>
+                          <th className="px-8 py-4 text-right">ACTION</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-white/[0.03]">
+                        {(stats?.economyList || []).filter(e => !searchQuery || e.ip.includes(searchQuery)).slice(0, 50).map(u => (
+                          <tr key={u.ip} className="hover:bg-white/[0.01] transition-all group">
+                            <td className="px-8 py-4 font-mono text-xs text-white/60 font-black">{u.ip}</td>
+                            <td className="px-8 py-4 font-black italic text-amber-500">🪙 {u.coins}</td>
+                            <td className="px-8 py-4 text-right">
+                               <button onClick={() => handleUpdateCoins(u.ip, 100)} className="text-[9px] font-black text-white/20 hover:text-emerald-400">GRANT →</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="rounded-[40px] bg-white/[0.02] border border-white/5 overflow-hidden shadow-2xl">
+                   <div className="p-8 border-b border-white/5 flex justify-between items-center bg-white/[0.01]">
+                     <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-400 italic">Live Economy Audit</h3>
+                     <button onClick={fetchEconomyLogs} className="text-[8px] font-bold text-white/20 hover:text-white uppercase">Refresh Logs 🔄</button>
+                  </div>
+                  <div className="overflow-x-auto max-h-[500px] custom-scrollbar p-6 space-y-4">
+                    {economyLogs.map((log, i) => (
+                      <div key={log.id || i} className="p-4 rounded-2xl bg-black border border-white/5 flex items-center justify-between group hover:border-indigo-500/30 transition-all">
+                        <div>
+                          <div className="text-[10px] font-black text-white tracking-widest">{log.ip}</div>
+                          <div className="text-[8px] text-white/20 font-bold uppercase mt-1">{log.action || 'Claimed Bonus'}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-black text-indigo-400 italic">+🪙 {log.amount}</div>
+                          <div className="text-[8px] text-white/10 mt-1">{new Date(log.created_at).toLocaleTimeString()}</div>
+                        </div>
+                      </div>
+                    ))}
+                    {economyLogs.length === 0 && (
+                      <div className="py-20 text-center opacity-10 text-[9px] font-black uppercase tracking-[0.4em]">No activity logs in buffer</div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

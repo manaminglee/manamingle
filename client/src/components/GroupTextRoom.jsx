@@ -51,7 +51,7 @@ function MessageSpark({ x, y }) {
   );
 }
 
-export default function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nickname, isCreator = false, myCountry, socket, isQueuing, onLeave, onFindNewPod, onJoined, coinState }) {
+export default function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nickname, isCreator = false, myCountry, socket, isQueuing, onLeave, onFindNewPod, onJoined, coinState, registered = false, currentActiveSeconds = 0 }) {
   const { balance, streak, canClaim, nextClaim, claimCoins } = coinState;
   const roomIdRef = useRef(null);
   const roomId = roomIdProp ?? roomIdRef.current;
@@ -326,7 +326,7 @@ export default function GroupTextRoom({ roomId: roomIdProp, interest: interestPr
           </div>
         </div>
         <div className="flex items-center gap-1.5 sm:gap-2">
-          <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} />
+          <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} registered={registered} currentActiveSeconds={currentActiveSeconds} />
 
           <div className="participant-badge">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

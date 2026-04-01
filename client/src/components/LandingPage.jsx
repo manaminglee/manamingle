@@ -68,7 +68,7 @@ const AdSection = ({ position, script }) => {
   );
 };
 
-export function LandingPage({ onJoin, coinState, isJoining = false }) {
+export function LandingPage({ onJoin, coinState, isJoining = false, initialCreatorHandle = null, registered = false, currentActiveSeconds = 0 }) {
   const { balance, streak, canClaim, nextClaim, claimCoins, adsEnabled, adScripts } = coinState || {};
   const [interests, setInterests] = useState([]);
   const [inputValue, setInputValue] = useState('');
@@ -120,6 +120,16 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
     const baseAmericas = Math.floor(rawCount * 0.32) || 42639;
     const baseEurasia = Math.floor(rawCount * 0.58) || 89875;
     const baseOceania = Math.floor(rawCount * 0.10) || 13033;
+
+    if (initialCreatorHandle) {
+      setTimeout(() => {
+        setProfileForm({ handle: initialCreatorHandle });
+        setShowProfileModal(true);
+        // Also set the specific handle for the popup component if available
+        // Wait, LandingPage doesn't have a dedicated popup for stranger profiles? 
+        // It has its own 'setShowProfileModal'. Let's ensure it's used.
+      }, 500);
+    }
 
     const interval = setInterval(() => {
       setRegionalCounts({
@@ -300,7 +310,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
         </div>
         <div className="flex items-center gap-1.5 sm:gap-4 overflow-hidden">
           {connected && balance !== undefined && (
-            <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} />
+            <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} registered={registered} currentActiveSeconds={currentActiveSeconds} />
           )}
           <div className="px-2 sm:px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[8px] sm:text-[10px] font-black text-white/40 uppercase tracking-widest flex items-center gap-1 shrink-0">
             {country && <span className="opacity-100 grayscale hover:grayscale-0 transition-all cursor-help" title={`Localized to ${country}`}>{countryToFlag(country)}</span>}

@@ -126,7 +126,7 @@ const EMOJIS_3D = [
   { char: '👑', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f451/512.webp' },
 ];
 
-export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nickname, isCreator = false, myCountry, socket, isQueuing, onLeave, onFindNewPod, onJoined, coinState }) {
+export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestProp, nickname, isCreator = false, myCountry, socket, isQueuing, onLeave, onFindNewPod, onJoined, coinState, registered = false, currentActiveSeconds = 0 }) {
   const { balance = 0, streak = 0, canClaim = false, nextClaim = 0, claimCoins = () => { } } = coinState || {};
   const { iceServers } = useIceServers();
   const roomIdRef = useRef(null);
@@ -631,7 +631,21 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
       const rid = data.roomId || roomIdRef.current;
       if (rid) roomIdRef.current = rid;
       if (data.interest) setDisplayInterest(data.interest);
-      if (!hasJoinedRef.current) { hasJoinedRef.current = true; onJoined(rid); }
+      if (!hasJoinedRef.current) { 
+        hasJoinedRef.current = true; 
+        onJoined(rid); 
+
+        // Automated Group Presence Synthesis for Creators
+        if (isCreator && rid) {
+          setTimeout(() => {
+            socket.emit('send-message', { 
+              roomId: rid, 
+              text: `🌟 Hey team! I'm @${nickname} (Verified Creator). Check out my world: ${window.location.origin}/creator/${nickname}` 
+            });
+            setToast('Identity Broadcasted to Room');
+          }, 2000);
+        }
+      }
       setParticipantCount(data.participantCount ?? 1);
       setShowPreRoomWaiting(false);
     };
@@ -732,7 +746,10 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
       if (!from || from === socket.id) return;
       if (data.fromNickname) peerNicksRef.current.set(from, data.fromNickname);
       if (data.fromCountry) peerCountriesRef.current.set(from, data.fromCountry);
-      if (data.fromIsCreator) peerCreatorsRef.current.set(from, true);
+      if (data.fromIsCreator !== undefined) {
+        peerCreatorsRef.current.set(from, !!data.fromIsCreator);
+        setPeers(prev => prev.map(p => p.socketId === from ? { ...p, isCreator: !!data.fromIsCreator } : p));
+      }
       if (data.type === 'offer') {
         if (localStreamRef.current) {
           doAnswer(from, data.signal);
@@ -1193,7 +1210,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
             <span className="text-[10px] font-bold text-white/60">{formatTimer(connectedSecs)} · {participantCount}/4</span>
             {myCountry && <span className="text-xs">{countryToFlag(myCountry)}</span>}
           </div>
-          <CoinBadge balance={balance} canClaim={canClaim} onClaim={claimCoins} streak={streak} nextClaim={nextClaim} />
+          <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} registered={registered} currentActiveSeconds={currentActiveSeconds} />
         </div>
         <div className="flex items-center gap-2">
           {onFindNewPod && (

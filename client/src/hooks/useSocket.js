@@ -17,6 +17,8 @@ export function useSocket() {
   const [contentFlagged, setContentFlagged] = useState(null);
   const [coins, setCoins] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [registered, setRegistered] = useState(false);
+  const [activeSeconds, setActiveSeconds] = useState(0);
 
   // Fix #6: Ref to track contentFlagged timeout for proper cleanup
   const flaggedTimeoutRef = useRef(null);
@@ -42,6 +44,7 @@ export function useSocket() {
       });
 
       setSocket(s);
+      window.socket = s;
 
       s.on('connect', () => {
         if (!mounted) return;
@@ -71,6 +74,8 @@ export function useSocket() {
         setCountry(data?.country || null);
         setNickname(data?.nickname || 'Anonymous');
         setIsCreator(!!data?.isCreator);
+        setRegistered(!!data?.registered);
+        setActiveSeconds(data?.activeSeconds || 0);
         if (data?.settings) {
           setAdsEnabled(!!data.settings.adsEnabled);
           setAllowDevTools(!!data.settings.allowDevTools);
@@ -165,9 +170,10 @@ export function useSocket() {
     adsEnabled,
     allowDevTools,
     nickname,
-    isCreator,
     isBlocked,
     contentFlagged,
     coins,
-  }), [socket, connected, country, onlineCount, adsEnabled, allowDevTools, nickname, isCreator, isBlocked, contentFlagged, coins]);
+    registered,
+    activeSeconds,
+  }), [socket, connected, country, onlineCount, adsEnabled, allowDevTools, nickname, isCreator, isBlocked, contentFlagged, coins, registered, activeSeconds]);
 }

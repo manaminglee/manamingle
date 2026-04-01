@@ -7,49 +7,41 @@ import { formatTimeUntilClaim } from '../hooks/useCoins';
 const CLAIM_INTERVAL_MS = 60 * 60 * 1000;
 const REWARD_AMOUNT = 30;
 
-export function CoinBadge({ balance = 0, streak = 1, canClaim, nextClaim = 0, claimCoins, compact = false }) {
+export function CoinBadge({ balance = 0, streak = 1, canClaim, nextClaim = 0, claimCoins, compact = false, registered = false, currentActiveSeconds = 0 }) {
   const [showPopover, setShowPopover] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
   const [showClaimFeedback, setShowClaimFeedback] = useState(false);
   const [deduction, setDeduction] = useState(null);
-  const [activeTime, setActiveTime] = useState(() => Number(localStorage.getItem('mm_active_reward_time') || 0));
+  const [localActive, setLocalActive] = useState(currentActiveSeconds);
   const prevBalance = useRef(balance);
   const popoverRef = useRef(null);
 
-  const REWARD_DUR = 180; // 3 minutes
-  const REWARD_VAL = 40;
+  const REWARD_DUR = registered ? 3600 : 180; // 60 mins if registered, else 3 mins for hurdle
+  const REWARD_VAL = registered ? 30 : 40;
+
+  // Track server-synced value
+  useEffect(() => {
+    setLocalActive(currentActiveSeconds);
+  }, [currentActiveSeconds]);
 
   useEffect(() => {
     const timer = setInterval(() => {
-      if (document.visibilityState === 'visible' && activeTime < REWARD_DUR) {
-        setActiveTime(prev => {
-          const next = prev + 1;
-          localStorage.setItem('mm_active_reward_time', next);
-          return next;
-        });
+      if (document.visibilityState === 'visible' && localActive < REWARD_DUR) {
+        setLocalActive(prev => prev + 1);
       }
     }, 1000);
     return () => clearInterval(timer);
-  }, [activeTime]);
+  }, [localActive, REWARD_DUR]);
 
-  // Auto-claim activity reward
+  // Sync Heartbeat with Socket (Every 10s to minimize server load)
   useEffect(() => {
-    if (activeTime >= REWARD_DUR) {
-      const claimActivity = async () => {
-        try {
-          const API_BASE = import.meta.env.VITE_SOCKET_URL || '';
-          const res = await fetch(`${API_BASE}/api/coins/activity-reward`, { method: 'POST' });
-          if (res.ok) {
-            localStorage.setItem('mm_active_reward_time', '0');
-            setActiveTime(0);
-            setShowClaimFeedback(true);
-            setTimeout(() => setShowClaimFeedback(false), 3000);
-          }
-        } catch (e) { console.error('Activity Sync Failed'); }
-      };
-      claimActivity();
-    }
-  }, [activeTime]);
+    const heartbeat = setInterval(() => {
+      if (document.visibilityState === 'visible' && window.socket) {
+        window.socket.emit('accumulate-activity', { seconds: 10 });
+      }
+    }, 10000);
+    return () => clearInterval(heartbeat);
+  }, []);
 
   useEffect(() => {
     if (balance < prevBalance.current) {
@@ -89,7 +81,7 @@ export function CoinBadge({ balance = 0, streak = 1, canClaim, nextClaim = 0, cl
       {/* Claim feedback animation */}
       {showClaimFeedback && (
         <span className="absolute -top-10 left-1/2 -translate-x-1/2 text-amber-400 font-black text-xs animate-float-up pointer-events-none z-[101] whitespace-nowrap bg-black/60 px-2 py-1 rounded-full border border-amber-500/20">
-          🪙 +{activeTime >= REWARD_DUR ? REWARD_VAL : REWARD_AMOUNT} COINS
+          🪙 +{REWARD_VAL} COINS
         </span>
       )}
       {deduction && (
@@ -108,9 +100,10 @@ export function CoinBadge({ balance = 0, streak = 1, canClaim, nextClaim = 0, cl
         <div className="w-px h-3 bg-white/10 mx-1" />
         <span className="text-[9px] font-black uppercase text-white/30 tracking-tighter italic">🔥 {streak}d</span>
         
-        {/* Tiny live pulse indicator for 3m timer */}
+        {/* Tiny live pulse indicator for activity timer */}
         <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-white/5 rounded-full overflow-hidden">
-          <div className="h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${activeProgress}%` }} />
+          <div className={`h-full transition-all duration-1000 ${registered ? 'bg-cyan-500' : 'bg-emerald-500'}`} 
+               style={{ width: `${(localActive / REWARD_DUR) * 100}%` }} />
         </div>
       </button>
 
@@ -118,19 +111,24 @@ export function CoinBadge({ balance = 0, streak = 1, canClaim, nextClaim = 0, cl
         <div className="absolute top-full right-0 mt-3 z-[200] w-56 bg-black/95 backdrop-blur-3xl border border-white/10 rounded-3xl p-4 shadow-[0_20px_50px_rgba(0,0,0,0.6)] animate-in-zoom">
           <div className="space-y-4">
             
-            {/* 3M ACTIVITY REWARD - MINI VERSION */}
+            {/* MULTI-STAGE ACTIVITY REWARD */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                  <div className="flex items-center gap-2">
-                    <span className="text-xs">🎁</span>
-                    <span className="text-[9px] font-black uppercase tracking-widest text-white/70 italic">Stay Active 3M for {REWARD_VAL}</span>
+                    <span className="text-xs">{registered ? '🚀' : '🎁'}</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-white/70 italic">
+                      {registered ? `Hourly Reward: 30 Coins` : `Verify Identity (3m) for Registration`}
+                    </span>
                  </div>
-                 <span className="text-[9px] font-black text-emerald-400 italic tabular-nums">{Math.floor(activeTime / 60)}:{(activeTime % 60).toString().padStart(2, '0')}</span>
+                 <span className={`text-[9px] font-black italic tabular-nums ${registered ? 'text-cyan-400' : 'text-emerald-400'}`}>
+                   {Math.floor(localActive / 60)}:{(localActive % 60).toString().padStart(2, '0')}
+                 </span>
               </div>
               <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
-                <div className="h-full bg-emerald-500 rounded-full transition-all duration-1000" style={{ width: `${activeProgress}%` }} />
+                <div className={`h-full rounded-full transition-all duration-1000 ${registered ? 'bg-cyan-500' : 'bg-emerald-500'}`} 
+                     style={{ width: `${(localActive / REWARD_DUR) * 100}%` }} />
               </div>
-              <p className="text-[7px] font-black text-white/10 uppercase tracking-[0.2em] text-center italic">Uplink active only when visible</p>
+              <p className="text-[7px] font-black text-white/10 uppercase tracking-[0.2em] text-center italic">Calculated across sessions while active</p>
             </div>
           </div>
         </div>

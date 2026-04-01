@@ -124,10 +124,7 @@ const ipActivity = new Map(); // ip -> { firstSeen, lastSeen, persisted }
 const coinUsers = new Map(); // ip -> { coins, last_claim, streak, ... }
 
 async function getCoinUser(ip) {
-  // If we have it in memory already
   if (coinUsers.has(ip)) return coinUsers.get(ip);
-
-  // Try Supabase if available
   if (supabase) {
     const { data } = await supabase.from('user_coins').select('*').eq('ip', ip).single();
     if (data) {
@@ -135,9 +132,17 @@ async function getCoinUser(ip) {
       return data;
     }
   }
-
-  // Newcomer - start with 0, must stay active for 3m to get first 40 coins
-  const newcomer = { ip, coins: 0, last_claim: 0, streak: 1, last_claim_date: null };
+  // Newcomer: Initial 3-min hurdle for registration
+  const newcomer = { 
+    ip, 
+    coins: 0, 
+    last_claim: 0, 
+    streak: 1, 
+    last_claim_date: null,
+    active_seconds: 0, // Reset when hitting 3600 (1 hour)
+    total_active_seconds: 0,
+    registered: false 
+  };
   coinUsers.set(ip, newcomer);
   return newcomer;
 }
@@ -146,16 +151,19 @@ async function persistCoinUser(ip) {
   const u = coinUsers.get(ip);
   if (!u) return;
   const activity = ipActivity.get(ip);
-  if (activity && activity.persisted) return;
+  if (u.registered) return;
 
-  if (activity && (Date.now() - activity.firstSeen > 60000)) {
+  // 3-minute threshold for initial registry
+  if (activity && (Date.now() - activity.firstSeen > 180000)) {
+    u.registered = true;
     if (supabase) {
       await supabase.from('user_coins').upsert(u);
+      await supabase.from('activity_logs').insert({ ip, action: 'registered_ip', details: 'Stayed 3 Minutes' });
     } else {
       saveLocalDb();
     }
     if (activity) activity.persisted = true;
-    console.log(`[DB] Persisted IP ${ip} after 1m activity.`);
+    console.log(`[DB] Registered IP ${ip} after 3m hurdle.`);
   }
 }
 
@@ -364,60 +372,45 @@ app.get('/api/settings', (req, res) => {
   res.json({ adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools });
 });
 
-// 3-Minute Activity Reward (40 Coins)
+// 3-Minute Activity Reward (40 Coins) - Synchronized with Socket.io
 app.post('/api/coins/activity-reward', async (req, res) => {
   const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
-  const now = new Date();
-  const MIN_INTERVAL = 3 * 60 * 1000; // 3 minutes
+  const now = Date.now();
+  const MIN_INTERVAL = 180000; // 3 minutes
 
   try {
-    let userData = null;
-    if (supabase) {
-      const { data } = await supabase.from('user_coins').select('*').eq('ip', ip).single();
-      userData = data;
-    } else {
-      userData = coinUsers.get(ip);
-    }
+    const activity = ipActivity.get(ip);
+    if (!activity) return res.status(403).json({ error: 'Uplink not recognized' });
 
-    if (userData && userData.last_reward_claimed) {
-      const lastClaim = new Date(userData.last_reward_claimed);
-      if (now - lastClaim < MIN_INTERVAL) {
-        return res.status(429).json({ error: 'Uplink synchronization in progress. Wait for cycle.' });
-      }
+    // Verify they actually spent at least 3m since first seen OR since last claim
+    const cUser = await getCoinUser(ip);
+    const lastClaim = Number(cUser.last_reward_claimed) || 0;
+    const timeSinceLast = now - (lastClaim || activity.firstSeen);
+
+    if (timeSinceLast < MIN_INTERVAL) {
+      return res.status(429).json({ error: 'Sync cycle incomplete. Wait for uplink.' });
     }
 
     const reward = 40;
-    let newBalance = reward;
+    const nextBalance = (cUser.coins || 0) + reward;
+
+    await updateCoinUser(ip, {
+      coins: nextBalance,
+      last_reward_claimed: now
+    });
 
     if (supabase) {
-      if (userData) {
-        newBalance = (userData.coins || 0) + reward;
-        await supabase.from('user_coins').update({ 
-          coins: newBalance, 
-          last_reward_claimed: now.toISOString() 
-        }).eq('ip', ip);
-      } else {
-        await supabase.from('user_coins').insert({ 
-          ip, 
-          coins: reward, 
-          last_reward_claimed: now.toISOString(),
-          streak: 1
-        });
-      }
-      // Log for admin verification
       await supabase.from('activity_logs').insert({ ip, action: 'claimed_3m_bonus', amount: reward });
-    } else {
-      if (userData) {
-        userData.coins = (userData.coins || 0) + reward;
-        userData.last_reward_claimed = now.toISOString();
-        newBalance = userData.coins;
-      } else {
-        const newUser = { coins: reward, streak: 1, last_reward_claimed: now.toISOString() };
-        coinUsers.set(ip, newUser);
+    }
+
+    // Notify all connected sockets
+    for (const [sid, user] of users.entries()) {
+      if (user.ip === ip) {
+        io.to(sid).emit('coins-updated', { coins: nextBalance, reason: 'Activity Sustained' });
       }
     }
 
-    res.json({ success: true, balance: newBalance, message: 'Activity recognized. 40 Coins synthesized.' });
+    res.json({ success: true, balance: nextBalance, message: 'Activity recognized. 40 Coins synthesized.' });
   } catch (e) {
     res.status(500).json({ error: 'Economy link failure' });
   }
@@ -444,63 +437,7 @@ app.get('/api/turn', (req, res) => {
 });
 
 // Debug: Supabase connection status (safe - no secrets exposed)
-app.get('/api/admin/overview', requireAdmin, async (req, res) => {
-  const userList = Array.from(users.values()).map(u => ({
-    nickname: u.nickname,
-    country: u.country,
-    mode: u.mode,
-    ip: u.ip,
-    coins: coinUsers.get(u.ip)?.coins || 0
-  }));
-
-  const roomList = Array.from(rooms.values()).map(r => ({
-    id: r.id,
-    interest: r.interest,
-    mode: r.mode,
-    participantCount: r.users.size,
-    participants: r.participants
-  }));
-
-  // Get full IP list for Economy hub
-  const economyList = Array.from(coinUsers.values()).map(u => ({
-    ip: u.ip,
-    coins: u.coins,
-    streak: u.streak,
-    persisted: ipActivity.get(u.ip)?.persisted || false
-  }));
-
-  const totalCoins = Array.from(coinUsers.values()).reduce((sum, u) => sum + (u.coins || 0), 0);
-
-  res.json({
-    users: users.size,
-    rooms: rooms.size,
-    queues: {
-      text: pairQueues.text.length,
-      video: pairQueues.video.length
-    },
-    userList,
-    roomList,
-    economyList,
-    statsHistory,
-    openReportsCount: reports.length,
-    reports: reports.slice(-10),
-    coinStats: {
-      totalCoinsInSystem: totalCoins,
-      uniqueWallets: coinUsers.size
-    },
-    stats: {
-      uptimeSeconds: Math.floor(process.uptime()),
-      totalConnections: stats.totalConnections
-    },
-    roomsWithActivity: Array.from(rooms.values()).map(r => ({
-      id: r.id,
-      interest: r.interest,
-      mode: r.mode,
-      messages: r.messages?.slice(-5) || [],
-      users: Array.from(r.users).map(sid => users.get(sid)?.nickname)
-    }))
-  });
-});
+// Primary Admin Hub consolidated further down at line 1068
 
 app.post('/api/admin/coins/update', requireAdmin, async (req, res) => {
   const { ip, amount, set } = req.body || {};
@@ -1064,14 +1001,14 @@ app.post('/api/admin/settings', requireAdmin, (req, res) => {
   res.json(settings);
 });
 
-// Admin: high-level overview of current activity
-app.get('/api/admin/overview', requireAdmin, (req, res) => {
+// Admin: Integrated high-fidelity activity overview
+app.get('/api/admin/overview', requireAdmin, async (req, res) => {
   const roomList = Array.from(rooms.values()).map((room) => ({
     id: room.id,
     mode: room.mode,
     interest: room.interest,
     participantCount: room.users.size,
-    participants: room.participants, // Full list for visual monitoring
+    participants: room.participants,
     createdAt: room.createdAt,
   }));
 
@@ -1080,25 +1017,18 @@ app.get('/api/admin/overview', requireAdmin, (req, res) => {
     country: u.country,
     ip: u.ip,
     mode: u.mode || 'idle',
+    coins: coinUsers.get(u.ip)?.coins || 0,
     socketId: u.socketId
   }));
 
-  let coinStats = { totalUsers: 0, totalCoinsInSystem: 0 };
-  if (supabase) {
-    // In production with Supabase, we'd ideally use a sum query, 
-    // but for the admin dashboard overview, we'll use a snapshot or the cached Map if synced.
-    // For now, let's keep it robust by showing the Map if it has data, or a placeholder.
-    coinStats.totalUsers = coinUsers.size;
-    coinStats.totalCoinsInSystem = Array.from(coinUsers.values()).reduce((sum, u) => sum + (u.coins || 0), 0);
-  } else {
-    coinStats.totalUsers = coinUsers.size;
-    coinStats.totalCoinsInSystem = Array.from(coinUsers.values()).reduce((sum, u) => sum + (u.coins || 0), 0);
-  }
+  const economyList = Array.from(coinUsers.values()).map(u => ({
+    ip: u.ip,
+    coins: u.coins,
+    streak: u.streak,
+    persisted: ipActivity.get(u.ip)?.persisted || false
+  }));
 
-  const userWallets = {};
-  for (const [ip, data] of coinUsers.entries()) {
-    userWallets[ip] = data.coins || 0;
-  }
+  const totalCoins = economyList.reduce((sum, u) => sum + (u.coins || 0), 0);
 
   res.json({
     ...settings,
@@ -1110,11 +1040,15 @@ app.get('/api/admin/overview', requireAdmin, (req, res) => {
     },
     roomList,
     userList,
-    userWallets,
-    coinStats,
-    reports,
+    economyList,
+    coinStats: {
+      totalCoinsInSystem: totalCoins,
+      uniqueWallets: coinUsers.size
+    },
+    reports: reports.slice(-20),
     openReportsCount: reports.length,
     blockedIps: Array.from(blockedIps),
+    warnedIps: Array.from(warnedIps),
     stats: {
       totalMessages: stats.totalMessages,
       totalConnections: stats.totalConnections,
@@ -1122,9 +1056,33 @@ app.get('/api/admin/overview', requireAdmin, (req, res) => {
       uptimeSeconds: Math.floor(process.uptime()),
     },
     statsHistory,
-    warnedIps: Array.from(warnedIps),
+    roomsWithActivity: Array.from(rooms.values()).map(r => ({
+      id: r.id,
+      interest: r.interest,
+      mode: r.mode,
+      messages: r.messages?.slice(-5) || [],
+      users: Array.from(r.users).map(sid => users.get(sid)?.nickname)
+    })),
     memory: process.memoryUsage(),
   });
+});
+
+// Economy Audit Trail for Admin (Activity Logs)
+app.get('/api/admin/economy/logs', requireAdmin, async (req, res) => {
+  try {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('activity_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      return res.json({ logs: data || [] });
+    }
+    // Fallback for local DB
+    res.json({ logs: [] });
+  } catch (e) {
+    res.status(500).json({ error: 'Audit trail offline' });
+  }
 });
 
 app.post('/api/admin/warn', requireAdmin, (req, res) => {
@@ -1628,10 +1586,17 @@ io.on('connection', (socket) => {
         }
       }
     }
-    socket.emit('connected', { userId, nickname: finalNick, isCreator: finalIsCreator, country, settings: { adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools } });
-
-    // Ensure user has a coin profile
-    await getCoinUser(ip);
+    // Ensure user has a coin profile and send persistent states
+    const coinData = await getCoinUser(ip);
+    socket.emit('connected', { 
+      userId, 
+      nickname: finalNick, 
+      isCreator: finalIsCreator, 
+      country,
+      registered: !!coinData.registered,
+      activeSeconds: coinData.active_seconds || 0,
+      settings: { adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools } 
+    });
 
     emitOnlineCount();
   })();
@@ -1724,7 +1689,7 @@ io.on('connection', (socket) => {
 
       // --- AUTOMATED CREATOR INTRO MESSAGE ---
       if (userData.isCreator) {
-        const intro = `Hi! I am @${userData.nickname} - follow my profile here: ${process.env.FRONTEND_URL || 'manamingle.site'}/u/${userData.nickname}`;
+        const intro = `Hi! I am @${userData.nickname} - follow my profile here: ${process.env.FRONTEND_URL || 'manamingle.site'}/creator/${userData.nickname}`;
         io.to(room.id).emit('chat-message', {
           sender: socket.id,
           nickname: userData.nickname,
@@ -1735,7 +1700,7 @@ io.on('connection', (socket) => {
         });
       }
       if (otherData.isCreator) {
-        const intro = `Hi! I am @${otherData.nickname} - follow my profile here: ${process.env.FRONTEND_URL || 'manamingle.site'}/u/${otherData.nickname}`;
+        const intro = `Hi! I am @${otherData.nickname} - follow my profile here: ${process.env.FRONTEND_URL || 'manamingle.site'}/creator/${otherData.nickname}`;
         io.to(room.id).emit('chat-message', {
           sender: match.socketId,
           nickname: otherData.nickname,
@@ -2079,25 +2044,56 @@ io.on('connection', (socket) => {
   });
 
   socket.on('claim-active-reward', async () => {
+    // Legacy support for welcome bonus if needed, but primary logic is now hourly/accumulated
     const activity = ipActivity.get(ip);
     if (!activity) return;
-    if (Date.now() - activity.firstSeen >= 180000) {
-      const cUser = await getCoinUser(ip);
-      if (cUser.last_reward_claimed) return;
-      const newBalance = (cUser.coins || 0) + 40;
-      await updateCoinUser(ip, { coins: newBalance, last_reward_claimed: true });
-      if (supabase) {
-        await supabase.from('user_coins').upsert({ ip, coins: newBalance, last_reward_claimed: true });
-      } else {
-        saveLocalDb();
-      }
-      activity.persisted = true;
-      for (const [sid, user] of users.entries()) {
-        if (user.ip === ip) {
-          io.to(sid).emit('coins-updated', { coins: newBalance, reason: 'Activity Reward' });
-        }
-      }
-      console.log(`[REWARD] ${ip} claimed 40 coins.`);
+    const now = Date.now();
+    const cUser = await getCoinUser(ip);
+
+    // If they haven't gotten their welcome bonus yet and hit 3m
+    if (!cUser.registered && (now - activity.firstSeen >= 180000)) {
+       await persistCoinUser(ip);
+       const newBalance = (cUser.coins || 0) + 40;
+       await updateCoinUser(ip, { coins: newBalance, last_reward_claimed: now });
+       io.to(socket.id).emit('coins-updated', { coins: newBalance, reason: 'Welcome Bonus' });
+    }
+  });
+
+  // HIGH ACCURACY ACCUMULATOR: Triggered frequently by client when active
+  socket.on('accumulate-activity', async (data) => {
+    const { seconds } = data || {};
+    const clamped = Math.min(Math.max(Number(seconds) || 0, 0), 60); // Anti-cheat
+    if (clamped <= 0) return;
+
+    const cUser = await getCoinUser(ip);
+    const newActive = (cUser.active_seconds || 0) + clamped;
+    const nextTotal = (cUser.total_active_seconds || 0) + clamped;
+    
+    let coinsEarned = 0;
+    let finalActive = newActive;
+    
+    // Check for Hourly 30-Coin Milestone
+    if (cUser.registered && finalActive >= 3600) {
+      coinsEarned = 30;
+      finalActive -= 3600;
+      // Payout 30 coins
+      const nextBalance = (cUser.coins || 0) + coinsEarned;
+      await updateCoinUser(ip, { 
+        coins: nextBalance, 
+        active_seconds: finalActive,
+        total_active_seconds: nextTotal
+      });
+      io.to(socket.id).emit('coins-updated', { coins: nextBalance, reason: '1 Hour Active Reward' });
+    } else {
+      await updateCoinUser(ip, { 
+        active_seconds: finalActive,
+        total_active_seconds: nextTotal
+      });
+    }
+    
+    // If they hit 3m but aren't registered yet, trigger persistence
+    if (!cUser.registered && nextTotal >= 180) {
+       await persistCoinUser(ip);
     }
   });
 

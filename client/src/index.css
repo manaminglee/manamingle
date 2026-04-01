@@ -24,7 +24,7 @@
   --radius-lg: 16px;
   --radius-md: 12px;
   --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.5);
-  --glass: blur(16px);
+  --glass: blur(8px);
 }
 
 /* Tailwind custom colors bridge */
@@ -118,16 +118,8 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Subtle noise texture */
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  opacity: 0.025;
-  pointer-events: none;
-  z-index: 9998;
-}
+/* Subtle noise texture - DISABLED FOR THERMAL PERFORMANCE */
+/* body::after { ... } */
 
 /* ============================================================
    SCROLLBAR
@@ -588,8 +580,9 @@ body::after {
 
 /* Watermarks & Glassmorphism */
 .glass-watermark {
-  @apply backdrop-blur-md bg-white/5 border border-white/10 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.2em] text-white/40;
+  @apply backdrop-blur-sm bg-black/40 border border-white/10 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.2em] text-white/40;
   text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  backface-visibility: hidden;
 }
 
 .ai-status-dot {

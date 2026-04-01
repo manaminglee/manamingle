@@ -168,7 +168,7 @@ function VanishingMessage({ m, isMe, onReply }) {
   );
 }
 
-export default function TextChat({ socket, connected, country, onlineCount, interest = 'general', nickname = 'Anonymous', isCreator = false, onBack, onJoined, onFindNewPartner, adsEnabled, coinState }) {
+export default function TextChat({ socket, connected, country, onlineCount, interest = 'general', nickname = 'Anonymous', isCreator = false, onBack, onJoined, onFindNewPartner, adsEnabled, coinState, registered = false, currentActiveSeconds = 0 }) {
   const { balance, streak, canClaim, nextClaim, claimCoins } = coinState;
   const [messages, setMessages] = useState([]);
   const [sparks, setSparks] = useState([]);
@@ -608,7 +608,7 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
           {connected && (
             <>
               <div className="hidden lg:block">
-                 <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} />
+                 <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} registered={registered} currentActiveSeconds={currentActiveSeconds} />
               </div>
               <div className="flex px-3 py-1.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-[9px] font-black text-white/40 uppercase tracking-widest gap-2 items-center">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]" />

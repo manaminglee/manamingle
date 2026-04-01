@@ -16,6 +16,7 @@ export const ParticleText = ({ text = "MANA MINGLE", className = "" }) => {
       const isMobile = window.innerWidth < 768;
       canvas.width = window.innerWidth;
       canvas.height = 300;
+      mouse.radius = isMobile ? 80 : 150;
       particles = [];
 
       // Draw text to get pixel data
@@ -28,7 +29,7 @@ export const ParticleText = ({ text = "MANA MINGLE", className = "" }) => {
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const step = isMobile ? 6 : 3; // Lower density for mobile performance
+      const step = isMobile ? 12 : 3; // Significantly lower density for mobile thermal safety
       for (let y = 0; y < imageData.height; y += step) {
         for (let x = 0; x < imageData.width; x += step) {
           if (imageData.data[(y * 4 * imageData.width) + (x * 4) + 3] > 128) {
@@ -86,9 +87,11 @@ export const ParticleText = ({ text = "MANA MINGLE", className = "" }) => {
           this.color = '#06b6d4';
         }
         
-        // Subtle idle animation
-        this.x += Math.sin(Date.now() / 1000 + this.destX) * 0.1;
-        this.y += Math.cos(Date.now() / 1000 + this.destY) * 0.1;
+        // Subtle idle animation - DISABLED for mobile thermal safety
+        if (window.innerWidth >= 768) {
+          this.x += Math.sin(Date.now() / 1000 + this.destX) * 0.1;
+          this.y += Math.cos(Date.now() / 1000 + this.destY) * 0.1;
+        }
       }
     }
 
@@ -123,7 +126,19 @@ export const ParticleText = ({ text = "MANA MINGLE", className = "" }) => {
       ctx.stroke();
     };
 
-    const animate = () => {
+    let lastTime = 0;
+    const animate = (time) => {
+      const isMobile = window.innerWidth < 768;
+      const fpsLimit = isMobile ? 33.33 : 0; // Throttle to ~30fps on mobile
+      
+      if (fpsLimit > 0) {
+        if (time - lastTime < fpsLimit) {
+          animationFrameId = requestAnimationFrame(animate);
+          return;
+        }
+        lastTime = time;
+      }
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       drawCore();
       for (let i = 0; i < particles.length; i++) {
