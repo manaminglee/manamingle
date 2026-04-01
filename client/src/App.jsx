@@ -145,7 +145,7 @@ export default function App() {
     if (!socket) return;
     if (roomId) socket.emit('leave-room', { roomId });
     setRoomId(null);
-    socket.emit('join-group-by-interest', { interest, nickname: nickname || 'Anonymous', mode });
+    socket.emit('join-group-by-topics', { interest, nickname: nickname || 'Anonymous', mode });
   };
 
   const renderContent = () => {

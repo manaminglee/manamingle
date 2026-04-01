@@ -1883,7 +1883,7 @@ io.on('connection', (socket) => {
   });
 
   // Join group by interest (find or create room, max 4)
-  socket.on('join-group-by-interest', (data) => {
+  socket.on('join-group-by-topics', (data) => {
     const userData = users.get(socket.id);
     if (!userData) return;
     const interest = sanitize(String(data?.interest || '').toLowerCase(), 30) || 'general';
