@@ -183,10 +183,6 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
   const [localReactions, setLocalReactions] = useState([]); // {id, emoji, x, y}
   const audioAnalyzersRef = useRef(new Map()); // socketId -> analyzer
   const connTimerRef = useRef(null);
-  const typingTimerRef = useRef(null);
-  const toastTimerRef = useRef(null);
-  const inputRef = useRef(null);
-  const [showPreRoomWaiting, setShowPreRoomWaiting] = useState(false);
 
   useEffect(() => {
     if (socket && !hasJoinedRef.current) {
@@ -199,7 +195,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
           mode: 'group_video' 
         });
       }
-      setShowPreRoomWaiting(true);
+      // Auto-join logic — NO WAITING SCREEN
     }
   }, [socket, roomIdProp, interestProp]);
   const [showReactionTooltip, setShowReactionTooltip] = useState(() => !localStorage.getItem('mm_grp_seen_reaction_tooltip'));
@@ -652,7 +648,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
         }
       }
       setParticipantCount(data.participantCount ?? 1);
-      setShowPreRoomWaiting(false);
+      // Session stabilized
     };
 
     const onExistingPeers = (data) => {
@@ -1090,20 +1086,6 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
       )}
 
       {/* QUEUING OVERLAY */}
-      {/* Pre-room waiting experience (emotional hook) */}
-      {showPreRoomWaiting && (
-        <div className="absolute inset-0 z-[240] bg-[#0c0e1a]/98 backdrop-blur-3xl flex flex-col items-center justify-center p-8 text-center animate-fade-in">
-          <div className="relative w-24 h-24 mb-8">
-            <div className="radar-ring absolute inset-0 border-indigo-500/40" />
-            <div className="radar-ring absolute inset-4" style={{ animationDelay: '0.4s', borderColor: 'rgba(99,102,241,0.3)' }} />
-            <div className="absolute inset-0 flex items-center justify-center text-4xl">🎥</div>
-          </div>
-          <p className="text-sm font-bold text-white/90 mb-2">Preparing your camera...</p>
-          <p className="text-indigo-400 font-semibold mb-1">🌎 Matching with people who like <span className="capitalize">{displayInterest}</span></p>
-          <p className="text-xs text-white/50 mb-8">👥 Looking for up to 3 others</p>
-          <div className="search-dots scale-125"><span /><span /><span /></div>
-        </div>
-      )}
 
       {queuePos !== null && (
         <div className="absolute inset-0 z-[250] bg-[#0c0e1a]/95 backdrop-blur-3xl flex flex-col items-center justify-center p-6 text-center animate-fade-in">
