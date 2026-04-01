@@ -742,6 +742,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
       } else if (data.type === 'answer') {
         const pc = peerConnectionsRef.current.get(from);
         if (pc) {
+          if (pc.signalingState !== 'have-local-offer') return;
           try {
             pc.setRemoteDescription(new RTCSessionDescription(data.signal)).then(() => {
               const pend = pendingCandidatesRef.current.get(from) || [];
