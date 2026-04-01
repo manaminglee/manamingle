@@ -140,7 +140,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
   const [muted, setMuted] = useState(false);
    const [cameraOff, setCameraOff] = useState(false);
   const [facingMode, setFacingMode] = useState('user');
-  const [showChat, setShowChat] = useState(true);
+  const [showChat, setShowChat] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [isTranslatorActive, setIsTranslatorActive] = useState(false);
@@ -1050,14 +1050,9 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
     }
   }
 
-  // Adaptive layout: 1 = full, 2 = side-by-side, 3-4 = 2x2
-  const filledCount = tiles.filter(t => t.type === 'local' || t.type === 'peer' || t.type === 'searching').length;
-  const displayTiles = filledCount <= 2 ? tiles.filter(t => t.type !== 'empty') : tiles;
-  const gridClass = filledCount <= 1
-    ? 'grid-cols-1 grid-rows-1'
-    : filledCount === 2
-      ? 'grid-cols-1 grid-rows-2 sm:grid-cols-2 sm:grid-rows-1'
-      : 'grid-cols-2 grid-rows-2';
+  // PERSISTENT 2x2 GRID: Always show 4 panels
+  const displayTiles = tiles; 
+  const gridClass = 'grid-cols-2 grid-rows-2';
 
   const localStream = localStreamRef.current;
 
@@ -1277,17 +1272,9 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
                   ✕
                 </button>
               </div>
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-between gap-2 border-t border-white/5 pt-3">
                 <span className="text-xl font-black italic text-white uppercase tracking-tighter truncate">#{displayInterest}</span>
-                <button 
-                  onClick={() => {
-                    setRenameInput(displayInterest);
-                    setShowRenameModal(true);
-                  }}
-                  className="px-3 py-1.5 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[9px] font-black uppercase tracking-widest hover:bg-amber-500 hover:text-black transition-all"
-                >
-                  Rename
-                </button>
+                {/* Rename hidden from main header as requested */}
               </div>
             </header>
 
@@ -1359,6 +1346,34 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
         )}
       </main>
 
+      {/* EMOJI & SPECIAL ACTIONS BAR */}
+      <div className="fixed bottom-20 sm:bottom-24 left-1/2 -translate-x-1/2 flex items-center gap-2 p-1.5 rounded-2xl bg-black/40 border border-white/5 backdrop-blur-3xl z-[140] animate-fade-in">
+        {EMOJIS_3D.map(e => (
+          <button
+            key={e.char}
+            onClick={() => {
+              if (balance < 5) return alert("Requires 5 Mana (Coins)");
+              socket.emit('send-3d-emoji', { emoji: e, roomId: roomIdProp || roomIdRef.current });
+            }}
+            className="w-10 h-10 sm:w-11 sm:h-11 flex-shrink-0 bg-white/5 border border-white/5 rounded-xl flex items-center justify-center hover:bg-white/10 hover:scale-110 transition-all active:scale-95"
+            title={`${e.char} (5 Mana)`}
+          >
+            <img src={e.url} className="w-7 h-7 sm:w-8 sm:h-8" alt={e.char} />
+          </button>
+        ))}
+        <div className="w-[1px] h-6 bg-white/10 mx-1" />
+        <button 
+          onClick={() => {
+            setRenameInput(displayInterest);
+            setShowRenameModal(true);
+          }}
+          className="w-10 h-10 flex-shrink-0 bg-amber-500/10 border border-amber-500/10 text-amber-500 rounded-xl flex items-center justify-center text-xs hover:bg-amber-500 hover:text-black transition-all"
+          title="Rename Realm"
+        >
+          ✎
+        </button>
+      </div>
+
       {/* BOTTOM CONTROL BAR - Cam, Blur, Mute, Leave only - min 44px tap targets */}
       <footer className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 flex items-center justify-center gap-2 sm:gap-4 px-4 py-3 rounded-full bg-black/60 border border-white/10 backdrop-blur-2xl shadow-2xl z-[150]">
         <button onClick={toggleCamera} title={cameraOff ? 'Turn camera on' : 'Turn camera off'} aria-label={cameraOff ? 'Turn camera on' : 'Turn camera off'} className={`min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-black/60 ${cameraOff ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/30' : 'bg-white/10 text-white hover:bg-white/20'}`}>
@@ -1405,49 +1420,41 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
         </button>
       </footer>
 
-      {/* RENAME MODAL */}
+      {/* MINIMAL RENAME OVERLAY — Inline focus */}
       {showRenameModal && (
-        <div className="absolute inset-0 z-[260] bg-[#0c0e1a]/80 backdrop-blur-3xl flex items-center justify-center p-4 overflow-hidden animate-fade-in">
-          <div className="w-full max-w-sm bg-[#1a1d21] border border-white/10 rounded-[2.5rem] p-8 shadow-2xl animate-scale-in flex flex-col gap-8 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 to-transparent" />
-            <div className="flex flex-col gap-2">
-              <h2 className="text-2xl font-black italic text-white uppercase tracking-tighter">Rename Realm</h2>
-              <p className="text-[10px] font-black uppercase tracking-widest text-amber-500 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                Costs 25 Coins
-              </p>
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[260] w-72 bg-[#1a1d21]/95 backdrop-blur-3xl border border-white/10 rounded-3xl p-5 shadow-2xl animate-fade-in flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+               <h5 className="text-[10px] font-black uppercase tracking-widest text-amber-500">Specialize Topic (25c)</h5>
+               <span className="text-[8px] font-bold text-white/20">ENTER TO APPLY</span>
             </div>
-            <div className="flex flex-col gap-3">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">Proposed Topic</label>
-              <input
-                type="text"
-                maxLength={30}
-                value={renameInput}
-                onChange={(e) => setRenameInput(e.target.value)}
-                placeholder="Topic..."
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm font-bold text-white focus:border-amber-500 transition-all outline-none"
-              />
+            <input
+              autoFocus
+              type="text"
+              maxLength={25}
+              value={renameInput}
+              onChange={(e) => setRenameInput(e.target.value)}
+              onKeyDown={(e) => {
+                 if (e.key === 'Enter') {
+                    if (balance < 25) return alert("Insufficient Mana");
+                    socket.emit('rename-group-room', { roomId: roomIdProp || roomIdRef.current, newInterest: renameInput.trim() });
+                    setShowRenameModal(false);
+                 }
+                 if (e.key === 'Escape') setShowRenameModal(false);
+              }}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white focus:border-amber-500 outline-none transition-all"
+              placeholder="e.g. Gaming, Tech..."
+            />
+            <div className="flex gap-2">
+               <button onClick={() => setShowRenameModal(false)} className="flex-1 py-2.5 rounded-xl bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/50 hover:bg-white/10">Back</button>
+               <button 
+                  onClick={() => {
+                    if (balance < 25) return alert("Insufficient Mana");
+                    socket.emit('rename-group-room', { roomId: roomIdProp || roomIdRef.current, newInterest: renameInput.trim() });
+                    setShowRenameModal(false);
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-500 text-black text-[9px] font-black uppercase tracking-widest shadow-lg shadow-amber-500/20"
+                >Apply Now</button>
             </div>
-            <div className="flex gap-4">
-              <button
-                onClick={() => setShowRenameModal(false)}
-                className="flex-1 py-4 rounded-2xl border border-white/5 bg-white/5 font-black text-[10px] uppercase tracking-widest text-white/50 hover:bg-white/10 hover:text-white transition-all active:scale-95"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  if (!renameInput.trim()) return alert("Topic cannot be empty");
-                  if (balance < 25) return alert("Insufficient Mana");
-                  socket.emit('rename-group-room', { roomId: roomIdProp || roomIdRef.current, newInterest: renameInput.trim() });
-                  setShowRenameModal(false);
-                }}
-                className="flex-1 py-4 rounded-2xl bg-amber-500 shadow-lg shadow-amber-500/20 font-black text-[10px] uppercase tracking-widest text-black hover:bg-amber-400 transition-all active:scale-95"
-              >
-                Apply (25c)
-              </button>
-            </div>
-          </div>
         </div>
       )}
       {toast && (

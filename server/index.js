@@ -186,11 +186,12 @@ async function updateCoinUser(ip, updates) {
   Object.assign(u, updates);
   coinUsers.set(ip, u);
 
-  // If already persisted or qualifies, update DB
+  // Always use upsert for spent coins/activity to ensure persistence
   const activity = ipActivity.get(ip);
   if (activity?.persisted || u.registered) {
     if (supabase) {
-      await supabase.from('user_coins').update(updates).eq('ip', ip);
+      // USE UPSERT instead of UPDATE to ensure records are created if missing
+      await supabase.from('user_coins').upsert(u);
     } else {
       saveLocalDb();
     }
@@ -1989,6 +1990,12 @@ io.on('connection', (socket) => {
 
     room.interest = sanitized;
     io.to(roomId).emit('group-renamed', { interest: sanitized, nickname: u.nickname });
+
+    // PERSISTENCE: Commit specialized topic to SQL
+    if (supabase) {
+      await supabase.from('group_rooms').upsert({ id: roomId, interest: sanitized, creator_ip: ip });
+      await supabase.from('activity_logs').insert({ ip, action: 'renamed_room', amount: 25, details: `Topic: ${sanitized} (Room: ${roomId})` });
+    }
 
     // Sync all IP sockets
     for (const [sid, user] of users.entries()) {

@@ -1495,23 +1495,21 @@ export function LandingPage({ onJoin, coinState, isJoining = false, initialCreat
               </div>
 
               {/* CREATE ACTION */}
-              <div className="flex gap-3">
-                <input 
-                  type="text"
-                  placeholder={`ENTER CUSTOM REALM NAME (e.g. ${rotatingPlaceholder})...`}
-                  className="flex-1 h-14 bg-white/[0.02] border border-white/5 focus:border-cyan-500/40 rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest outline-none text-white transition-all"
-                  value={customRoomName}
-                  onChange={e => setCustomRoomName(e.target.value)}
-                />
+              <div className="flex flex-col gap-4">
                 <button 
                   onClick={() => {
-                    const finalTopic = (customRoomName || '').trim() || rotatingPlaceholder;
-                    onJoin(finalTopic, 'Anonymous', browserMode);
+                    onJoin('general', 'Anonymous', browserMode);
                     setShowGroupBrowser(false);
-                    setCustomRoomName('');
                   }}
-                  className="px-8 h-14 bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-white hover:text-black transition-all active:scale-95 shadow-xl shadow-indigo-500/10"
-                >Start New →</button>
+                  className="w-full h-16 bg-indigo-600 text-white text-xs font-black uppercase tracking-[0.4em] rounded-[2rem] hover:bg-white hover:text-black transition-all active:scale-95 shadow-2xl flex items-center justify-center gap-4 group"
+                >
+                  <span className="group-hover:translate-x-2 transition-transform">Start Instant Realm →</span>
+                </button>
+                <div className="flex items-center gap-3 px-4">
+                  <div className="flex-1 h-[1px] bg-white/5" />
+                  <span className="text-[10px] font-black uppercase text-white/20 tracking-widest italic">Live Global Sessions</span>
+                  <div className="flex-1 h-[1px] bg-white/5" />
+                </div>
               </div>
             </div>
 

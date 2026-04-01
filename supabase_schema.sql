@@ -77,6 +77,16 @@ CREATE TABLE IF NOT EXISTS admin_history (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 7. Group Rooms Table (Persistence for specialized topics)
+CREATE TABLE IF NOT EXISTS group_rooms (
+  id TEXT PRIMARY KEY,
+  interest TEXT NOT NULL,
+  mode TEXT DEFAULT 'group_video',
+  creator_ip TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Enable Row Level Security (RLS)
 ALTER TABLE creators ENABLE ROW LEVEL SECURITY;
 ALTER TABLE referral_logs ENABLE ROW LEVEL SECURITY;
@@ -106,6 +116,10 @@ CREATE POLICY "Allow full access" ON withdrawals FOR ALL TO anon, authenticated,
 CREATE POLICY "Allow full access" ON user_coins FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
 CREATE POLICY "Allow full access" ON creator_logins FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
 CREATE POLICY "Allow full access" ON admin_history FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Allow full access" ON group_rooms FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
+
+-- Enable RLS for new table
+ALTER TABLE group_rooms ENABLE ROW LEVEL SECURITY;
 
 -- 7. Delta/Migration Patches (Safe to run multiple times)
 DO $$ 
@@ -209,6 +223,7 @@ CREATE TABLE IF NOT EXISTS activity_logs (
   ip TEXT NOT NULL,
   action TEXT NOT NULL,
   amount INTEGER DEFAULT 0,
+  details TEXT, -- ADDED details for better auditability
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
