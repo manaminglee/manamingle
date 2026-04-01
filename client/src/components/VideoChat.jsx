@@ -253,6 +253,8 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
   const [showCoinHistory, setShowCoinHistory] = useState(false);
   const [smartReplies, setSmartReplies] = useState([]);
   const [filterTimer, setFilterTimer] = useState(0);
+  const [showDeductionAnim, setShowDeductionAnim] = useState(false);
+  const [deductionValue, setDeductionValue] = useState(0);
   const [strangerFilter, setStrangerFilter] = useState('none');
   const [strangerBlur, setStrangerBlur] = useState(false);
   const [isModerating, setIsModerating] = useState(false);
@@ -701,22 +703,23 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       setFilterTimer(0);
       return;
     }
+    
+    // Set 60s timer for the premium filter
     setFilterTimer(60);
+    
     const tickInterval = setInterval(() => {
-      setFilterTimer(t => (t <= 1 ? 60 : t - 1));
+      setFilterTimer(prev => {
+        if (prev <= 1) {
+          setActiveFilter('none');
+          setToast('📺 Premium filter duration expired. Reverted to Normal.');
+          return 0;
+        }
+        return prev - 1;
+      });
     }, 1000);
 
-    const deductionInterval = setInterval(() => {
-      if (coins >= 12) {
-        if (socket) socket.emit('spend-coins', { amount: 12, reason: 'Premium Video Filter Maintenance' });
-        if (addHistory) addHistory('Premium Filter (1 min)', -12);
-      } else {
-        setActiveFilter('none');
-        setToast('Premium filter auto-stopped (insufficient coins).');
-      }
-    }, 60000);
-    return () => { clearInterval(tickInterval); clearInterval(deductionInterval); };
-  }, [activeFilter, socket, addHistory]);
+    return () => clearInterval(tickInterval);
+  }, [activeFilter]);
 
   const handleFilterSelect = (filterId) => {
     if (filterId === 'none') {
@@ -724,14 +727,23 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       setShowFilterMenu(false);
       return;
     }
-    if (coins < 12) {
-      alert('You need at least 12 coins to enable premium video filters.');
+    
+    const COST = 15;
+    if (coins < COST) {
+      setToast(`⚠️ You need ${COST} coins for Premium Filters.`);
       return;
     }
-    if (socket) socket.emit('spend-coins', { amount: 12, reason: 'Premium Video Filter' });
-    if (addHistory) addHistory('Premium Filter (1 min)', -12);
+    
+    if (socket) socket.emit('spend-coins', { amount: COST, reason: 'Premium Video Filter (60s)' });
+    
+    // Trigger animation
+    setDeductionValue(COST);
+    setShowDeductionAnim(true);
+    setTimeout(() => setShowDeductionAnim(false), 2000);
+    
     setActiveFilter(filterId);
     setShowFilterMenu(false);
+    setToast(`✨ Premium Filter Active: 60s duration started.`);
   };
 
   useEffect(() => {
@@ -1268,7 +1280,12 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
         </button>
         <span className="text-[11px] font-bold uppercase tracking-wider text-white/40">Mana Mingle Video</span>
         <div className="flex items-center gap-2">
-          <button onClick={() => setShowFilterMenu(true)} className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition">Filters</button>
+          <button onClick={() => setShowFilterMenu(true)} className="relative group px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition-all border border-indigo-500/20 flex flex-col items-center">
+            <span>Filters</span>
+            {filterTimer > 0 && (
+              <span className="text-[8px] text-amber-500 animate-pulse">{filterTimer}s</span>
+            )}
+          </button>
           {country && <span className="text-[14px] leading-none opacity-80" title={`Location: ${country}`}>{countryToFlag(country)}</span>}
           <span className="text-[10px] text-white/30 inline">{(typeof onlineCount === 'object' ? onlineCount?.count : onlineCount) || 0} online</span>
           <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} registered={registered} currentActiveSeconds={currentActiveSeconds} />
@@ -1334,12 +1351,26 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
               </div>
             )}
             {status === 'connected' && (
-              <>
+              <div className="relative w-full h-full">
                 <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover transition-opacity duration-300 ${facingMode === 'user' ? '-scale-x-100' : ''} ${cameraOff ? 'opacity-20' : ''}`} style={{ filter: cameraBlur && activeFilter === 'none' ? 'blur(20px)' : (activeFilter !== 'none' ? activeFilter : 'none') }} />
+                
+                {/* FLOATING DEDUCTION ANIMATION */}
+                {showDeductionAnim && (
+                  <div className="absolute inset-0 flex items-center justify-center z-[200] pointer-events-none">
+                     <div className="flex items-center gap-2 bg-black/60 px-4 py-2 rounded-full border border-rose-500/30 animate-coin-deduct-float shadow-2xl">
+                        <span className="text-lg">🪙</span>
+                        <span className="text-xl font-black text-rose-500">-{deductionValue}</span>
+                     </div>
+                  </div>
+                )}
+
                 <div className="absolute bottom-3 left-3 flex items-center gap-1.5 z-10">
                   <span className="px-2 py-1 rounded bg-black/60 text-[10px] font-black uppercase tracking-widest border border-white/10">You</span>
+                  {filterTimer > 0 && (
+                    <span className="px-2 py-1 rounded bg-amber-500 text-black text-[9px] font-black animate-pulse">PREMIUM ACTIVE: {filterTimer}S</span>
+                  )}
                 </div>
-              </>
+              </div>
             )}
           </div>
 
@@ -1552,7 +1583,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
               <button onClick={() => setShowFilterMenu(false)} className="text-white/40 hover:text-white">✕</button>
             </div>
             <p className="text-[10px] text-white/40 text-center leading-relaxed">
-              Premium filters cost <strong className="text-amber-500">12 coins per minute</strong> while active. You will be asked for auto-deduct access.
+              Premium filters cost <strong className="text-amber-500">15 coins</strong> for 1 minute of exploration. Normal filters are always free.
             </p>
             <div className="grid grid-cols-2 gap-2 mt-2">
               {VIDEO_FILTERS.map(f => (
