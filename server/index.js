@@ -1965,6 +1965,35 @@ io.on('connection', (socket) => {
     socket.emit('left-room', { roomId });
   });
 
+  socket.on('rename-group-room', async (data) => {
+    const { roomId, newInterest } = data || {};
+    const u = users.get(socket.id);
+    const room = rooms.get(roomId);
+    if (!u || !room) return;
+    if (room.mode !== 'group_video' && room.mode !== 'group_text') return;
+
+    const cUser = await getCoinUser(ip);
+    if (cUser.coins < 25) {
+      return socket.emit('error', { message: 'You need 25 coins to rename this room.' });
+    }
+
+    const nextBalance = cUser.coins - 25;
+    await updateCoinUser(ip, { coins: nextBalance });
+
+    const sanitized = sanitize(String(newInterest || '').toLowerCase(), 30);
+    if (!sanitized) return socket.emit('error', { message: 'Invalid name provided.' });
+
+    room.interest = sanitized;
+    io.to(roomId).emit('group-renamed', { interest: sanitized, nickname: u.nickname });
+
+    // Payout logic: Notify all sockets with this IP
+    for (const [sid, user] of users.entries()) {
+      if (user.ip === ip) {
+        io.to(sid).emit('coins-updated', { coins: nextBalance, reason: 'Room Renaming Fee' });
+      }
+    }
+  });
+
   socket.on('send-message', (data) => {
     const { roomId, text, replyTo } = data || {};
     const u = users.get(socket.id);

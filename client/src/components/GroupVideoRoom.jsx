@@ -184,15 +184,22 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
   const typingTimerRef = useRef(null);
   const toastTimerRef = useRef(null);
   const inputRef = useRef(null);
-  const [showEntryModal, setShowEntryModal] = useState(isQueuing);
   const [showPreRoomWaiting, setShowPreRoomWaiting] = useState(false);
 
   useEffect(() => {
-    if (socket && roomIdProp && !hasJoinedRef.current) {
-      socket.emit('join-specific-group', { roomId: roomIdProp, nickname: nickname || 'Admin' });
-      setShowEntryModal(false);
+    if (socket && !hasJoinedRef.current) {
+      if (roomIdProp) {
+        socket.emit('join-specific-group', { roomId: roomIdProp, nickname: nickname || 'Admin' });
+      } else {
+        socket.emit('join-group-by-interest', { 
+          interest: interestProp || 'general', 
+          nickname: nickname || 'Anonymous', 
+          mode: 'group_video' 
+        });
+      }
+      setShowPreRoomWaiting(true);
     }
-  }, [socket, roomIdProp]);
+  }, [socket, roomIdProp, interestProp]);
   const [showReactionTooltip, setShowReactionTooltip] = useState(() => !localStorage.getItem('mm_grp_seen_reaction_tooltip'));
   const [localInterest, setLocalInterest] = useState(interestProp || 'general');
   const [joinRoomIdInput, setJoinRoomIdInput] = useState('');
@@ -253,10 +260,6 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
   useEffect(() => {
     fetchInterests();
   }, []);
-
-  useEffect(() => {
-    if (showEntryModal) fetchInterests();
-  }, [showEntryModal]);
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
@@ -779,6 +782,11 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
       setTimeout(() => onLeave(), 2000);
     };
 
+    const onGroupRenamed = (data) => {
+      setDisplayInterest(data.interest);
+      setToast(`🏷️ Room renamed to #${data.interest} by ${data.nickname}`);
+    };
+
     socket.on('group-joined', onGroupJoined);
     socket.on('existing-peers', onExistingPeers);
     socket.on('chat-history', onHistory);
@@ -788,9 +796,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
     socket.on('webrtc-signal', onSignal);
     socket.on('system-announcement', onSystemMsg);
     socket.on('room-ended-by-admin', onRoomEndedByAdmin);
-
-    // Auto-join group on mount removed; we rely on the Entry Modal instead.
-
+    socket.on('group-renamed', onGroupRenamed);
 
     return () => {
       socket.off('group-joined', onGroupJoined);
@@ -802,6 +808,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
       socket.off('webrtc-signal', onSignal);
       socket.off('system-announcement', onSystemMsg);
       socket.off('room-ended-by-admin', onRoomEndedByAdmin);
+      socket.off('group-renamed', onGroupRenamed);
     };
   }, [socket, onJoined, onLeave]);
 
@@ -819,7 +826,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
       });
       socket.on('room-full', (data) => {
         alert(data.message);
-        setShowEntryModal(true);
+        onLeave();
       });
       socket.on('waiting-in-group-queue', (data) => {
         setQueuePos(data.queuePosition);
@@ -1106,101 +1113,13 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
           <h2 className="text-xl font-bold tracking-widest uppercase text-white mb-2">Group is Full</h2>
           <p className="text-sm font-black text-indigo-400 uppercase tracking-widest mb-8">Waiting in Queue: Position {queuePos}</p>
           <div className="search-dots scale-150 mb-8"><span /><span /><span /></div>
-          <button onClick={() => { setQueuePos(null); setShowEntryModal(true); }} className="px-6 py-3 rounded-full bg-white/10 hover:bg-white/20 font-black text-xs uppercase tracking-widest transition-all">
+          <button onClick={() => { setQueuePos(null); onLeave(); }} className="px-6 py-3 rounded-full bg-white/10 hover:bg-white/20 font-black text-xs uppercase tracking-widest transition-all">
             Cancel & Pick Another
           </button>
         </div>
       )}
 
-      {/* ENTRY MODAL */}
-      {showEntryModal && (
-        <div className="absolute inset-0 z-[200] bg-[#1a1d21]/95 backdrop-blur-xl flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-[#0c0e1a] border border-white/10 rounded-3xl p-6 shadow-2xl flex flex-col gap-6 animate-slide-in-up">
-            <h2 className="text-xl font-bold tracking-tight text-white text-center">Join Group Video</h2>
-
-            {activeInterests.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-emerald-400 ml-1 flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Active Groups</label>
-                <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto custom-scrollbar">
-                  {activeInterests.map(ai => (
-                    <button
-                      key={ai.interest}
-                      onClick={() => setLocalInterest(ai.interest)}
-                      className={`px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${localInterest === ai.interest ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300 scale-105 shadow-lg shadow-indigo-500/20' : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white'}`}
-                    >
-                      {ai.interest} <span className="text-white/30 ml-1">({ai.count})</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="flex flex-col gap-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-1">Select Interest (Mandatory)</label>
-              <input
-                type="text"
-                value={localInterest}
-                onChange={(e) => setLocalInterest(e.target.value)}
-                placeholder="e.g. Anime, Gaming, Music"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 transition-all text-white outline-none"
-              />
-              <button
-                onClick={() => {
-                  if (!localInterest.trim()) return alert("Interest is mandatory!");
-                  setDisplayInterest(localInterest.trim());
-                  setShowEntryModal(false);
-                  setShowPreRoomWaiting(true);
-                  socket.emit('join-group-by-interest', { interest: localInterest.trim(), nickname: 'Anonymous', mode: 'group_video' });
-                }}
-                className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition-all"
-              >
-                Join via Interest
-              </button>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-[1px] bg-white/10"></div>
-              <span className="text-[10px] uppercase font-bold text-white/30">OR Paste Link</span>
-              <div className="flex-1 h-[1px] bg-white/10"></div>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-1">Join via Link / ID</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={joinRoomIdInput}
-                  onChange={(e) => setJoinRoomIdInput(e.target.value)}
-                  placeholder="Paste Room ID"
-                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 transition-all text-white outline-none"
-                />
-                <button
-                  onClick={() => {
-                    const cleanId = joinRoomIdInput.trim().split('/').pop();
-                    if (!cleanId) return alert("Enter a valid Room ID");
-                    socket.emit('join-specific-group', { roomId: cleanId, nickname: 'Anonymous' });
-                    setShowEntryModal(false);
-                  }}
-                  className="h-full px-5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all text-xs"
-                >
-                  Join
-                </button>
-                <button
-                  onClick={generateRandomRoom}
-                  className="h-full px-3 bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-xl hover:bg-indigo-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest"
-                  title="Generate Random ID"
-                >
-                  🎲
-                </button>
-              </div>
-            </div>
-
-            <button onClick={onLeave} className="text-[10px] font-bold text-white/30 hover:text-white uppercase tracking-widest underline mt-2">
-              Cancel & Leave
-            </button>
-          </div>
-        </div>
-      )}
+      {/* ENTRY MODAL REMOVED - Auto-join is active */}
 
       {/* TOP BAR - minimal: logo + participants count + tap for more */}
       <header className="h-12 sm:h-14 flex-shrink-0 flex items-center justify-between px-4 sm:px-6 bg-[#1a1d21] border-b border-white/5 z-[80]">
@@ -1360,15 +1279,32 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
         </div>
 
         {showChat && (
-          <aside className="fixed inset-0 sm:relative sm:w-80 h-full bg-[#1a1d21] border-l border-white/5 flex flex-col animate-slide-in-right z-[160]">
-            <header className="p-4 border-b border-white/5 flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Group Chat</span>
-              <button
-                onClick={() => setShowChat(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-rose-500 hover:text-white text-white/20 transition-all font-bold"
-              >
-                ✕
-              </button>
+          <aside className="fixed inset-0 sm:relative sm:w-80 h-full bg-[#1a1d21]/90 backdrop-blur-xl border-l border-white/5 flex flex-col animate-slide-in-right z-[160]">
+            <header className="p-4 border-b border-white/10 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Group Realm</span>
+                <button
+                  onClick={() => setShowChat(false)}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-rose-500/20 hover:text-rose-400 text-white/20 transition-all font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xl font-black italic text-white uppercase tracking-tighter truncate">#{displayInterest}</span>
+                <button 
+                  onClick={() => {
+                    const nextName = prompt("Rename this Realm? (Costs 25 Coins)", displayInterest);
+                    if (nextName && nextName.trim() && nextName.trim().toLowerCase() !== displayInterest) {
+                      if (balance < 25) return alert("Insufficient Mana (25 Coins Required)");
+                      socket.emit('rename-group-room', { roomId: roomIdProp || roomIdRef.current, newInterest: nextName.trim() });
+                    }
+                  }}
+                  className="px-3 py-1.5 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[9px] font-black uppercase tracking-widest hover:bg-amber-500 hover:text-black transition-all"
+                >
+                  Rename
+                </button>
+              </div>
             </header>
 
             <div id="group-video-chat-messages" className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
