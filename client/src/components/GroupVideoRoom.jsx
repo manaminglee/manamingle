@@ -144,6 +144,8 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
   const [replyingTo, setReplyingTo] = useState(null);
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [isTranslatorActive, setIsTranslatorActive] = useState(false);
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [renameInput, setRenameInput] = useState(displayInterest);
   const [icebreaker] = useState(() => ICEBREAKERS[Math.floor(Math.random() * ICEBREAKERS.length)]);
   const localVideoRef = useRef(null);
   const localStreamRef = useRef(null);
@@ -1294,11 +1296,8 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
                 <span className="text-xl font-black italic text-white uppercase tracking-tighter truncate">#{displayInterest}</span>
                 <button 
                   onClick={() => {
-                    const nextName = prompt("Rename this Realm? (Costs 25 Coins)", displayInterest);
-                    if (nextName && nextName.trim() && nextName.trim().toLowerCase() !== displayInterest) {
-                      if (balance < 25) return alert("Insufficient Mana (25 Coins Required)");
-                      socket.emit('rename-group-room', { roomId: roomIdProp || roomIdRef.current, newInterest: nextName.trim() });
-                    }
+                    setRenameInput(displayInterest);
+                    setShowRenameModal(true);
                   }}
                   className="px-3 py-1.5 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[9px] font-black uppercase tracking-widest hover:bg-amber-500 hover:text-black transition-all"
                 >
@@ -1421,9 +1420,54 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
         </button>
       </footer>
 
+      {/* RENAME MODAL */}
+      {showRenameModal && (
+        <div className="absolute inset-0 z-[260] bg-[#0c0e1a]/80 backdrop-blur-3xl flex items-center justify-center p-4 overflow-hidden animate-fade-in">
+          <div className="w-full max-w-sm bg-[#1a1d21] border border-white/10 rounded-[2.5rem] p-8 shadow-2xl animate-scale-in flex flex-col gap-8 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 to-transparent" />
+            <div className="flex flex-col gap-2">
+              <h2 className="text-2xl font-black italic text-white uppercase tracking-tighter">Rename Realm</h2>
+              <p className="text-[10px] font-black uppercase tracking-widest text-amber-500 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                Costs 25 Coins
+              </p>
+            </div>
+            <div className="flex flex-col gap-3">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">Proposed Topic</label>
+              <input
+                type="text"
+                maxLength={30}
+                value={renameInput}
+                onChange={(e) => setRenameInput(e.target.value)}
+                placeholder="Topic..."
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm font-bold text-white focus:border-amber-500 transition-all outline-none"
+              />
+            </div>
+            <div className="flex gap-4">
+              <button
+                onClick={() => setShowRenameModal(false)}
+                className="flex-1 py-4 rounded-2xl border border-white/5 bg-white/5 font-black text-[10px] uppercase tracking-widest text-white/50 hover:bg-white/10 hover:text-white transition-all active:scale-95"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (!renameInput.trim()) return alert("Topic cannot be empty");
+                  if (balance < 25) return alert("Insufficient Mana");
+                  socket.emit('rename-group-room', { roomId: roomIdProp || roomIdRef.current, newInterest: renameInput.trim() });
+                  setShowRenameModal(false);
+                }}
+                className="flex-1 py-4 rounded-2xl bg-amber-500 shadow-lg shadow-amber-500/20 font-black text-[10px] uppercase tracking-widest text-black hover:bg-amber-400 transition-all active:scale-95"
+              >
+                Apply (25c)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {toast && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 rounded-2xl bg-indigo-600 text-white text-xs font-black uppercase tracking-widest shadow-2xl animate-slide-in-up">
-          {toast}
+          {String(toast)}
         </div>
       )}
     </div>

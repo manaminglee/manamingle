@@ -235,10 +235,10 @@ function getRoomByInterestKey(key, returnEvenIfFull = false) {
 }
 
 function getAnyRoomByMode(mode) {
-  for (const [, room] of rooms) {
-    if (room.mode === mode && room.users.size < room.maxSize) return room;
-  }
-  return null;
+  // FILL STRATEGY: Prioritize rooms with 3/4 members, then 2/4, then 1/4.
+  const eligible = Array.from(rooms.values()).filter(r => r.mode === mode && r.users.size < r.maxSize);
+  eligible.sort((a, b) => b.users.size - a.users.size);
+  return eligible[0] || null;
 }
 
 const MESSAGE_HISTORY = 50;
@@ -1845,7 +1845,9 @@ io.on('connection', (socket) => {
       if (room && !canJoinRoom(room)) room = null;
     }
     if (!room) {
-      room = createRoom(interest, mode, socket.id, { id: userData.id, nickname: userData.nickname, country: userData.country, isCreator: userData.isCreator });
+        const trending = ['movies', 'music', 'gaming', 'coding', 'anime', 'travel', 'food', 'art', 'fitness', 'tech'];
+        const finalInterest = (interest || 'general').trim().toLowerCase() === 'general' ? trending[Math.floor(Math.random() * trending.length)] : interest;
+        room = createRoom(finalInterest, mode, socket.id, { id: userData.id, nickname: userData.nickname, country: userData.country, isCreator: userData.isCreator });
     } else {
       const added = addUserToRoom(room, socket.id, { id: userData.id, nickname: userData.nickname, country: userData.country, isCreator: userData.isCreator });
       if (!added) {
@@ -1973,23 +1975,25 @@ io.on('connection', (socket) => {
     if (room.mode !== 'group_video' && room.mode !== 'group_text') return;
 
     const cUser = await getCoinUser(ip);
-    if (cUser.coins < 25) {
-      return socket.emit('error', { message: 'You need 25 coins to rename this room.' });
+    const balance = Number(cUser.coins) || 0;
+    if (balance < 25) {
+      return socket.emit('error', { message: 'Insufficient Mana (25 Coins Required).' });
     }
 
-    const nextBalance = cUser.coins - 25;
+    // Server-authoritative deduction
+    const nextBalance = balance - 25;
     await updateCoinUser(ip, { coins: nextBalance });
 
     const sanitized = sanitize(String(newInterest || '').toLowerCase(), 30);
-    if (!sanitized) return socket.emit('error', { message: 'Invalid name provided.' });
+    if (!sanitized) return socket.emit('error', { message: 'Topic is too short or invalid.' });
 
     room.interest = sanitized;
     io.to(roomId).emit('group-renamed', { interest: sanitized, nickname: u.nickname });
 
-    // Payout logic: Notify all sockets with this IP
+    // Sync all IP sockets
     for (const [sid, user] of users.entries()) {
       if (user.ip === ip) {
-        io.to(sid).emit('coins-updated', { coins: nextBalance, reason: 'Room Renaming Fee' });
+        io.to(sid).emit('coins-updated', { coins: nextBalance, reason: 'Realm Specialized' });
       }
     }
   });
