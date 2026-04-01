@@ -120,31 +120,58 @@ const userBlocks = new Map(); // ip -> Set of blocked IPs (user-level block list
 const reports = [];
 const stats = { totalMessages: 0, totalConnections: 0, uniqueIps: new Set() };
 
-// Coin System Logic with DB fallback
-let coinUsers = new Map(); // in-memory cache for speed, synced periodically for local or per-request for supabase
+const ipActivity = new Map(); // ip -> { firstSeen, lastSeen, persisted }
+const coinUsers = new Map(); // ip -> { coins, last_claim, streak, ... }
 
 async function getCoinUser(ip) {
+  // If we have it in memory already
+  if (coinUsers.has(ip)) return coinUsers.get(ip);
+
+  // Try Supabase if available
   if (supabase) {
     const { data } = await supabase.from('user_coins').select('*').eq('ip', ip).single();
-    if (data) return data;
-    const newcomer = { ip, coins: 30, last_claim: 0, streak: 1, last_claim_date: null };
-    await supabase.from('user_coins').insert(newcomer);
-    return newcomer;
+    if (data) {
+      coinUsers.set(ip, data);
+      return data;
+    }
   }
-  if (!coinUsers.has(ip)) {
-    coinUsers.set(ip, { ip, coins: 30, last_claim: 0, streak: 1, last_claim_date: null });
+
+  // Newcomer - start with 0, must stay active for 3m to get first 40 coins
+  const newcomer = { ip, coins: 0, last_claim: 0, streak: 1, last_claim_date: null };
+  coinUsers.set(ip, newcomer);
+  return newcomer;
+}
+
+async function persistCoinUser(ip) {
+  const u = coinUsers.get(ip);
+  if (!u) return;
+  const activity = ipActivity.get(ip);
+  if (activity && activity.persisted) return;
+
+  if (activity && (Date.now() - activity.firstSeen > 60000)) {
+    if (supabase) {
+      await supabase.from('user_coins').upsert(u);
+    } else {
+      saveLocalDb();
+    }
+    if (activity) activity.persisted = true;
+    console.log(`[DB] Persisted IP ${ip} after 1m activity.`);
   }
-  return coinUsers.get(ip);
 }
 
 async function updateCoinUser(ip, updates) {
-  if (supabase) {
-    await supabase.from('user_coins').update(updates).eq('ip', ip);
-  } else {
-    const u = coinUsers.get(ip) || { ip, coins: 30, last_claim: 0, streak: 1, last_claim_date: null };
-    Object.assign(u, updates);
-    coinUsers.set(ip, u);
-    saveLocalDb();
+  const u = await getCoinUser(ip);
+  Object.assign(u, updates);
+  coinUsers.set(ip, u);
+
+  // If already persisted or qualifies, update DB
+  const activity = ipActivity.get(ip);
+  if (activity?.persisted) {
+    if (supabase) {
+      await supabase.from('user_coins').update(updates).eq('ip', ip);
+    } else {
+      saveLocalDb();
+    }
   }
 }
 
@@ -288,8 +315,8 @@ function removeUserFromRoom(socketId, roomId, io) {
 
 function emitOnlineCount() {
   const regions = { in: 0, us: 0, eu: 0, ot: 0 };
-  const EU_CODES = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE','GB'];
-  
+  const EU_CODES = ['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE', 'GB'];
+
   users.forEach(u => {
     const c = u.country;
     if (c === 'IN') regions.in++;
@@ -297,7 +324,7 @@ function emitOnlineCount() {
     else if (EU_CODES.includes(c)) regions.eu++;
     else regions.ot++;
   });
-  
+
   io.emit('online_count', { count: users.size, regions });
 }
 
@@ -358,43 +385,113 @@ app.get('/api/turn', (req, res) => {
 });
 
 // Debug: Supabase connection status (safe - no secrets exposed)
-app.get('/api/debug/status', async (req, res) => {
-  const hasUrl = !!(process.env.SUPABASE_URL || '').trim();
-  const hasServiceKey = !!(process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
-  const hasAnonKey = !!(process.env.SUPABASE_ANON_KEY || '').trim();
-  const keyUsed = hasServiceKey ? 'service_role' : hasAnonKey ? 'anon' : 'none';
+app.get('/api/admin/overview', requireAdmin, async (req, res) => {
+  const userList = Array.from(users.values()).map(u => ({
+    nickname: u.nickname,
+    country: u.country,
+    mode: u.mode,
+    ip: u.ip,
+    coins: coinUsers.get(u.ip)?.coins || 0
+  }));
 
+  const roomList = Array.from(rooms.values()).map(r => ({
+    id: r.id,
+    interest: r.interest,
+    mode: r.mode,
+    participantCount: r.users.size,
+    participants: r.participants
+  }));
+
+  // Get full IP list for Economy hub
+  const economyList = Array.from(coinUsers.values()).map(u => ({
+    ip: u.ip,
+    coins: u.coins,
+    streak: u.streak,
+    persisted: ipActivity.get(u.ip)?.persisted || false
+  }));
+
+  const totalCoins = Array.from(coinUsers.values()).reduce((sum, u) => sum + (u.coins || 0), 0);
+
+  res.json({
+    users: users.size,
+    rooms: rooms.size,
+    queues: {
+      text: pairQueues.text.length,
+      video: pairQueues.video.length
+    },
+    userList,
+    roomList,
+    economyList,
+    statsHistory,
+    openReportsCount: reports.length,
+    reports: reports.slice(-10),
+    coinStats: {
+      totalCoinsInSystem: totalCoins,
+      uniqueWallets: coinUsers.size
+    },
+    stats: {
+      uptimeSeconds: Math.floor(process.uptime()),
+      totalConnections: stats.totalConnections
+    },
+    roomsWithActivity: Array.from(rooms.values()).map(r => ({
+      id: r.id,
+      interest: r.interest,
+      mode: r.mode,
+      messages: r.messages?.slice(-5) || [],
+      users: Array.from(r.users).map(sid => users.get(sid)?.nickname)
+    }))
+  });
+});
+
+app.post('/api/admin/coins/update', requireAdmin, async (req, res) => {
+  const { ip, amount, set } = req.body || {};
+  if (!ip) return res.status(400).json({ error: 'IP required' });
+
+  try {
+    const u = await getCoinUser(ip);
+    const newBalance = set ? Number(amount) : (u.coins || 0) + Number(amount);
+    await updateCoinUser(ip, { coins: newBalance });
+
+    // Notify all sockets with this IP
+    for (const [sid, user] of users.entries()) {
+      if (user.ip === ip) {
+        io.to(sid).emit('coins-updated', { coins: newBalance, reason: 'Admin Adjustment' });
+      }
+    }
+
+    res.json({ success: true, newBalance });
+  } catch (e) {
+    res.status(500).json({ error: 'Update failed' });
+  }
+});
+
+app.post('/api/admin/end-room', requireAdmin, async (req, res) => {
+  const { roomId } = req.body || {};
+  if (!roomId) return res.status(400).json({ error: 'Room ID required' });
+  const room = rooms.get(roomId);
+  if (room) {
+    io.to(roomId).emit('room-ended-by-admin');
+    [...room.users].forEach(sid => {
+      const s = io.sockets.sockets.get(sid);
+      if (s) s.leave(roomId);
+    });
+    rooms.delete(roomId);
+    if (room.interestKey) interestToRoom.delete(room.interestKey);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Room not found' });
+  }
+});
+
+// Debug: Supabase connection status (safe - no secrets exposed)
+app.get('/api/debug/status', async (req, res) => {
   const result = {
-    supabase_url_set: hasUrl,
-    key_type_used: keyUsed,
     supabase_client_initialized: !!supabase,
     storage_mode: supabase ? 'supabase' : 'local_json',
-    db_ping: null,
-    db_ping_error: null,
     env: process.env.NODE_ENV || 'unknown',
     uptime_seconds: Math.floor(process.uptime()),
+    unique_ips: stats.uniqueIps.size
   };
-
-  if (supabase) {
-    try {
-      const { count, error } = await supabase
-        .from('creators')
-        .select('*', { count: 'exact', head: true });
-      if (error) {
-        result.db_ping = false;
-        result.db_ping_error = error.message;
-      } else {
-        result.db_ping = true;
-        result.creators_count = count;
-      }
-    } catch (e) {
-      result.db_ping = false;
-      result.db_ping_error = e.message;
-    }
-  } else {
-    result.local_creators_count = (localDb.creators || []).length;
-  }
-
   res.json(result);
 });
 
@@ -447,6 +544,10 @@ app.post('/api/creators/register', async (req, res) => {
     coins_earned: 0,
     earnings_rs: 0,
     referral_count: 0,
+    followers_count: 0,
+    follower_ips: [],
+    avatar_url: null,
+    bio: '',
     password: null, // No password until approved
     created_at: new Date().toISOString()
   };
@@ -454,17 +555,13 @@ app.post('/api/creators/register', async (req, res) => {
     if (supabase) {
       // Check if handle already exists
       const { data: existing } = await supabase.from('creators').select('id').eq('handle_name', entry.handle_name).single();
-      if (existing) return res.status(400).json({ error: 'Handle already registered. Please choose a different name.' });
-      
-      // Insert and check for errors
+      if (existing) return res.status(400).json({ error: 'Handle already registered.' });
+
       const { error: insertError } = await supabase.from('creators').insert(entry);
-      if (insertError) {
-        console.error('[Creator Register] Supabase insert failed:', insertError.message, insertError.details);
-        return res.status(500).json({ error: `Database save failed: ${insertError.message}. Please try again.` });
-      }
+      if (insertError) return res.status(500).json({ error: 'Database save failed' });
     } else {
       const existing = localDb.creators.find(c => c.handle_name === entry.handle_name);
-      if (existing) return res.status(400).json({ error: 'Handle already registered. Please choose a different name.' });
+      if (existing) return res.status(400).json({ error: 'Handle already registered.' });
       localDb.creators.push(entry);
       saveLocalDb();
     }
@@ -514,10 +611,44 @@ app.post('/api/creators/login', async (req, res) => {
         saveLocalDb();
       }
     }
-    
+
     if (supabase) await supabase.from('creator_logins').insert({ handle, creator_id: creator.id, ip: currentIp, success: true });
     res.json({ success: true, data: creator });
   } catch (e) { res.status(500).json({ error: 'Authentication Failed' }); }
+});
+
+// Update Creator Profile (Avatar & Bio)
+app.post('/api/creators/update-profile', async (req, res) => {
+  const { bio, avatar_url } = req.body || {};
+  const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
+
+  try {
+    let creator = null;
+    if (supabase) {
+      const { data } = await supabase.from('creators').select('*').contains('authorized_ips', [ip]).single();
+      creator = data;
+    } else {
+      creator = localDb.creators.find(c => c.authorized_ips.includes(ip));
+    }
+
+    if (!creator || creator.status !== 'approved') return res.status(403).json({ error: 'Unauthorized' });
+
+    const updates = {
+      bio: bio ? sanitize(bio, 150) : creator.bio,
+      avatar_url: avatar_url || creator.avatar_url
+    };
+
+    if (supabase) {
+      await supabase.from('creators').update(updates).eq('id', creator.id);
+    } else {
+      Object.assign(creator, updates);
+      saveLocalDb();
+    }
+
+    res.json({ success: true, message: 'Profile updated in the matrix.' });
+  } catch (e) {
+    res.status(500).json({ error: 'Profile uplink failed' });
+  }
 });
 
 app.get('/api/creators/status', async (req, res) => {
@@ -564,6 +695,45 @@ app.get('/api/creators/status', async (req, res) => {
     }
     res.json({ data: creator || null });
   } catch (e) { res.json({ data: null }); }
+});
+
+app.post('/api/creators/withdraw', async (req, res) => {
+  const { upi } = req.body || {};
+  const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
+  if (!upi) return res.status(400).json({ error: 'UPI ID required' });
+  try {
+    let creator = null;
+    if (supabase) {
+      const { data } = await supabase.from('creators').select('*').contains('authorized_ips', [ip]).single();
+      creator = data;
+    } else {
+      creator = localDb.creators.find(c => c.authorized_ips.includes(ip));
+    }
+    if (!creator || creator.status !== 'approved') return res.status(403).json({ error: 'Unauthorized' });
+    if ((creator.coins_earned || 0) < 2000) return res.status(400).json({ error: 'Min. 2000 coins required' });
+
+    const withdrawal = {
+      id: generateId('wd'),
+      creator_id: creator.id,
+      handle_name: creator.handle_name,
+      upi,
+      amount_rs: Math.floor(creator.coins_earned / 10000) * 150 || 0,
+      coins_spent: creator.coins_earned,
+      status: 'pending',
+      created_at: new Date().toISOString()
+    };
+
+    if (supabase) {
+      await supabase.from('withdrawals').insert(withdrawal);
+      await supabase.from('creators').update({ coins_earned: 0, earnings_rs: 0 }).eq('id', creator.id);
+    } else {
+      localDb.withdrawals.push(withdrawal);
+      creator.coins_earned = 0;
+      creator.earnings_rs = 0;
+      saveLocalDb();
+    }
+    res.json({ success: true, message: 'Withdrawal signal queued for admin audit.' });
+  } catch (e) { res.status(500).json({ error: 'Withdrawal request failed' }); }
 });
 
 app.post('/api/creators/re-request', async (req, res) => {
@@ -618,9 +788,13 @@ app.post('/api/admin/creators/approve', requireAdmin, async (req, res) => {
     if (!creator) return res.status(404).json({ error: 'Node Not Found' });
 
     let updates = { status };
-    if (status === 'approved' && !creator.password) {
-      const pin = Math.floor(1000 + Math.random() * 9000);
-      updates.password = `${creator.handle_name}@${pin}`;
+    if (status === 'approved') {
+      if (!creator.password) {
+        const pin = Math.floor(1000 + Math.random() * 9000);
+        updates.password = `${creator.handle_name}@${pin}`;
+      }
+      // --- CREATOR BONUS: 500 COINS ON APPROVAL ---
+      updates.coins_earned = (creator.coins_earned || 0) + 500;
     }
 
     if (supabase) {
@@ -629,7 +803,7 @@ app.post('/api/admin/creators/approve', requireAdmin, async (req, res) => {
         action_type: 'CREATOR_APPROVE',
         target_id: creatorId,
         target_name: creator.handle_name,
-        details: `Status set to ${status}`
+        details: `Status set to ${status} (+500 Bonus if approved)`
       });
     } else {
       Object.assign(creator, updates);
@@ -638,7 +812,7 @@ app.post('/api/admin/creators/approve', requireAdmin, async (req, res) => {
         action_type: 'CREATOR_APPROVE',
         target_id: creatorId,
         target_name: creator.handle_name,
-        details: `Status set to ${status}`,
+        details: `Status set to ${status} (+500 Bonus)`,
         created_at: new Date().toISOString()
       });
       saveLocalDb();
@@ -689,8 +863,8 @@ app.post('/api/creators/verify-ref', async (req, res) => {
       saveLocalDb();
     }
     if (!coinUsers.has(visitorIp)) {
-       // We'll use the async helper here
-       await getCoinUser(visitorIp);
+      // We'll use the async helper here
+      await getCoinUser(visitorIp);
     }
     const u = await getCoinUser(visitorIp);
     const updatedCoins = (u.coins || 0) + 5;
@@ -704,7 +878,7 @@ app.get('/api/creator/profile/:handle', async (req, res) => {
   try {
     let creator = null;
     if (supabase) {
-      const { data } = await supabase.from('creators').select('handle_name, platform, coins_earned, referral_count, status').eq('handle_name', handle).single();
+      const { data } = await supabase.from('creators').select('handle_name, platform, coins_earned, referral_count, status, earnings_rs').eq('handle_name', handle).single();
       creator = data;
     } else {
       creator = localDb.creators.find(c => c.handle_name === handle);
@@ -713,46 +887,47 @@ app.get('/api/creator/profile/:handle', async (req, res) => {
     res.json({
       handle_name: creator.handle_name,
       platform: creator.platform,
+      profile_link: creator.profile_link,
       coins_earned: creator.coins_earned,
       referral_count: creator.referral_count || 0,
-      status: creator.status
+      followers_count: creator.followers_count || 0,
+      avatar_url: creator.avatar_url,
+      bio: creator.bio,
+      status: creator.status,
+      earnings_rs: creator.earnings_rs
     });
   } catch (e) { res.status(500).json({ error: 'Query failed' }); }
 });
 
-app.post('/api/creators/withdraw', async (req, res) => {
-  const { upi } = req.body || {};
-  const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
+app.post('/api/creators/follow', async (req, res) => {
+  const { handle } = req.body || {};
+  const visitorIp = req.ip === '::1' ? '127.0.0.1' : req.ip;
+  if (!handle) return res.status(400).json({ error: 'Handle required' });
   try {
-     let creator = null;
-     if (supabase) {
-       const { data } = await supabase.from('creators').select('*').contains('authorized_ips', [ip]).single();
-       creator = data;
-     } else {
-       creator = localDb.creators.find(c => c.authorized_ips.includes(ip));
-     }
-     if (!creator || creator.status !== 'approved') return res.status(403).json({ error: 'Creator not approved' });
-     if (creator.earnings_rs < 1500) return res.status(400).json({ error: 'Threshold (₹1500) not reached' });
-     const wdEntry = {
-       id: generateId('wd'),
-       creator_id: creator.id,
-       handle_name: creator.handle_name,
-       amount: creator.earnings_rs, 
-       upi: sanitize(upi, 100), 
-       status: 'pending',
-       created_at: new Date().toISOString()
-     };
-     if (supabase) {
-       await supabase.from('withdrawals').insert(wdEntry);
-       await supabase.from('creators').update({ earnings_rs: 0, coins_earned: 0 }).eq('id', creator.id);
-     } else {
-       localDb.withdrawals.push(wdEntry);
-       creator.earnings_rs = 0;
-       creator.coins_earned = 0;
-       saveLocalDb();
-     }
-     res.json({ success: true, message: 'Withdrawal request logged.' });
-  } catch(e) { res.status(500).json({ error: 'Withdrawal uplink failed' }); }
+    let creator = null;
+    if (supabase) {
+      const { data } = await supabase.from('creators').select('*').eq('handle_name', handle).single();
+      creator = data;
+    } else {
+      creator = localDb.creators.find(c => c.handle_name === handle);
+    }
+    if (!creator) return res.status(404).json({ error: 'Creator not found' });
+
+    const ips = creator.follower_ips || [];
+    if (ips.includes(visitorIp)) return res.json({ success: true, already_following: true, count: creator.followers_count });
+
+    const newIps = [...ips, visitorIp];
+    const newCount = (creator.followers_count || 0) + 1;
+
+    if (supabase) {
+      await supabase.from('creators').update({ follower_ips: newIps, followers_count: newCount }).eq('id', creator.id);
+    } else {
+      creator.follower_ips = newIps;
+      creator.followers_count = newCount;
+      saveLocalDb();
+    }
+    res.json({ success: true, count: newCount });
+  } catch (e) { res.status(500).json({ error: 'Follow failed' }); }
 });
 
 app.use('/api', (req, res, next) => {
@@ -1119,12 +1294,12 @@ app.post('/api/user/claim', async (req, res) => {
   // 30 coins base + bonus (5 per streak day, max 50 bonus)
   const bonus = user.streak > 1 ? Math.min((user.streak - 1) * 5, 50) : 0;
   const nextBalance = (user.coins || 0) + (30 + bonus);
-  
-  await updateCoinUser(ip, { 
-    coins: nextBalance, 
-    last_claim: now, 
-    last_claim_date: today, 
-    streak: user.streak 
+
+  await updateCoinUser(ip, {
+    coins: nextBalance,
+    last_claim: now,
+    last_claim_date: today,
+    streak: user.streak
   });
 
   res.json({ coins: nextBalance, streak: user.streak, bonus });
@@ -1395,10 +1570,10 @@ io.on('connection', (socket) => {
       }
     }
     socket.emit('connected', { userId, nickname: finalNick, isCreator: finalIsCreator, country, settings: { adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools } });
-    
+
     // Ensure user has a coin profile
     await getCoinUser(ip);
-    
+
     emitOnlineCount();
   })();
 
@@ -1487,10 +1662,37 @@ io.on('connection', (socket) => {
 
       socket.emit('partner-found', { roomId: room.id, peer: otherPeer, country: userData.country });
       io.sockets.sockets.get(match.socketId).emit('partner-found', { roomId: room.id, peer: myPeer, country: otherData.country });
+
+      // --- AUTOMATED CREATOR INTRO MESSAGE ---
+      if (userData.isCreator) {
+        const intro = `Hi! I am @${userData.nickname} - follow my profile here: ${process.env.FRONTEND_URL || 'manamingle.site'}/u/${userData.nickname}`;
+        io.to(room.id).emit('chat-message', {
+          sender: socket.id,
+          nickname: userData.nickname,
+          text: intro,
+          timestamp: Date.now(),
+          isCreator: true,
+          isIntro: true
+        });
+      }
+      if (otherData.isCreator) {
+        const intro = `Hi! I am @${otherData.nickname} - follow my profile here: ${process.env.FRONTEND_URL || 'manamingle.site'}/u/${otherData.nickname}`;
+        io.to(room.id).emit('chat-message', {
+          sender: match.socketId,
+          nickname: otherData.nickname,
+          text: intro,
+          timestamp: Date.now(),
+          isCreator: true,
+          isIntro: true
+        });
+      }
+
       socket.emit('chat-history', { roomId: room.id, messages: [] });
       io.sockets.sockets.get(match.socketId).emit('chat-history', { roomId: room.id, messages: [] });
     } else {
-      queue.push({ socketId: socket.id, userData, interest });
+      const entry = { socketId: socket.id, userData, interest };
+      if (userData.isCreator) queue.unshift(entry);
+      else queue.push(entry);
       socket.emit('waiting-for-partner', { mode, interest });
     }
   });
@@ -1677,13 +1879,13 @@ io.on('connection', (socket) => {
       // Common Spanish/Global
       'puta', 'pendejo', 'mierda', 'cabron', 'kurwa', 'foda', 'merde'
     ];
-    
+
     // Obfuscation Shield: Remove spaces and common symbols to detect hidden harmful words
     const strippedMsg = msg.toLowerCase().replace(/[\s\.\-\_\@\#\$\%\^\&\*\(\)\=\+\{\}\[\]\:\;\"\'\<\>\,\?\/\\]/g, '');
     const pattern = new RegExp(`(${profanities.join('|')})`, 'i');
-    
+
     if (settings.safetyAiEnabled && (pattern.test(msg) || pattern.test(strippedMsg))) {
-      socket.emit('content-flagged', { 
+      socket.emit('content-flagged', {
         message: '⚠️ MESSAGE BLOCKED: Please be respectful. Toxic or explicit language detected.',
         reason: 'Community Guidelines Violation'
       });
@@ -1786,6 +1988,20 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Log IP activity when connecting
+  if (!ipActivity.has(ip)) {
+    ipActivity.set(ip, { firstSeen: Date.now(), lastSeen: Date.now(), persisted: false });
+  } else {
+    ipActivity.get(ip).lastSeen = Date.now();
+  }
+
+  // Background check for persistence (only if they stayed long enough)
+  persistCoinUser(ip);
+
+  socket.on('join-standard', async (data) => {
+    // Initial data handshake for standard modes
+  });
+
   socket.on('spend-coins', async (data) => {
     const { amount, reason } = data || {};
     const cUser = await getCoinUser(ip);
@@ -1793,7 +2009,7 @@ io.on('connection', (socket) => {
     if (cUser.coins < amount) return socket.emit('error', { message: 'Insufficient coins' });
     const nextBalance = cUser.coins - amount;
     await updateCoinUser(ip, { coins: nextBalance });
-    
+
     // Notify all sockets with this IP
     for (const [sid, user] of users.entries()) {
       if (user.ip === ip) {
@@ -1803,11 +2019,34 @@ io.on('connection', (socket) => {
     console.log(`[COINS] User ${socket.id} spent ${amount} for ${reason}`);
   });
 
+  socket.on('claim-active-reward', async () => {
+    const activity = ipActivity.get(ip);
+    if (!activity) return;
+    if (Date.now() - activity.firstSeen >= 180000) {
+      const cUser = await getCoinUser(ip);
+      if (cUser.last_reward_claimed) return;
+      const newBalance = (cUser.coins || 0) + 40;
+      await updateCoinUser(ip, { coins: newBalance, last_reward_claimed: true });
+      if (supabase) {
+        await supabase.from('user_coins').upsert({ ip, coins: newBalance, last_reward_claimed: true });
+      } else {
+        saveLocalDb();
+      }
+      activity.persisted = true;
+      for (const [sid, user] of users.entries()) {
+        if (user.ip === ip) {
+          io.to(sid).emit('coins-updated', { coins: newBalance, reason: 'Activity Reward' });
+        }
+      }
+      console.log(`[REWARD] ${ip} claimed 40 coins.`);
+    }
+  });
+
   socket.on('send-3d-emoji', async (data) => {
     const { roomId, emoji } = data || {};
     const u = users.get(socket.id);
     const cUser = await getCoinUser(ip);
-    
+
     if (cUser.coins < 5) return socket.emit('error', { message: 'Need 5 coins for 3D Emoji' });
     const nextBalance = cUser.coins - 5;
     await updateCoinUser(ip, { coins: nextBalance });
@@ -1825,7 +2064,7 @@ io.on('connection', (socket) => {
     const { roomId, type, content } = data || {};
     const u = users.get(socket.id);
     const cUser = await getCoinUser(ip);
-    
+
     const cost = type === 'video' ? 15 : 10;
     if (cUser.coins < cost) return socket.emit('error', { message: `Need ${cost} coins for Media` });
     const nextBalance = cUser.coins - cost;

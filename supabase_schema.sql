@@ -7,12 +7,16 @@ CREATE TABLE IF NOT EXISTS creators (
   handle_name TEXT UNIQUE NOT NULL,
   platform TEXT,
   profile_link TEXT,
+  avatar_url TEXT, -- NEW: Creator profile support
+  bio TEXT DEFAULT '', -- NEW: Creator profile support
   authorized_ips TEXT[] DEFAULT '{}',
   referral_code TEXT UNIQUE,
   status TEXT DEFAULT 'pending',
   coins_earned INTEGER DEFAULT 0,
   earnings_rs INTEGER DEFAULT 0,
   referral_count INTEGER DEFAULT 0,
+  followers_count INTEGER DEFAULT 0, -- NEW: Follower tracking
+  follower_ips TEXT[] DEFAULT '{}', -- NEW: Prevent duplicate follows
   password TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -31,6 +35,8 @@ CREATE TABLE IF NOT EXISTS withdrawals (
   creator_id TEXT REFERENCES creators(id) ON DELETE CASCADE,
   handle_name TEXT,
   amount INTEGER NOT NULL,
+  amount_rs INTEGER DEFAULT 0, -- NEW: Backwards compatibility
+  coins_spent INTEGER DEFAULT 0, -- NEW: Track coin consumption
   upi TEXT NOT NULL,
   status TEXT DEFAULT 'pending',
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -43,6 +49,7 @@ CREATE TABLE IF NOT EXISTS user_coins (
   last_claim BIGINT DEFAULT 0,
   streak INTEGER DEFAULT 1,
   last_claim_date TEXT,
+  last_reward_claimed BOOLEAN DEFAULT FALSE, -- NEW: 3-minute active bonus
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -90,7 +97,6 @@ DROP POLICY IF EXISTS "Allow service role access" ON creator_logins;
 DROP POLICY IF EXISTS "Allow service role access" ON admin_history;
 
 -- Policy: Allow ALL operations (server uses service_role key which bypasses RLS anyway)
--- These permissive policies are a safety net for anon key fallback
 CREATE POLICY "Allow full access" ON creators FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
 CREATE POLICY "Allow full access" ON referral_logs FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
 CREATE POLICY "Allow full access" ON withdrawals FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
@@ -99,47 +105,59 @@ CREATE POLICY "Allow full access" ON creator_logins FOR ALL TO anon, authenticat
 CREATE POLICY "Allow full access" ON admin_history FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
 
 -- 7. Delta/Migration Patches (Safe to run multiple times)
--- This ensures existing tables get any newly added columns.
 DO $$ 
 BEGIN 
-    -- Add authorized_ips if missing
+    -- 1. Add missing Creator columns
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='creators' AND column_name='avatar_url') THEN
+        ALTER TABLE creators ADD COLUMN avatar_url TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='creators' AND column_name='bio') THEN
+        ALTER TABLE creators ADD COLUMN bio TEXT DEFAULT '';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='creators' AND column_name='followers_count') THEN
+        ALTER TABLE creators ADD COLUMN followers_count INTEGER DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='creators' AND column_name='follower_ips') THEN
+        ALTER TABLE creators ADD COLUMN follower_ips TEXT[] DEFAULT '{}';
+    END IF;
+
+    -- 2. Add missing Economic columns
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='user_coins' AND column_name='last_reward_claimed') THEN
+        ALTER TABLE user_coins ADD COLUMN last_reward_claimed BOOLEAN DEFAULT FALSE;
+    END IF;
+
+    -- 3. Add missing Withdrawal columns
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='withdrawals' AND column_name='amount_rs') THEN
+        ALTER TABLE withdrawals ADD COLUMN amount_rs INTEGER DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='withdrawals' AND column_name='coins_spent') THEN
+        ALTER TABLE withdrawals ADD COLUMN coins_spent INTEGER DEFAULT 0;
+    END IF;
+
+    -- Standard maintenance migrations from original file
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='creators' AND column_name='authorized_ips') THEN
         ALTER TABLE creators ADD COLUMN authorized_ips TEXT[] DEFAULT '{}';
     END IF;
-
-    -- Add password if missing
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='creators' AND column_name='password') THEN
         ALTER TABLE creators ADD COLUMN password TEXT;
     END IF;
-
-    -- Add earnings_rs if missing
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='creators' AND column_name='earnings_rs') THEN
         ALTER TABLE creators ADD COLUMN earnings_rs INTEGER DEFAULT 0;
     END IF;
-
-    -- Add referral_count if missing
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='creators' AND column_name='referral_count') THEN
         ALTER TABLE creators ADD COLUMN referral_count INTEGER DEFAULT 0;
     END IF;
-
-    -- Add coins_earned if missing
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='creators' AND column_name='coins_earned') THEN
         ALTER TABLE creators ADD COLUMN coins_earned INTEGER DEFAULT 0;
     END IF;
 
     -- Fix ID column types if they were accidentally set to UUID
-    -- This checks if the column is NOT text (e.g. if it's uuid)
     IF (SELECT data_type FROM information_schema.columns WHERE table_name='creators' AND column_name='id') <> 'text' THEN
-        -- Temporarily drop foreign keys
         ALTER TABLE referral_logs DROP CONSTRAINT IF EXISTS referral_logs_creator_id_fkey;
         ALTER TABLE withdrawals DROP CONSTRAINT IF EXISTS withdrawals_creator_id_fkey;
-        
-        -- Convert columns to TEXT
         ALTER TABLE creators ALTER COLUMN id TYPE TEXT;
         ALTER TABLE referral_logs ALTER COLUMN creator_id TYPE TEXT;
         ALTER TABLE withdrawals ALTER COLUMN creator_id TYPE TEXT;
-        
-        -- Re-add foreign keys
         ALTER TABLE referral_logs ADD CONSTRAINT referral_logs_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES creators(id) ON DELETE CASCADE;
         ALTER TABLE withdrawals ADD CONSTRAINT withdrawals_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES creators(id) ON DELETE CASCADE;
     END IF;
@@ -152,8 +170,7 @@ BEGIN
         ALTER TABLE user_coins ADD COLUMN streak INTEGER DEFAULT 1;
     END IF;
 
-    -- Cleanup: Ensure ANY unrecognized column is NULLABLE so it doesn't block inserts
-    -- This handles 'ip_addr' and any other manually added columns that might have not-null constraints.
+    -- Cleanup: Ensure ANY unrecognized column is NULLABLE
     DECLARE
         col_rec RECORD;
     BEGIN
@@ -162,15 +179,9 @@ BEGIN
             FROM information_schema.columns 
             WHERE table_name = 'creators' 
               AND is_nullable = 'NO' 
-              AND column_name NOT IN ('id', 'handle_name', 'created_at') -- Keep our core NOT NULLs
+              AND column_name NOT IN ('id', 'handle_name', 'created_at')
         LOOP
             EXECUTE format('ALTER TABLE creators ALTER COLUMN %I DROP NOT NULL', col_rec.column_name);
         END LOOP;
     END;
 END $$;
-
-
-
-
-
-

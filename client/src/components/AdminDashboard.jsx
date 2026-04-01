@@ -674,72 +674,68 @@ export function AdminDashboard({ onJoinRoom }) {
           )}
 
           {activeTab === 'room-monitoring' && (
-            <div className="space-y-10 animate-fade-in">
-              <div className="flex flex-col md:flex-row gap-6 items-center justify-between">
-                <div className="flex flex-col">
-                  <h2 className="text-2xl font-black italic uppercase tracking-tight">Active Room <span className="text-cyan-400">Overview</span></h2>
-                  <p className="text-[10px] text-white/30 font-black uppercase tracking-widest mt-1">Live visualization of all active rooms</p>
-                </div>
-                <div className="px-5 py-2 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black text-cyan-400 uppercase tracking-widest">
-                  {stats?.rooms || 0} LIVE ROOMS
-                </div>
-              </div>
-
+            <div className="space-y-10 animate-fade-in select-none">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {stats?.roomList?.map(room => (
-                  <div key={room.id} className="group relative rounded-[40px] bg-white/[0.02] border border-white/10 hover:border-cyan-500/40 p-8 flex flex-col transition-all shadow-2xl backdrop-blur-xl">
-                    <div className="absolute top-4 right-8 flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_#ef4444]" />
-                      <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">LIVE OVERVIEW</span>
+                {(stats?.roomsWithActivity || []).map(r => (
+                  <div key={r.id} className="group p-8 rounded-[40px] bg-white/[0.02] border border-white/5 hover:border-indigo-500/30 transition-all relative overflow-hidden flex flex-col min-h-[400px] shadow-2xl">
+                    <div className="absolute top-0 right-0 p-6 flex items-center gap-2">
+                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]" />
+                       <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">{r.mode}</span>
                     </div>
-
+                    
                     <div className="mb-6">
-                      <div className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.2em] mb-1 italic">{room.mode.replace('_', ' ')}</div>
-                      <h4 className="text-xl font-black text-white tracking-tight uppercase italic">{room.interest} ROOM</h4>
+                      <div className="text-xl font-black italic uppercase tracking-tighter mb-1 text-white group-hover:text-indigo-400 transition-colors">#{r.interest}</div>
+                      <div className="text-[9px] text-white/20 font-black uppercase tracking-widest leading-relaxed">ID: {r.id}</div>
                     </div>
 
-                    <div className="bg-black/60 rounded-3xl p-6 mb-8 border border-white/5">
-                      <div className="flex justify-between items-center mb-6">
-                        <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">User Identity List</span>
-                        <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest italic">{room.participantCount} Active</span>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {room.participants?.map((p, pIdx) => (
-                          <div key={p.socketId} className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-[10px] font-bold text-white/50 group-hover:border-cyan-500/20" title={`${p.nickname} (${p.country})`}>
-                            {p.nickname?.[0] || '?'}{pIdx + 1}
+                    <div className="flex-1 space-y-4">
+                       <div className="text-[10px] font-black text-indigo-400/60 uppercase tracking-widest italic mb-2">Live Participants ({r.users?.length || 0})</div>
+                       <div className="flex flex-wrap gap-2">
+                          {(r.users || []).map((nick, i) => (
+                            <span key={i} className="px-3 py-1 rounded-full bg-white/5 border border-white/5 text-[9px] font-bold text-white/40">{nick}</span>
+                          ))}
+                       </div>
+
+                       <div className="mt-6 pt-6 border-t border-white/5">
+                          <div className="text-[10px] font-black text-rose-400/60 uppercase tracking-widest italic mb-3">Live Signal Log</div>
+                          <div className="space-y-2 max-h-32 overflow-y-auto pr-2 custom-scrollbar">
+                             {(r.messages || []).map((m, i) => (
+                               <div key={i} className="p-2.5 rounded-xl bg-black/40 border border-white/5 text-[10px] leading-relaxed">
+                                  <span className="font-black text-white/20 uppercase mr-2">{m.nickname}:</span>
+                                  <span className="text-white/60 italic">"{m.text}"</span>
+                               </div>
+                             ))}
+                             {(!r.messages || r.messages.length === 0) && <div className="text-[9px] text-white/10 uppercase font-black italic">No activity detected...</div>}
                           </div>
-                        ))}
-                      </div>
-                      {/* AI MONITORING LABEL */}
-                      <div className="mt-8 pt-4 border-t border-white/5 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_10px_#06b6d4]" />
-                          <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest italic">AI Guard Active</span>
-                        </div>
-                        <span className="text-[8px] font-black text-white/10 uppercase tracking-widest italic">Encrypted Feed</span>
-                      </div>
+                       </div>
                     </div>
 
-                    <div className="mt-auto grid grid-cols-1 gap-3">
-                      <button
-                        onClick={() => onJoinRoom && onJoinRoom(room.id, room.mode, room.interest)}
-                        className="w-full py-3.5 bg-white/5 hover:bg-white text-white hover:text-black transition-all rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/10"
-                      >
-                        View Room →
-                      </button>
-                      <button
-                        onClick={() => handleEndRoom(room.id)}
-                        className="w-full py-3.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white transition-all rounded-2xl text-[10px] font-black uppercase tracking-widest border border-rose-500/20"
-                      >
-                        End Room
-                      </button>
+                    <div className="mt-8 pt-6 border-t border-white/5 flex flex-col gap-3">
+                       <button 
+                         onClick={() => onJoinRoom && onJoinRoom(r.id, r.mode, r.interest)}
+                         className="w-full py-3.5 bg-white/5 hover:bg-white text-white hover:text-black transition-all rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/10"
+                       >
+                         Spectate View →
+                       </button>
+                       <button 
+                         onClick={async () => {
+                           try {
+                             await fetch(`${API_BASE}/api/admin/end-room`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-key': key }, body: JSON.stringify({ roomId: r.id }) });
+                             fetchStats(key);
+                             setToast(`Terminated Room: ${r.id}`);
+                           } catch (e) {}
+                         }}
+                         className="w-full py-3.5 rounded-2xl bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all font-black text-[10px] uppercase tracking-widest"
+                       >
+                         Kill Room Signal
+                       </button>
                     </div>
                   </div>
                 ))}
-                {(!stats?.roomList || stats.roomList.length === 0) && (
-                  <div className="lg:col-span-3 py-40 flex flex-col items-center opacity-10">
-                    <div className="text-6xl mb-6">🌑</div>
-                    <p className="text-sm font-black uppercase tracking-[0.5em]">No active rooms detected</p>
+                {(!stats?.roomsWithActivity || stats.roomsWithActivity.length === 0) && (
+                  <div className="lg:col-span-3 py-48 text-center bg-white/[0.01] border border-white/5 rounded-[60px] shadow-inner">
+                    <div className="text-5xl mb-6 opacity-20">🍃</div>
+                    <p className="text-[11px] font-black uppercase tracking-[0.4em] text-white/20">No active signal rooms found</p>
                   </div>
                 )}
               </div>
@@ -919,70 +915,87 @@ export function AdminDashboard({ onJoinRoom }) {
               <div className="p-12 rounded-[50px] bg-[#050505] border border-amber-500/10 flex flex-col lg:flex-row gap-12 items-center shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-[100px] -mr-32 -mt-32" />
                 <div className="flex-1 relative z-10">
-                  <h2 className="text-3xl font-black italic uppercase tracking-tight mb-4">Economy <span className="text-amber-500">Overview</span></h2>
-                  <p className="text-sm text-white/30 mb-10 leading-relaxed font-bold italic uppercase tracking-wide">Monitoring real-time coin distribution and user balance across the system.</p>
+                  <h2 className="text-3xl font-black italic uppercase tracking-tight mb-4">Economy <span className="text-amber-500">Hub</span></h2>
+                  <p className="text-sm text-white/30 mb-10 leading-relaxed font-bold italic uppercase tracking-wide">Managing real-time coin distribution and Verifying IP Persistence.</p>
                   <div className="grid grid-cols-2 gap-6">
                     <div className="p-8 rounded-[32px] bg-white/[0.02] border border-white/5 shadow-inner">
-                      <div className="text-[10px] font-black text-amber-500/60 uppercase mb-3 tracking-[0.2em] italic">User Wallets</div>
-                      <div className="text-4xl font-black text-white italic tracking-tighter">{stats?.coinStats?.totalUsers || 0}</div>
+                      <div className="text-[10px] font-black text-amber-500/60 uppercase mb-3 tracking-[0.2em] italic">Total Wallets</div>
+                      <div className="text-4xl font-black text-white italic tracking-tighter">{stats?.coinStats?.uniqueWallets || 0}</div>
                     </div>
                     <div className="p-8 rounded-[32px] bg-white/[0.02] border border-white/5 shadow-inner">
-                      <div className="text-[10px] font-black text-amber-500/60 uppercase mb-3 tracking-[0.2em] italic">Active Supply</div>
+                      <div className="text-[10px] font-black text-amber-500/60 uppercase mb-3 tracking-[0.2em] italic">Circulating Supply</div>
                       <div className="text-4xl font-black text-white italic tracking-tighter">{stats?.coinStats?.totalCoinsInSystem || 0}</div>
                     </div>
                   </div>
                 </div>
-                <div className="w-full lg:w-96 p-10 rounded-[40px] bg-white/[0.02] border border-white/5 backdrop-blur-3xl flex flex-col items-center justify-center relative z-10">
-                  <div className="relative w-48 h-48">
-                    <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
-                      <path className="text-white/5 stroke-current" strokeWidth="2.5" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                      <path className="text-amber-500/60 stroke-current animate-dash shadow-xl" strokeWidth="2.5" strokeDasharray="75, 100" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-4xl font-black text-amber-500 italic">75%</span>
-                      <span className="text-[9px] font-black text-white/10 uppercase tracking-[0.3em] mt-1">Capacity Usage</span>
+                <div className="flex flex-col gap-4 relative z-10">
+                  <div className="p-6 rounded-3xl bg-white/5 border border-white/10 text-center">
+                    <div className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-2">Manual IP Grant</div>
+                    <div className="flex gap-2">
+                       <input 
+                         type="text" 
+                         placeholder="IP Address..."
+                         className="bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-[10px] font-black uppercase text-amber-500 outline-none focus:border-amber-500/40"
+                         onKeyDown={(e) => {
+                           if (e.key === 'Enter') handleUpdateCoins(e.target.value, 100);
+                         }}
+                       />
+                       <button className="px-4 py-2 bg-amber-500 text-black rounded-xl font-black text-[10px] uppercase">Grant +100</button>
                     </div>
                   </div>
-                  <div className="mt-8 text-[10px] font-black text-amber-500 uppercase tracking-[0.4em] animate-pulse">Status: Stable</div>
                 </div>
               </div>
 
-              <div className="grid lg:grid-cols-2 gap-10">
-                <div className="p-10 rounded-[50px] bg-white/[0.02] border border-white/5 shadow-2xl">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-amber-500 mb-8 italic">Top Coin Holders</h3>
-                  <div className="space-y-4">
-                    {Object.entries(stats?.userWallets || {}).sort(([, a], [, b]) => b - a).slice(0, 5).map(([ip, bal], i) => (
-                      <div key={ip} className="flex items-center justify-between p-5 rounded-[24px] bg-black/40 border border-white/5 group hover:border-amber-500/20 transition-all">
-                        <div className="flex items-center gap-5">
-                          <div className="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center font-black text-amber-500 text-sm italic border border-amber-500/20 group-hover:scale-110 transition-transform">{i + 1}</div>
-                          <span className="text-xs font-black text-white/40 uppercase tracking-widest">{ip}</span>
-                        </div>
-                        <div className="flex items-center gap-6">
-                          <span className="text-sm font-black text-amber-500 italic">🪙 {bal}</span>
-                          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                            <button onClick={() => handleUpdateCoins(ip, 100)} className="text-[9px] font-black text-emerald-400 uppercase tracking-widest hover:text-white transition-colors">+100</button>
-                            <button onClick={() => handleUpdateCoins(ip, 0, true)} className="text-[9px] font-black text-rose-500 uppercase tracking-widest hover:text-white transition-colors">CLEAR</button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+              <div className="rounded-[40px] bg-white/[0.02] border border-white/5 overflow-hidden shadow-2xl">
+                <div className="p-8 border-b border-white/5 flex justify-between items-center bg-white/[0.01]">
+                   <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-amber-500 italic">IP-Based Wallet Registry</h3>
+                   <div className="relative group w-72">
+                      <input 
+                        type="text"
+                        placeholder="Filter by IP..."
+                        className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-3 text-[10px] font-black uppercase text-amber-500/60 focus:border-amber-500/40 outline-none"
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                   </div>
                 </div>
-                <div className="p-10 rounded-[50px] bg-white/[0.02] border border-white/5 shadow-2xl">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 mb-8 italic">Economy Parameters</h3>
-                  <div className="space-y-4">
-                    {[
-                      { label: 'Starting Coins Balance', val: '30 🪙' },
-                      { label: 'Daily Bonus Coins', val: '30 🪙 + Bonus' },
-                      { label: 'Premium Filter Cost', val: '12 🪙 / min' },
-                      { label: 'Premium Emojis', val: '5 🪙 / unit' }
-                    ].map(item => (
-                      <div key={item.label} className="flex items-center justify-between p-5 rounded-[24px] bg-black/60 border border-white/5 shadow-inner">
-                        <div className="text-[10px] font-black uppercase tracking-widest text-white/40">{item.label}</div>
-                        <div className="text-[11px] font-black text-white tracking-widest italic">{item.val}</div>
-                      </div>
-                    ))}
-                  </div>
+                <div className="overflow-x-auto max-h-[600px] custom-scrollbar">
+                  <table className="w-full text-left text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-white/[0.02] border-b border-white/5 text-[9px] uppercase font-black tracking-[0.3em] text-white/20 italic font-mono">
+                        <th className="px-10 py-6">IP ADDRESS & STATUS</th>
+                        <th className="px-10 py-6">PERSISTENCE</th>
+                        <th className="px-10 py-6">STREAK</th>
+                        <th className="px-10 py-6">BALANCE</th>
+                        <th className="px-10 py-6 text-right">ECONOMY CONTROLS</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.03]">
+                      {(stats?.economyList || []).filter(e => !searchQuery || e.ip.includes(searchQuery)).map(u => (
+                        <tr key={u.ip} className="hover:bg-white/[0.01] transition-all group border-b border-white/[0.01]">
+                          <td className="px-10 py-8">
+                             <div className="font-mono text-sm text-white group-hover:text-amber-500 transition-colors font-black tracking-tighter">{u.ip}</div>
+                             <div className="text-[9px] text-white/20 uppercase font-black tracking-widest mt-1">Network Identity Validated</div>
+                          </td>
+                          <td className="px-10 py-8">
+                             <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${u.persisted ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-white/5 text-white/20'}`}>
+                                {u.persisted ? 'Verified Active (DB)' : 'Active Session'}
+                             </span>
+                          </td>
+                          <td className="px-10 py-8 text-indigo-400 font-black italic tracking-widest text-xs">🔥 {u.streak || 1} DAYS</td>
+                          <td className="px-10 py-8">
+                             <div className="text-amber-500 font-black text-lg italic tracking-tighter">🪙 {u.coins || 0}</div>
+                          </td>
+                          <td className="px-10 py-8 text-right">
+                             <div className="flex gap-2 justify-end opacity-20 group-hover:opacity-100 transition-all">
+                                <button onClick={() => handleUpdateCoins(u.ip, 100)} className="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500 hover:text-black rounded-lg text-[9px] font-black uppercase transition-all">+100</button>
+                                <button onClick={() => handleUpdateCoins(u.ip, -100)} className="px-3 py-1.5 bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-500 hover:text-white rounded-lg text-[9px] font-black uppercase transition-all">-100</button>
+                                <button onClick={() => handleUpdateCoins(u.ip, 0, true)} className="px-3 py-1.5 bg-white/5 text-white/40 border border-white/10 hover:bg-white hover:text-black rounded-lg text-[9px] font-black uppercase transition-all">RESET</button>
+                             </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>

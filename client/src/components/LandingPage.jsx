@@ -96,11 +96,14 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
   const [showCreatorModal, setShowCreatorModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showDashboardModal, setShowDashboardModal] = useState(false);
+  const [profileForm, setProfileForm] = useState({ bio: '', avatar: '' });
   const [loginForm, setLoginForm] = useState({ handle: '', password: '' });
   const [loginError, setLoginError] = useState('');
   // Custom dialog modal — replaces system alert/confirm
   const [dialog, setDialog] = useState(null); // { title, body, confirm?, onConfirm?, onCancel? }
-  const { creatorStatus, registerCreator, verifyReferral, requestWithdrawal, login, checkStatus, reRequestApproval } = useCreators();
+  const { creatorStatus, registerCreator, verifyReferral, requestWithdrawal, login, checkStatus, reRequestApproval, updateProfile } = useCreators();
   const startRef = useRef(null);
 
   // Helper to show an alert-dialog
@@ -235,6 +238,28 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
       onJoin(interests.length === 0 ? 'general' : interests.map(i => i.label || i).join(', '), 'Anonymous', mode);
       setScanning(false);
     }, 1000);
+  };
+
+  const handleAvatarUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) return (showAlert('File Too Large', 'Max avatar size is 2MB. Optimized Base64 will be stored.'));
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfileForm(prev => ({ ...prev, avatar: reader.result }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const saveProfile = async () => {
+    const res = await updateProfile(profileForm.bio, profileForm.avatar);
+    if (res.success) {
+      setShowProfileModal(false);
+      (showAlert('Profile Linked', 'Your identity has been updated on the network.'));
+    } else {
+      (showAlert('Transmission Error', 'Profile uplink failed. Check connection.'));
+    }
   };
 
   const scrollToStart = () => startRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -473,11 +498,11 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
 
               <div className="flex flex-wrap items-center justify-center gap-4">
                 <button
-                  onClick={() => setShowCreatorModal(true)}
+                  onClick={() => creatorStatus?.handle_name ? setShowDashboardModal(true) : setShowCreatorModal(true)}
                   className="px-8 py-4 bg-white text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-cyan-400 hover:scale-105 transition-all shadow-xl active:scale-95 flex items-center gap-2 group/btn"
                 >
                   <span className="text-sm group-hover/btn:rotate-12 transition-transform italic">⭐</span>
-                  {creatorStatus?.handle_name ? 'Open Hub' : 'Apply Now'}
+                  {creatorStatus?.handle_name ? 'Open Dashboard' : 'Apply Now'}
                 </button>
 
                 {(!creatorStatus || !creatorStatus.handle_name) && (
@@ -504,17 +529,55 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
               </div>
 
               {creatorStatus?.handle_name && (
-                <div className="mt-10 flex flex-wrap items-center justify-center gap-6 text-[10px] font-black uppercase tracking-widest text-white/20 italic">
-                  <span className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
-                    Account Linked: {creatorStatus.handle_name}
-                  </span>
-                  <button
-                    onClick={() => { localStorage.setItem('mm_logout_flag', '1'); localStorage.removeItem('mm_creatorId'); window.location.reload(); }}
-                    className="px-3 py-1.5 rounded-full border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all text-rose-500/60"
-                  >
-                    Logout Session →
-                  </button>
+                <div className="mt-10 flex flex-col items-center gap-4">
+                  <div className="flex flex-wrap items-center justify-center gap-4 text-[10px] font-black uppercase tracking-widest text-white/20 italic">
+                    <span className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+                      Verified Creator: @{creatorStatus.handle_name}
+                    </span>
+                    <span className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500">
+                      Earnings: ₹{creatorStatus.earnings_rs || 0}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setProfileForm({ 
+                          bio: creatorStatus.bio || '', 
+                          avatar: creatorStatus.avatar_url || '' 
+                        });
+                        setShowProfileModal(true);
+                      }}
+                      className="px-3 py-1.5 rounded-full border border-cyan-500/20 hover:bg-cyan-500 hover:text-black transition-all text-cyan-400"
+                    >
+                      Edit Profile →
+                    </button>
+                    <button
+                      onClick={() => { localStorage.setItem('mm_logout_flag', '1'); localStorage.removeItem('mm_creatorId'); window.location.reload(); }}
+                      className="px-3 py-1.5 rounded-full border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all text-rose-500/60"
+                    >
+                      Logout Session →
+                    </button>
+                  </div>
+                  
+                  {creatorStatus.status === 'approved' && (
+                    <div className="flex flex-col items-center gap-3">
+                       <button 
+                        onClick={async () => {
+                          const upi = prompt('Enter UPI ID for Payout:');
+                          if (upi) {
+                            const res = await requestWithdrawal(upi);
+                            if (res.error) alert(res.error);
+                            else (await showAlert('Transmitted', 'Withdrawal request sent to admin. Coins will be debited after verified.'));
+                          }
+                        }}
+                        className="px-8 py-4 bg-emerald-500 text-black text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-white transition-all shadow-xl active:scale-95 flex items-center gap-2"
+                      >
+                         💸 Withdraw Earnings
+                      </button>
+                      <div className="text-[9px] font-black text-white/20 uppercase tracking-widest italic animate-pulse">
+                         10,000 Click-throughs = ₹150.00
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1172,6 +1235,191 @@ export function LandingPage({ onJoin, coinState, isJoining = false }) {
                   >← Check Another Code</button>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CREATOR DASHBOARD MODAL */}
+      {showDashboardModal && creatorStatus && (
+        <div className="fixed inset-0 z-[3000] flex flex-col bg-black/98 backdrop-blur-4xl animate-in-zoom overflow-hidden" onClick={() => setShowDashboardModal(false)}>
+          <div className="flex-1 overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="max-w-6xl mx-auto px-8 py-20">
+              
+              {/* TOP HEADER */}
+              <div className="flex justify-between items-center mb-16 px-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-1.5 h-10 bg-cyan-400 rounded-full animate-pulse" />
+                  <div>
+                    <h2 className="text-2xl font-black italic uppercase tracking-tighter text-white">Creator Dashboard</h2>
+                    <p className="text-[10px] font-black text-cyan-400/40 uppercase tracking-[0.4em]">Auth Level: Verified Creator</p>
+                  </div>
+                </div>
+                <div className="flex gap-4">
+                  <button onClick={() => setShowDashboardModal(false)} className="px-6 py-3 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black text-white hover:bg-white hover:text-black transition-all uppercase tracking-widest">Exit HUD</button>
+                  <button onClick={() => { localStorage.setItem('mm_logout_flag', '1'); localStorage.removeItem('mm_creatorId'); window.location.reload(); }} className="px-6 py-3 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-[10px] font-black text-rose-500 hover:bg-rose-500 hover:text-white transition-all uppercase tracking-widest">Deactivate</button>
+                </div>
+              </div>
+
+              {/* MAIN HUD GRID */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+                
+                {/* LEFT: IDENTITY MATRIX */}
+                <div className="lg:col-span-1 space-y-8">
+                  <div className="p-10 rounded-[50px] bg-white/[0.02] border border-white/5 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-6 opacity-5 font-black text-6xl italic group-hover:opacity-10 transition-all">ID</div>
+                    <div className="flex flex-col items-center text-center">
+                      <div className="w-40 h-40 rounded-full border-2 border-cyan-400/40 p-2 mb-6 group-hover:scale-105 transition-transform">
+                        <img src={creatorStatus.avatar_url || '/apple-touch-icon.png'} className="w-full h-full object-cover rounded-full" />
+                      </div>
+                      <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">@{creatorStatus.handle_name} <BlueTick /></h3>
+                      <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-2">{creatorStatus.platform} Influencer</p>
+                      
+                      <div className="mt-8 text-[11px] font-bold text-white/60 leading-relaxed max-w-[200px] italic">
+                        {creatorStatus.bio || "No biography synced. Update your identity via the Profile Matrix."}
+                      </div>
+
+                      <button 
+                        onClick={() => {
+                          setProfileForm({ bio: creatorStatus.bio || '', avatar: creatorStatus.avatar_url || '' });
+                          setShowProfileModal(true);
+                        }}
+                        className="mt-8 px-8 py-3 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-cyan-500 hover:text-black transition-all"
+                      >Update Metadata →</button>
+                    </div>
+                  </div>
+
+                  <div className="p-8 rounded-[40px] bg-indigo-500/5 border border-indigo-500/10 space-y-4">
+                    <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Share Hub</h4>
+                    <div className="p-5 bg-black/40 rounded-2xl border border-white/5">
+                      <div className="text-[8px] font-black text-white/20 uppercase mb-2">Referral URL</div>
+                      <div className="text-[11px] font-bold text-white italic truncate mb-4">{`https://manamingle.site/?ref=${creatorStatus.referral_code}`}</div>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(`https://manamingle.site/?ref=${creatorStatus.referral_code}`);
+                          alert('Uplink Copied');
+                        }}
+                        className="w-full py-3 bg-white/5 border border-white/10 text-white text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-white hover:text-black transition-all"
+                      >Copy Link</button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* MIDDLE/RIGHT: FINANCIAL HUD & ANALYTICS */}
+                <div className="lg:col-span-2 space-y-8">
+                  
+                  {/* WALLET BAR */}
+                  <div className="p-12 rounded-[60px] bg-gradient-to-br from-emerald-500/10 to-transparent border border-emerald-500/20 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-emerald-500/5 via-transparent to-transparent opacity-40 group-hover:scale-150 transition-all duration-1000" />
+                    <div>
+                      <h3 className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.4em] mb-4">Total Liquid Assets</h3>
+                      <div className="text-7xl font-black italic text-white flex items-baseline gap-4 tabular-nums">
+                        ₹{creatorStatus.earnings_rs || 0}<span className="text-xl text-white/20">INR</span>
+                      </div>
+                      <p className="text-[11px] font-bold text-white/30 uppercase tracking-widest mt-4">Calculated from {creatorStatus.coins_earned || 0} lifetime coins</p>
+                    </div>
+                    <button 
+                      onClick={async () => {
+                        const upi = prompt('Enter UPI ID for Payout:');
+                        if (upi) {
+                          const res = await requestWithdrawal(upi);
+                          if (res.error) alert(res.error);
+                          else (showAlert('Transmitted', 'Withdrawal request sent to admin. Coins will be debited after verified.'));
+                        }
+                      }}
+                      className="px-12 py-6 bg-emerald-500 text-black font-black uppercase tracking-widest text-xs rounded-[30px] hover:bg-white hover:scale-105 transition-all shadow-[0_20px_50px_rgba(16,185,129,0.3)] active:scale-95"
+                    >Request Payout</button>
+                  </div>
+
+                  {/* STATS GRID */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="p-10 rounded-[50px] bg-white/[0.02] border border-white/5 group hover:border-cyan-500/30 transition-all">
+                      <div className="flex justify-between items-start mb-4">
+                        <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">Total Audience</span>
+                        <span className="text-2xl group-hover:scale-110 transition-transform">👥</span>
+                      </div>
+                      <div className="text-5xl font-black italic text-white tabular-nums group-hover:text-cyan-400 transition-colors">{creatorStatus.followers_count || 0}</div>
+                      <p className="text-[9px] font-bold text-white/20 uppercase tracking-[0.2em] mt-2 italic">Followers reached through profile</p>
+                    </div>
+                    <div className="p-10 rounded-[50px] bg-white/[0.02] border border-white/5 group hover:border-indigo-500/30 transition-all">
+                    <div className="flex justify-between items-start mb-4">
+                        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Influence Conversions</span>
+                        <span className="text-2xl group-hover:scale-110 transition-transform">🔥</span>
+                      </div>
+                      <div className="text-5xl font-black italic text-white tabular-nums group-hover:text-indigo-400 transition-colors uppercase">{creatorStatus.referral_count || 0}</div>
+                      <p className="text-[9px] font-bold text-white/20 uppercase tracking-[0.2em] mt-2 italic">Users joined via your uplink</p>
+                    </div>
+                  </div>
+
+                  {/* SECURITY PROTOCOL BAR */}
+                  <div className="p-8 rounded-[40px] bg-black/40 border border-white/5 grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div>
+                      <div className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Access PIN</div>
+                      <div className="text-lg font-black text-cyan-400 select-all hover:scale-105 transition-all w-fit cursor-help" title="Private Passphrase">{creatorStatus.password}</div>
+                    </div>
+                    <div>
+                      <div className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Matrix Code</div>
+                      <div className="text-lg font-black text-white select-all hover:scale-105 transition-all w-fit cursor-help" title="Referral ID">{creatorStatus.referral_code}</div>
+                    </div>
+                    <div>
+                      <div className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Verification Status</div>
+                      <div className="text-lg font-black text-emerald-500 italic uppercase">System Approved</div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PROFILE EDITOR MODAL */}
+      {showProfileModal && (
+        <div className="fixed inset-0 z-[2500] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl animate-in-zoom" onClick={() => setShowProfileModal(false)}>
+          <div className="relative w-full max-w-sm bg-[#0a0a0a] border border-white/10 rounded-[50px] p-10 shadow-[0_0_100px_rgba(6,182,212,0.15)]" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowProfileModal(false)} className="absolute top-8 right-8 text-white/20 hover:text-white transition-colors">✕</button>
+            
+            <div className="text-center mb-8">
+              <h3 className="text-2xl font-black italic uppercase tracking-tighter text-white">Edit Profile</h3>
+              <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-2">Personalize your Identity</p>
+            </div>
+
+            <div className="space-y-8">
+              <div className="flex flex-col items-center">
+                <div className="relative group cursor-pointer" onClick={() => document.getElementById('avatar-input').click()}>
+                  <div className="w-32 h-32 rounded-full border-2 border-dashed border-white/10 flex items-center justify-center overflow-hidden group-hover:border-cyan-500/50 transition-all">
+                    {profileForm.avatar ? (
+                      <img src={profileForm.avatar} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-3xl grayscale opacity-20 group-hover:opacity-100 group-hover:grayscale-0 transition-all">📸</span>
+                    )}
+                  </div>
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-full transition-all">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white">Upload</span>
+                  </div>
+                  <input id="avatar-input" type="file" accept="image/*" hidden onChange={handleAvatarUpload} />
+                </div>
+                <p className="text-[8px] font-black text-white/20 uppercase tracking-widest mt-4">Tap to upload photo (Max 2MB)</p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-cyan-400/60 uppercase tracking-widest ml-4">About You</label>
+                  <textarea
+                    placeholder="Tell your fans something special..."
+                    className="w-full h-32 bg-white/5 border border-white/5 focus:border-cyan-500/30 rounded-3xl p-6 text-sm outline-none text-white font-bold resize-none transition-all"
+                    value={profileForm.bio}
+                    onChange={e => setProfileForm(prev => ({ ...prev, bio: e.target.value.slice(0, 150) }))}
+                  />
+                  <div className="text-right text-[8px] font-black text-white/10 uppercase tracking-widest px-4">{profileForm.bio.length}/150</div>
+                </div>
+              </div>
+
+              <button
+                onClick={saveProfile}
+                className="w-full h-16 bg-cyan-500 text-black font-black uppercase tracking-widest text-[11px] rounded-2xl hover:bg-white hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-cyan-500/20"
+              >Save Identity →</button>
             </div>
           </div>
         </div>

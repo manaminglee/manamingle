@@ -1483,7 +1483,15 @@ function PiPLocalVideo({ stream, cameraBlur }) {
     if (ref.current && stream) ref.current.srcObject = stream;
   }, [stream]);
   if (!stream) return <div className="w-full h-full flex items-center justify-center bg-indigo-500/20 text-2xl">🙋</div>;
-  return <video ref={ref} autoPlay muted playsInline className={`w-full h-full object-cover ${facingMode === 'user' ? '-scale-x-100' : ''}`} style={cameraBlur ? { filter: 'blur(15px)' } : {}} />;
+  return (
+    <div className="relative w-full h-full">
+      <video ref={ref} autoPlay muted playsInline className={`w-full h-full object-cover ${facingMode === 'user' ? '-scale-x-100' : ''}`} style={cameraBlur ? { filter: 'blur(15px)' } : {}} />
+      <div className="absolute top-2 left-2 z-50 flex items-center gap-2">
+         <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+      </div>
+      <div className="absolute bottom-2 right-2 z-50 text-[10px] font-bold text-white/70">You</div>
+    </div>
+  );
 }
 
 function RemoteVideoTile({ stream, socketId }) {
@@ -1532,7 +1540,17 @@ function RemoteVideoTile({ stream, socketId }) {
 
   return (
     <div className="absolute inset-0 w-full h-full bg-[#0c0e1a] overflow-hidden">
-      <video ref={ref} autoPlay playsInline className={`absolute inset-0 w-full h-full object-cover -scale-x-100 transition-opacity duration-700 ${isPlaying && hasVideo ? 'opacity-100' : 'opacity-0'}`} />
+      <video ref={ref} autoPlay playsInline className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${isPlaying && hasVideo ? 'opacity-100' : 'opacity-0'}`} />
+      
+      {/* WATERMARKS & AI STATUS */}
+      <div className="absolute top-4 left-4 z-50 flex items-center gap-3">
+         <div className="ai-status-dot" />
+         <div className="glass-watermark">AI MONITOR ACTIVE</div>
+      </div>
+      <div className="absolute bottom-4 right-4 z-50">
+         <div className="glass-watermark">ManaMingle</div>
+      </div>
+
       {(!isPlaying || !hasVideo) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-indigo-500/10">
           {!isPlaying && hasVideo ? (

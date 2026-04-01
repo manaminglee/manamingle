@@ -586,6 +586,27 @@ body::after {
   border-radius: 8px;
 }
 
+/* Watermarks & Glassmorphism */
+.glass-watermark {
+  @apply backdrop-blur-md bg-white/5 border border-white/10 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.2em] text-white/40;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.ai-status-dot {
+  @apply w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,1)];
+  animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.video-frame-v2 {
+  @apply relative rounded-3xl overflow-hidden bg-black/40 border-2 border-white/5 group-hover:border-indigo-500/30 transition-all;
+}
+
 /* Stagger delays */
 .delay-100 {
   animation-delay: 0.1s;

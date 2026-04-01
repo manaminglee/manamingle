@@ -306,7 +306,7 @@ export default function GroupTextRoom({ roomId: roomIdProp, interest: interestPr
   }, [onLeave]);
 
   return (
-    <div className="h-screen flex flex-col bg-[#070811] text-white overflow-hidden relative">
+    <div className="h-screen h-[100dvh] flex flex-col bg-[#070811] text-white overflow-hidden relative">
       {sparks.map(s => <MessageSpark key={s.id} x={s.x} y={s.y} />)}
       {/* AI SAFETY LAYER */}
       <div className="absolute top-[72px] left-1/2 -translate-x-1/2 z-[100] pointer-events-none px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center gap-2 animate-pulse">
@@ -318,14 +318,14 @@ export default function GroupTextRoom({ roomId: roomIdProp, interest: interestPr
       <header className="app-header flex-shrink-0">
         <div className="flex items-center gap-3">
           <div className="logo-icon text-sm">M</div>
-          <div>
+          <div className="hidden sm:block">
             <h1 className="font-bold text-white leading-none">Mana Mingle</h1>
             <p className="text-xs mt-0.5" style={{ color: 'rgba(232,234,246,0.45)' }}>
               Group Chat · #{displayInterest}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} />
 
           <div className="participant-badge">
@@ -349,7 +349,7 @@ export default function GroupTextRoom({ roomId: roomIdProp, interest: interestPr
               Skip Room →
             </button>
           )}
-          <button id="group-text-leave-btn" type="button" onClick={onLeave} className="btn btn-danger px-4 py-2">
+          <button id="group-text-leave-btn" type="button" onClick={onLeave} className="btn btn-danger px-2 sm:px-4 py-2 text-[10px] sm:text-sm">
             {isQueuing ? 'Cancel' : 'Leave'}
           </button>
         </div>
@@ -425,7 +425,7 @@ export default function GroupTextRoom({ roomId: roomIdProp, interest: interestPr
                     <div key={m.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-message-pop`}>
                       {showNick && (
                         <div className="flex items-center gap-1 mb-1 px-1">
-                          <span className="text-[9px] font-black uppercase tracking-widest leading-none" style={{ color: isMe ? '#22d3ee' : color }}>
+                          <span className="text-[10px] font-black uppercase tracking-widest leading-none mb-0.5" style={{ color: isMe ? '#22d3ee' : color }}>
                             {m.isCreator ? `@${m.nickname}` : (isMe ? 'You' : m.nickname || 'Stranger')}
                           </span>
                           {m.isCreator && <BlueTick />}
@@ -564,7 +564,7 @@ export default function GroupTextRoom({ roomId: roomIdProp, interest: interestPr
               type="button"
               onClick={sendMessage}
               disabled={isQueuing || !chatInput.trim() || !roomId}
-              className="btn btn-primary w-12 h-12 p-0 rounded-xl flex-shrink-0"
+              className="btn btn-primary w-11 h-11 sm:w-12 sm:h-12 p-0 rounded-xl flex-shrink-0"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />

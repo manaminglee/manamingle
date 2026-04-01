@@ -61,6 +61,32 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [appState]);
 
+  // --- 3-MINUTE ACTIVE REWARD TIMER ---
+  const [activeSeconds, setActiveSeconds] = useState(0);
+  const [rewardClaimed, setRewardClaimed] = useState(() => localStorage.getItem('wc_reward_claimed') === '1');
+
+  useEffect(() => {
+    if (!socket || rewardClaimed || coins > 0) return; // If they have coins or already claimed, don't show timer
+
+    const timer = setInterval(() => {
+      if (!document.hidden) {
+        setActiveSeconds((prev) => {
+          const next = prev + 1;
+          if (next >= 180) {
+            socket.emit('claim-active-reward');
+            setRewardClaimed(true);
+            localStorage.setItem('wc_reward_claimed', '1');
+            clearInterval(timer);
+            return 180;
+          }
+          return next;
+        });
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [socket, rewardClaimed, coins]);
+
   const handleBackInternal = () => {
     if (roomId && socket) socket.emit('leave-room', { roomId });
     if (mode === MODES.TEXT || mode === MODES.VIDEO) socket?.emit('cancel-find-partner');
@@ -258,6 +284,19 @@ export default function App() {
       <Suspense fallback={<LoadingFallback />}>
         {renderContent()}
       </Suspense>
+
+      {/* Global Active Reward Progress (Only show if new at 0 coins) */}
+      {!rewardClaimed && coins === 0 && appState !== STATES.ADMIN && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[1000] animate-fade-in pointer-events-none">
+          <div className="bg-black/60 backdrop-blur-xl border border-white/10 px-6 py-3 rounded-2xl flex flex-col items-center gap-2 shadow-2xl">
+            <div className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">🎁 Stay active {Math.ceil((180 - activeSeconds) / 60)}m for 40 🪙</div>
+            <div className="w-40 h-1 bg-white/5 rounded-full overflow-hidden">
+               <div className="h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${(activeSeconds / 180) * 100}%` }} />
+            </div>
+          </div>
+        </div>
+      )}
+
       <GlobalParticles />
       {contentFlagged && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] px-6 py-3 rounded-xl bg-amber-500/90 text-black font-semibold text-sm shadow-xl animate-fade-in-up max-w-md text-center">

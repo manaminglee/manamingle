@@ -121,6 +121,21 @@ export function useCreators() {
     }
   };
 
+  const updateProfile = async (bio, avatar_url) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/creators/update-profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bio, avatar_url })
+      });
+      const data = await res.json();
+      if (res.ok) fetchStatus();
+      return data;
+    } catch (e) {
+      return { error: 'Update Failed' };
+    }
+  };
+
   return {
     creatorStatus,
     loading,
@@ -130,6 +145,7 @@ export function useCreators() {
     fetchStatus,
     login,
     checkStatus,
-    reRequestApproval
+    reRequestApproval,
+    updateProfile
   };
 }
