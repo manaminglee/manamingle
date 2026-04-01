@@ -116,7 +116,7 @@ export function CoinBadge({ balance = 0, streak = 1, canClaim, nextClaim = 0, cl
                  <div className="flex items-center gap-2">
                     <span className="text-xs">{registered ? '🚀' : '🎁'}</span>
                     <span className="text-[9px] font-black uppercase tracking-widest text-white/70 italic">
-                      {registered ? `Hourly Reward: 30 Coins` : `Verify Identity (3m) for Registration`}
+                      {registered ? `Hourly Reward: 30 Coins` : `Account Activation Progress (3m)`}
                     </span>
                  </div>
                  <span className={`text-[9px] font-black italic tabular-nums ${registered ? 'text-cyan-400' : 'text-emerald-400'}`}>

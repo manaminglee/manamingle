@@ -279,18 +279,6 @@ export default function App() {
         {renderContent()}
       </Suspense>
 
-      {/* Global Active Reward Progress (Only show if not registered or seeking next hour) */}
-      {!registered && coins === 0 && appState !== STATES.ADMIN && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[1000] animate-fade-in pointer-events-none">
-          <div className="bg-black/60 backdrop-blur-xl border border-white/10 px-6 py-3 rounded-2xl flex flex-col items-center gap-2 shadow-2xl">
-            <div className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">🎁 Verify Identity (3m) for Registration</div>
-            <div className="w-40 h-1 bg-white/5 rounded-full overflow-hidden">
-               <div className="h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${(activeSeconds / 180) * 100}%` }} />
-            </div>
-          </div>
-        </div>
-      )}
-
       <GlobalParticles />
       {contentFlagged && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] px-6 py-3 rounded-xl bg-amber-500/90 text-black font-semibold text-sm shadow-xl animate-fade-in-up max-w-md text-center">

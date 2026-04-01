@@ -188,7 +188,7 @@ async function updateCoinUser(ip, updates) {
 
   // If already persisted or qualifies, update DB
   const activity = ipActivity.get(ip);
-  if (activity?.persisted) {
+  if (activity?.persisted || u.registered) {
     if (supabase) {
       await supabase.from('user_coins').update(updates).eq('ip', ip);
     } else {
@@ -1040,7 +1040,7 @@ app.get('/api/admin/overview', requireAdmin, async (req, res) => {
     ip: u.ip,
     coins: u.coins,
     streak: u.streak,
-    persisted: ipActivity.get(u.ip)?.persisted || false
+    persisted: ipActivity.get(u.ip)?.persisted || u.registered || false
   }));
 
   const totalCoins = economyList.reduce((sum, u) => sum + (u.coins || 0), 0);

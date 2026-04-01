@@ -149,10 +149,10 @@ function VanishingMessage({ m, isMe }) {
       <div className={`relative max-w-[85%] px-3 py-2 rounded-lg text-sm flex flex-col gap-1 transition-all ${isMe ? 'bg-[#1a7f37] text-white rounded-tr-none' : 'bg-white/10 text-white/90 rounded-tl-none border border-white/5'}`}>
         <div className="flex flex-col gap-0.5 mb-1">
           <div className="flex items-center gap-1">
-             <span className={`text-[8px] font-black uppercase tracking-widest ${isMe ? 'text-cyan-400' : 'text-white/40'}`}>
-                {m.isCreator ? `@${m.nickname}` : (isMe ? 'You' : m.nickname || 'Stranger')}
-             </span>
-             {m.isCreator && <BlueTick />}
+            <span className={`text-[8px] font-black uppercase tracking-widest ${isMe ? 'text-cyan-400' : 'text-white/40'}`}>
+              {m.isCreator ? `@${m.nickname}` : (isMe ? 'You' : m.nickname || 'Stranger')}
+            </span>
+            {m.isCreator && <BlueTick />}
           </div>
         </div>
         {m.replyTo && (
@@ -177,15 +177,15 @@ function SafetyShield({ active = false, label = "SAFETY SCAN" }) {
   const isMob = typeof window !== 'undefined' && window.innerWidth < 640;
   return (
     <div className="absolute inset-0 z-20 pointer-events-none flex flex-col items-center justify-center bg-black/20 backdrop-blur-sm">
-       {!isMob && <div className="absolute inset-0 bg-gradient-to-b from-cyan-500/10 via-transparent to-cyan-500/10 animate-scan-line pointer-events-none" />}
-       <div className="flex flex-col items-center gap-3 animate-pulse-slow">
-          <div className="w-16 h-16 rounded-full border-2 border-cyan-500/50 flex items-center justify-center shadow-[0_0_20px_rgba(6,182,212,0.3)] bg-cyan-950/40">
-             <svg className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-             </svg>
-          </div>
-          <span className="text-[10px] font-black tracking-[0.3em] text-cyan-400 uppercase drop-shadow-[0_0_8px_rgba(6,182,212,0.8)]">{label}</span>
-       </div>
+      {!isMob && <div className="absolute inset-0 bg-gradient-to-b from-cyan-500/10 via-transparent to-cyan-500/10 animate-scan-line pointer-events-none" />}
+      <div className="flex flex-col items-center gap-3 animate-pulse-slow">
+        <div className="w-16 h-16 rounded-full border-2 border-cyan-500/50 flex items-center justify-center shadow-[0_0_20px_rgba(6,182,212,0.3)] bg-cyan-950/40">
+          <svg className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+        </div>
+        <span className="text-[10px] font-black tracking-[0.3em] text-cyan-400 uppercase drop-shadow-[0_0_8px_rgba(6,182,212,0.8)]">{label}</span>
+      </div>
     </div>
   );
 }
@@ -415,20 +415,20 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
     (async () => {
       try {
         const baseConstraints = {
-          video: { 
-            facingMode: { ideal: facingMode }, 
-            width: { ideal: 640 }, 
-            height: { ideal: 480 }, 
-            frameRate: { ideal: 30 } 
+          video: {
+            facingMode: { ideal: facingMode },
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            frameRate: { ideal: 30 }
           },
           audio: selectedAudioDeviceId ? { deviceId: { exact: selectedAudioDeviceId } } : { echoCancellation: true, noiseSuppression: true },
         };
         try {
           s = await navigator.mediaDevices.getUserMedia(baseConstraints);
         } catch (e) {
-          s = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: { ideal: facingMode } }, 
-            audio: true 
+          s = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: facingMode } },
+            audio: true
           });
         }
         localStreamRef.current = s;
@@ -476,15 +476,15 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
     if (!localStream) return;
     const vt = localStream.getVideoTracks()[0];
     const at = localStream.getAudioTracks()[0];
-    
+
     peerConnectionsRef.current.forEach((pc) => {
       if (pc.signalingState === 'closed') return;
       const senders = pc.getSenders();
       const vs = senders.find(s => s.track?.kind === 'video');
       const as = senders.find(s => s.track?.kind === 'audio');
-      
-      if (vs && vt) vs.replaceTrack(vt).catch(() => {});
-      if (as && at) as.replaceTrack(at).catch(() => {});
+
+      if (vs && vt) vs.replaceTrack(vt).catch(() => { });
+      if (as && at) as.replaceTrack(at).catch(() => { });
     });
   }, [localStream]);
 
@@ -500,7 +500,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
   useEffect(() => {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream;
-      localVideoRef.current.play().catch(() => {});
+      localVideoRef.current.play().catch(() => { });
     }
   }, [localStream, status]);
 
@@ -553,9 +553,9 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
 
   const handleStop = useCallback(() => {
     if (localStreamRef.current) {
-       localStreamRef.current.getTracks().forEach(t => t.stop());
-       localStreamRef.current = null;
-       setLocalStream(null);
+      localStreamRef.current.getTracks().forEach(t => t.stop());
+      localStreamRef.current = null;
+      setLocalStream(null);
     }
     if (roomIdRef.current && socket) socket.emit('leave-room', { roomId: roomIdRef.current });
     socket?.emit('cancel-find-partner');
@@ -596,29 +596,29 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
   const toggleFacingMode = async () => {
     const nextMode = facingMode === 'user' ? 'environment' : 'user';
     setFacingMode(nextMode);
-    
+
     if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach(t => t.stop());
+      localStreamRef.current.getTracks().forEach(t => t.stop());
     }
 
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: { exact: nextMode }, width: { ideal: 640 }, height: { ideal: 480 } },
-            audio: true
-        });
-        localStreamRef.current = stream;
-        setLocalStream(stream);
-        
-        peerConnectionsRef.current.forEach(pc => {
-            const vs = pc.getSenders().find(s => s.track?.kind === 'video');
-            if (vs) vs.replaceTrack(stream.getVideoTracks()[0]).catch(e => console.error('Switch error', e));
-        });
-        setToast(`📷 Switched to ${nextMode === 'user' ? 'Front' : 'Back'} Camera`);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { exact: nextMode }, width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: true
+      });
+      localStreamRef.current = stream;
+      setLocalStream(stream);
+
+      peerConnectionsRef.current.forEach(pc => {
+        const vs = pc.getSenders().find(s => s.track?.kind === 'video');
+        if (vs) vs.replaceTrack(stream.getVideoTracks()[0]).catch(e => console.error('Switch error', e));
+      });
+      setToast(`📷 Switched to ${nextMode === 'user' ? 'Front' : 'Back'} Camera`);
     } catch (e) {
-        // Fallback for devices with only one camera
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        localStreamRef.current = stream;
-        setLocalStream(stream);
+      // Fallback for devices with only one camera
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      localStreamRef.current = stream;
+      setLocalStream(stream);
     }
   };
 
@@ -703,10 +703,10 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       setFilterTimer(0);
       return;
     }
-    
+
     // Set 60s timer for the premium filter
     setFilterTimer(60);
-    
+
     const tickInterval = setInterval(() => {
       setFilterTimer(prev => {
         if (prev <= 1) {
@@ -727,20 +727,20 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       setShowFilterMenu(false);
       return;
     }
-    
+
     const COST = 15;
     if (coins < COST) {
       setToast(`⚠️ You need ${COST} coins for Premium Filters.`);
       return;
     }
-    
+
     if (socket) socket.emit('spend-coins', { amount: COST, reason: 'Premium Video Filter (60s)' });
-    
+
     // Trigger animation
     setDeductionValue(COST);
     setShowDeductionAnim(true);
     setTimeout(() => setShowDeductionAnim(false), 2000);
-    
+
     setActiveFilter(filterId);
     setShowFilterMenu(false);
     setToast(`✨ Premium Filter Active: 60s duration started.`);
@@ -881,22 +881,22 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       if (ignoreOffer.current) return;
 
       if (collision && polite) {
-          await pc.setLocalDescription({ type: 'rollback' });
-          await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        await pc.setLocalDescription({ type: 'rollback' });
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
       } else {
-          await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
       }
 
       if (isOffer) {
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          socket.emit('webrtc-signal', { roomId: rid, targetSocketId: remoteId, type: 'answer', signal: pc.localDescription });
-          
-          const pend = pendingCandidatesRef.current.get(remoteId) || [];
-          for (const c of pend) await pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
-          pendingCandidatesRef.current.set(remoteId, []);
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit('webrtc-signal', { roomId: rid, targetSocketId: remoteId, type: 'answer', signal: pc.localDescription });
+
+        const pend = pendingCandidatesRef.current.get(remoteId) || [];
+        for (const c of pend) await pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => { });
+        pendingCandidatesRef.current.set(remoteId, []);
       }
-    } catch (err) { 
+    } catch (err) {
       console.warn('[WEBRTC] Perfect Negotiation Error:', err);
     }
   }, [socket, createPeerConnection]);
@@ -962,9 +962,9 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       // Automated Creator Introduction Synthesis
       if (isCreator && data.roomId) {
         setTimeout(() => {
-          socket.emit('send-message', { 
-            roomId: data.roomId, 
-            text: `🎯 HI, THIS IS @${nickname}! View my profile here: ${window.location.origin}/creator/${nickname}` 
+          socket.emit('send-message', {
+            roomId: data.roomId,
+            text: `🎯 HI, THIS IS @${nickname}! View my profile here: ${window.location.origin}/creator/${nickname}`
           });
           setMessages(m => [...m, { id: 'auto-greet', system: true, text: 'Auto-Greeting Transmitted to Partner.', ts: Date.now() }]);
         }, 1500);
@@ -987,12 +987,12 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       setStatus('disconnected');
       setPartnerLeft(true);
       playDisconnectSound();
-      
+
       setTimeout(() => {
         if (!isMounted || status === 'idle' || status === 'searching') return;
         handleSkip();
       }, 700);
-      
+
       setTimeout(() => setPartnerLeft(false), 5000);
     };
 
@@ -1017,15 +1017,15 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
     const onSignal = async (data) => {
       const from = data.fromSocketId;
       if (!from || from === socket.id) return;
-        peerInfoRef.current.set(from, { 
-          nickname: data.fromNickname, 
-          country: data.fromCountry,
-          isCreator: !!data.fromIsCreator
-        });
-        setPeer(prev => {
-          if (prev?.socketId === from) return { ...prev, isCreator: !!data.fromIsCreator, nickname: data.fromNickname || prev.nickname };
-          return { socketId: from, isCreator: !!data.fromIsCreator, nickname: data.fromNickname, country: data.fromCountry, stream: prev?.stream };
-        });
+      peerInfoRef.current.set(from, {
+        nickname: data.fromNickname,
+        country: data.fromCountry,
+        isCreator: !!data.fromIsCreator
+      });
+      setPeer(prev => {
+        if (prev?.socketId === from) return { ...prev, isCreator: !!data.fromIsCreator, nickname: data.fromNickname || prev.nickname };
+        return { socketId: from, isCreator: !!data.fromIsCreator, nickname: data.fromNickname, country: data.fromCountry, stream: prev?.stream };
+      });
       if (data.type === 'offer') {
         if (localStreamRef.current) doAnswer(from, data.signal);
         else pendingAnswerRef.current = { from, signal: data.signal };
@@ -1122,13 +1122,13 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
 
   const startRecording = () => {
     if (!localStream || !peer?.stream) return alert('Ensure both local and stranger video are active to record.');
-    
+
     // DVR Engine: Real-time Canvas Compositing
     const canvas = document.createElement('canvas');
     canvas.width = 1280;
     canvas.height = 720;
     const ctx = canvas.getContext('2d');
-    
+
     // Internal hidden video elements for capture
     const v1 = document.createElement('video');
     v1.srcObject = localStream;
@@ -1141,26 +1141,26 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       if (!isRecording) return;
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
+
       // Main: Stranger (Scaled)
       ctx.drawImage(v2, 0, 0, 1280, 720);
-      
+
       // PinP: Self (Bordered Glass Look)
       ctx.strokeStyle = 'rgba(255,255,255,0.2)';
       ctx.lineWidth = 4;
       ctx.strokeRect(958, 498, 304, 204);
       ctx.drawImage(v1, 960, 500, 300, 200);
-      
+
       requestAnimationFrame(draw);
     };
-    
+
     setIsRecording(true);
     draw();
 
     const captureStream = canvas.captureStream(30);
     const recorder = new MediaRecorder(captureStream, { mimeType: 'video/webm;codecs=vp9' });
     chunksRef.current = [];
-    
+
     recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
     recorder.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: 'video/webm' });
@@ -1171,7 +1171,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       a.click();
       setIsRecording(false);
     };
-    
+
     recorder.start(1000);
     recorderRef.current = recorder;
     setToast('🎥 REC STARTED');
@@ -1295,10 +1295,10 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       <main className={`flex-1 flex min-h-0 relative ${isMobile && showChat ? 'flex-col' : ''}`}>
         <div className={`flex-1 flex ${status === 'connected' ? (showChat && isMobile ? 'h-[55%] flex-col' : 'flex-col sm:flex-row') : 'flex-col'} min-h-0 relative`}>
           <div className={`flex flex-col justify-center items-center min-h-0 bg-[#0a0a0a] ${status === 'connected'
-              ? (showChat && isMobile
-                ? 'absolute top-4 right-4 w-28 h-36 z-[200] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-2 border-white/30 overflow-hidden animate-in-zoom'
-                : 'relative flex-1 border-b sm:border-b-0 sm:border-r border-white/[0.06]')
-              : 'relative flex-1'
+            ? (showChat && isMobile
+              ? 'absolute top-4 right-4 w-28 h-36 z-[200] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-2 border-white/30 overflow-hidden animate-in-zoom'
+              : 'relative flex-1 border-b sm:border-b-0 sm:border-r border-white/[0.06]')
+            : 'relative flex-1'
             }`}>
             {status === 'idle' && (
               <div className="absolute inset-0 flex flex-col items-center justify-center p-6">
@@ -1308,17 +1308,17 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
                   </div>
                 )}
                 <p className="text-white/60 text-sm mb-6">Talk to strangers!</p>
-                
+
                 <div className="flex flex-wrap gap-2 justify-center max-w-sm mb-8">
-                   {interestTags.map(tag => (
-                      <button
-                        key={tag}
-                        onClick={() => toggleInterestTag(tag)}
-                        className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border ${selectedInterests.includes(tag) ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-500/20 scale-105' : 'bg-white/5 border-white/10 text-white/40 hover:border-white/20'}`}
-                      >
-                         #{tag}
-                      </button>
-                   ))}
+                  {interestTags.map(tag => (
+                    <button
+                      key={tag}
+                      onClick={() => toggleInterestTag(tag)}
+                      className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border ${selectedInterests.includes(tag) ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-500/20 scale-105' : 'bg-white/5 border-white/10 text-white/40 hover:border-white/20'}`}
+                    >
+                      #{tag}
+                    </button>
+                  ))}
                 </div>
 
                 <button onClick={handleStart} disabled={!connected} className="px-12 py-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black uppercase tracking-widest text-sm transition-all shadow-xl shadow-indigo-500/20">
@@ -1353,14 +1353,14 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
             {status === 'connected' && (
               <div className="relative w-full h-full">
                 <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover transition-opacity duration-300 ${facingMode === 'user' ? '-scale-x-100' : ''} ${cameraOff ? 'opacity-20' : ''}`} style={{ filter: cameraBlur && activeFilter === 'none' ? 'blur(20px)' : (activeFilter !== 'none' ? activeFilter : 'none') }} />
-                
+
                 {/* FLOATING DEDUCTION ANIMATION */}
                 {showDeductionAnim && (
                   <div className="absolute inset-0 flex items-center justify-center z-[200] pointer-events-none">
-                     <div className="flex items-center gap-2 bg-black/60 px-4 py-2 rounded-full border border-rose-500/30 animate-coin-deduct-float shadow-2xl">
-                        <span className="text-lg">🪙</span>
-                        <span className="text-xl font-black text-rose-500">-{deductionValue}</span>
-                     </div>
+                    <div className="flex items-center gap-2 bg-black/60 px-4 py-2 rounded-full border border-rose-500/30 animate-coin-deduct-float shadow-2xl">
+                      <span className="text-lg">🪙</span>
+                      <span className="text-xl font-black text-rose-500">-{deductionValue}</span>
+                    </div>
                   </div>
                 )}
 
@@ -1376,35 +1376,35 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
 
           {status === 'connected' && (
             <div className={`relative bg-[#0d0d0d] flex-grow min-h-0 ${showChat && isMobile ? 'h-full' : ''}`}>
-              <div 
-                className={`h-full relative overflow-hidden ${peer?.isCreator ? 'cursor-pointer group' : 'cursor-default'}`} 
+              <div
+                className={`h-full relative overflow-hidden ${peer?.isCreator ? 'cursor-pointer group' : 'cursor-default'}`}
                 onClick={() => {
-                   if (peer?.isCreator) {
-                      setShowProfileHandle(peer.nickname);
-                      setToast(`Opening ${peer.nickname}'s Creator Profile...`);
-                   }
+                  if (peer?.isCreator) {
+                    setShowProfileHandle(peer.nickname);
+                    setToast(`Opening ${peer.nickname}'s Creator Profile...`);
+                  }
                 }}
               >
                 <RemoteVideoComponent stream={peer?.stream} muted={mutedStranger} strangerFilter={strangerFilter} strangerBlur={strangerBlur} />
-                
+
                 {/* WATERMARKS & AI STATUS */}
                 <div className="absolute top-4 left-4 z-50 flex items-center gap-3 pointer-events-none">
-                   <div className="ai-status-dot" />
-                   <div className="glass-watermark">AI MONITOR ACTIVE</div>
+                  <div className="ai-status-dot" />
+                  <div className="glass-watermark">AI MONITOR ACTIVE</div>
                 </div>
                 <div className="absolute bottom-4 right-4 z-50 pointer-events-none">
-                   <div className="glass-watermark">ManaMingle</div>
+                  <div className="glass-watermark">ManaMingle</div>
                 </div>
 
                 {peer?.isCreator && (
-                   <div className="absolute inset-0 bg-cyan-500/0 group-hover:bg-cyan-500/10 transition-colors flex items-center justify-center pointer-events-none">
-                      <span className="opacity-0 group-hover:opacity-100 bg-cyan-500 text-black px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-2xl transition-all translate-y-4 group-hover:translate-y-0">View Profile</span>
-                   </div>
+                  <div className="absolute inset-0 bg-cyan-500/0 group-hover:bg-cyan-500/10 transition-colors flex items-center justify-center pointer-events-none">
+                    <span className="opacity-0 group-hover:opacity-100 bg-cyan-500 text-black px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-2xl transition-all translate-y-4 group-hover:translate-y-0">View Profile</span>
+                  </div>
                 )}
               </div>
               {strangerCameraOff && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md z-10">
-                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40 bg-white/5 px-4 py-1.5 rounded-full border border-white/5">Video Restricted</span>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40 bg-white/5 px-4 py-1.5 rounded-full border border-white/5">Video Restricted</span>
                 </div>
               )}
               <div className="absolute bottom-3 left-3 px-2 py-1 rounded bg-black/60 text-[10px] font-black uppercase tracking-widest border border-white/10 flex items-center gap-2 z-30">
@@ -1483,7 +1483,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
         {/* Right Side: New/Skip */}
         <div className="flex items-center gap-3">
           {isCreator && status === 'connected' && (
-            <button 
+            <button
               onClick={isRecording ? stopRecording : startRecording}
               className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isRecording ? 'bg-rose-500 animate-pulse' : 'bg-white/5 border border-white/10 text-white/40 hover:text-white'}`}
               title={isRecording ? 'Stop Recording' : 'Start Creator Production'}
@@ -1602,10 +1602,10 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
 
       {showProfileHandle && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-           <div className="absolute inset-0 bg-black/60 backdrop-blur-xl animate-fade-in" onClick={() => setShowProfileHandle(null)} />
-           <div className="relative animate-in-zoom">
-              <CreatorProfilePopup handle={showProfileHandle} onClose={() => setShowProfileHandle(null)} />
-           </div>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-xl animate-fade-in" onClick={() => setShowProfileHandle(null)} />
+          <div className="relative animate-in-zoom">
+            <CreatorProfilePopup handle={showProfileHandle} onClose={() => setShowProfileHandle(null)} />
+          </div>
         </div>
       )}
     </div>
@@ -1627,7 +1627,7 @@ function RemoteVideoComponent({ stream, muted, strangerFilter, strangerBlur }) {
     const playVideo = async () => {
       try {
         if (el.paused && stream?.active) {
-            await el.play();
+          await el.play();
         }
       } catch (e) {
         // Fallback for browsers that block autoplay
@@ -1648,7 +1648,7 @@ function RemoteVideoComponent({ stream, muted, strangerFilter, strangerBlur }) {
     playVideo();
 
     // Forced-play listeners for stalled/waiting streams
-    const handleActive = () => { if (el.paused) el.play().catch(() => {}); };
+    const handleActive = () => { if (el.paused) el.play().catch(() => { }); };
     el.addEventListener('stalled', handleActive);
     el.addEventListener('waiting', handleActive);
     el.addEventListener('canplay', handleActive);
@@ -1669,8 +1669,8 @@ function RemoteVideoComponent({ stream, muted, strangerFilter, strangerBlur }) {
       playsInline
       muted={muted}
       className="absolute inset-0 w-full h-full object-cover -scale-x-100 transition-all duration-300"
-      style={{ 
-        backgroundColor: '#000', 
+      style={{
+        backgroundColor: '#000',
         filter: strangerBlur && strangerFilter === 'none' ? 'blur(20px)' : (strangerFilter !== 'none' ? strangerFilter : 'none'),
         willChange: 'transform, opacity' // Hardware acceleration
       }}
