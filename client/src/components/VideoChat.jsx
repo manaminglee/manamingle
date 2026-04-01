@@ -770,6 +770,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
     if (status === 'connected') {
       setTimeout(() => inputRef.current?.focus(), 500);
       setToast('✅ Connected with a stranger!');
+      setMessages(prev => [...prev, { system: true, text: `Connected to a stranger from ${peer?.country || 'the network'}` }]);
       playConnectSound();
       setIsModerating(true);
       const timer = setTimeout(() => setIsModerating(false), 3000);
@@ -1289,133 +1290,105 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       </header>
 
       <main className={`flex-1 flex min-h-0 relative ${isMobile && showChat ? 'flex-col' : ''}`}>
-        <div className={`flex-1 flex ${status === 'connected' ? (showChat && isMobile ? 'h-[55%] flex-col' : 'flex-col sm:flex-row') : 'flex-col'} min-h-0 relative`}>
-          <div className={`flex flex-col justify-center items-center min-h-0 bg-[#0a0a0a] ${status === 'connected'
-            ? (showChat && isMobile
-              ? 'absolute top-4 right-4 w-28 h-36 z-[200] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-2 border-white/30 overflow-hidden animate-in-zoom'
-              : 'relative flex-1 border-b sm:border-b-0 sm:border-r border-white/[0.06]')
-            : 'relative flex-1'
-            }`}>
+        <div className={`flex-1 flex ${status === 'connected' && showChat && isMobile ? 'h-[55%] flex-col' : 'flex-row'} min-h-0 relative`}>
+          {/* PANEL 1: LOCAL */}
+          <div className={`relative flex-1 bg-black overflow-hidden transition-all duration-500 ${(status === 'connected' || status === 'searching') ? 'border-r border-white/[0.06]' : ''}`}>
             {status === 'idle' && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-6">
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 z-20 bg-black/60 backdrop-blur-md">
                 {cameraError && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-10 p-6">
-                    <p className="text-sm text-rose-400 text-center max-w-xs">{cameraError}</p>
+                  <div className="mb-4 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] uppercase font-black tracking-widest text-center">
+                    {cameraError}
                   </div>
                 )}
-                <p className="text-white/60 text-sm mb-6">Talk to strangers!</p>
-
-                <div className="flex flex-wrap gap-2 justify-center max-w-sm mb-8">
+                <p className="text-white font-black uppercase tracking-[0.4em] text-[10px] mb-8 animate-pulse text-center">Start Meeting Someone</p>
+                <div className="flex flex-wrap gap-2 justify-center max-w-sm mb-10">
                   {interestTags.map(tag => (
-                    <button
-                      key={tag}
-                      onClick={() => toggleInterestTag(tag)}
-                      className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border ${selectedInterests.includes(tag) ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-500/20 scale-105' : 'bg-white/5 border-white/10 text-white/40 hover:border-white/20'}`}
-                    >
-                      #{tag}
-                    </button>
+                    <button key={tag} onClick={() => toggleInterestTag(tag)} className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all border ${selectedInterests.includes(tag) ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white/5 border-white/10 text-white/40 hover:border-white/20'}`}>#{tag}</button>
                   ))}
                 </div>
-
-                <button onClick={handleStart} disabled={!connected} className="px-12 py-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black uppercase tracking-widest text-sm transition-all shadow-xl shadow-indigo-500/20">
-                  Start Exploration
-                </button>
+                <button onClick={handleStart} disabled={!connected} className="px-12 py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-black uppercase tracking-widest text-xs transition-all shadow-2xl active:scale-95 shadow-indigo-600/30">Start Connecting</button>
               </div>
             )}
+            <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover transition-opacity duration-300 ${facingMode === 'user' ? '-scale-x-100' : ''} ${cameraOff ? 'opacity-30' : ''}`} style={{ filter: activeFilter !== 'none' ? activeFilter : 'none' }} />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+            <div className="absolute bottom-4 left-4 flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]" />
+              <span className="text-[9px] font-black uppercase tracking-widest text-white/40 italic">Your Camera</span>
+            </div>
+            {filterTimer > 0 && <div className="absolute top-4 left-4 px-2 py-1 rounded bg-amber-500 text-black text-[8px] font-black animate-pulse shadow-2xl uppercase">Premium: {filterTimer}s</div>}
+          </div>
+
+          {/* PANEL 2: REMOTE / SEARCHING */}
+          <div className="relative flex-1 bg-[#0d0d0d] overflow-hidden border-l border-white/[0.06]">
             {status === 'searching' && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-[#050505] z-50">
-                <div className="relative w-32 h-32 mb-8">
-                  <div className="absolute inset-0 border-4 border-indigo-500/10 rounded-full" />
-                  <div className="absolute inset-0 border-4 border-t-indigo-500 rounded-full animate-spin" />
-                  <div className="absolute inset-2 border-2 border-dashed border-cyan-500/30 rounded-full animate-pulse-slow" />
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-[#050505] z-50 animate-fade-in">
+                <div className="relative w-20 h-20 mb-6">
+                  <div className="absolute inset-0 border-2 border-indigo-500/10 rounded-full" />
+                  <div className="absolute inset-0 border-2 border-t-indigo-500 rounded-full animate-spin" />
+                  <div className="absolute inset-4 border border-dashed border-cyan-500/20 rounded-full animate-pulse-slow" />
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-[10px] font-black text-white/20 animate-pulse">SCAN</span>
+                    <span className="text-[8px] font-black text-white/10 uppercase tracking-widest">Searching...</span>
                   </div>
                 </div>
-                <p className="text-white font-black uppercase tracking-[0.4em] text-[10px] mb-2 animate-pulse">Finding Neural Partner</p>
-                <div className="flex gap-1 mt-4">
-                  {[...Array(4)].map((_, i) => (
+                <p className="text-white font-black uppercase tracking-[0.4em] text-[10px] mb-2 animate-pulse">Finding Someone New</p>
+                <div className="flex gap-1">
+                   {[...Array(4)].map((_, i) => (
                     <div key={i} className="w-1 h-1 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
                   ))}
                 </div>
-                <button onClick={handleStop} className="absolute bottom-12 px-8 py-3 rounded-xl bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-rose-500/60 hover:text-rose-500 hover:bg-rose-500/10 transition-all">Abort Search</button>
+                <button onClick={handleStop} className="absolute bottom-12 px-8 py-3 rounded-xl bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-rose-500/60 hover:text-rose-500 hover:bg-rose-500/10 transition-all z-[60]">Abort Search</button>
               </div>
             )}
-            {(status === 'idle' || status === 'searching') && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-32 h-24 sm:w-40 sm:h-28 rounded-2xl overflow-hidden border border-white/10 bg-black/50 z-10 backdrop-blur-md">
-                <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover ${facingMode === 'user' ? '-scale-x-100' : ''} ${cameraOff ? 'opacity-30' : ''}`} style={{ filter: activeFilter !== 'none' ? activeFilter : 'none' }} />
-              </div>
-            )}
-            {status === 'connected' && (
-              <div className="relative w-full h-full">
-                <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover transition-opacity duration-300 ${facingMode === 'user' ? '-scale-x-100' : ''} ${cameraOff ? 'opacity-20' : ''}`} style={{ filter: cameraBlur && activeFilter === 'none' ? 'blur(20px)' : (activeFilter !== 'none' ? activeFilter : 'none') }} />
-
-                {/* FLOATING DEDUCTION ANIMATION */}
-                {showDeductionAnim && (
-                  <div className="absolute inset-0 flex items-center justify-center z-[200] pointer-events-none">
-                    <div className="flex items-center gap-2 bg-black/60 px-4 py-2 rounded-full border border-rose-500/30 animate-coin-deduct-float shadow-2xl">
-                      <span className="text-lg">🪙</span>
-                      <span className="text-xl font-black text-rose-500">-{deductionValue}</span>
-                    </div>
+            
+            {status === 'connected' ? (
+              <div className="relative w-full h-full animate-fade-in">
+                <div 
+                  className={`h-full relative overflow-hidden ${peer?.isCreator ? 'cursor-pointer group' : 'cursor-default'}`}
+                  onClick={() => peer?.isCreator && setShowProfileHandle(peer.nickname)}
+                >
+                  <RemoteVideoComponent stream={peer?.stream} muted={mutedStranger} strangerFilter={strangerFilter} strangerBlur={strangerBlur} />
+                  
+                  {/* WATERMARKS & AI STATUS */}
+                  <div className="absolute top-4 left-4 z-50 flex items-center gap-3 pointer-events-none">
+                    <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_#22d3ee]" />
+                    <div className="px-2 py-1 bg-black/40 backdrop-blur-md rounded border border-white/5 text-[8px] font-black text-white/30 uppercase tracking-widest italic">Safety Active</div>
                   </div>
-                )}
-
-                <div className="absolute bottom-3 left-3 flex items-center gap-1.5 z-10">
-                  <span className="px-2 py-1 rounded bg-black/60 text-[10px] font-black uppercase tracking-widest border border-white/10">You</span>
-                  {filterTimer > 0 && (
-                    <span className="px-2 py-1 rounded bg-amber-500 text-black text-[9px] font-black animate-pulse">PREMIUM ACTIVE: {filterTimer}S</span>
+                  
+                  <div className="absolute bottom-4 right-4 z-50 pointer-events-none px-2 py-1 bg-black/20 rounded text-[8px] font-black text-white/10 uppercase tracking-widest">Mana Mingle</div>
+                  
+                  {peer?.isCreator && (
+                    <div className="absolute inset-0 bg-cyan-500/0 group-hover:bg-cyan-500/10 transition-colors flex items-center justify-center pointer-events-none">
+                      <span className="opacity-0 group-hover:opacity-100 bg-cyan-500 text-black px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-2xl transition-all translate-y-4 group-hover:translate-y-0">Explore Creator Content</span>
+                    </div>
                   )}
                 </div>
-              </div>
-            )}
-          </div>
-
-          {status === 'connected' && (
-            <div className={`relative bg-[#0d0d0d] flex-grow min-h-0 ${showChat && isMobile ? 'h-full' : ''}`}>
-              <div
-                className={`h-full relative overflow-hidden ${peer?.isCreator ? 'cursor-pointer group' : 'cursor-default'}`}
-                onClick={() => {
-                  if (peer?.isCreator) {
-                    setShowProfileHandle(peer.nickname);
-                    setToast(`Opening ${peer.nickname}'s Creator Profile...`);
-                  }
-                }}
-              >
-                <RemoteVideoComponent stream={peer?.stream} muted={mutedStranger} strangerFilter={strangerFilter} strangerBlur={strangerBlur} />
-
-                {/* WATERMARKS & AI STATUS */}
-                <div className="absolute top-4 left-4 z-50 flex items-center gap-3 pointer-events-none">
-                  <div className="ai-status-dot" />
-                  <div className="glass-watermark">AI MONITOR ACTIVE</div>
-                </div>
-                <div className="absolute bottom-4 right-4 z-50 pointer-events-none">
-                  <div className="glass-watermark">ManaMingle</div>
-                </div>
-
-                {peer?.isCreator && (
-                  <div className="absolute inset-0 bg-cyan-500/0 group-hover:bg-cyan-500/10 transition-colors flex items-center justify-center pointer-events-none">
-                    <span className="opacity-0 group-hover:opacity-100 bg-cyan-500 text-black px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-2xl transition-all translate-y-4 group-hover:translate-y-0">View Profile</span>
+                
+                {strangerCameraOff && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-black/60 backdrop-blur-xl z-20">
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40 bg-white/5 px-4 py-1.5 rounded-full border border-white/5">Video Hidden</span>
                   </div>
                 )}
-              </div>
-              {strangerCameraOff && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md z-10">
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40 bg-white/5 px-4 py-1.5 rounded-full border border-white/5">Video Restricted</span>
+                
+                <div className="absolute bottom-4 left-4 px-3 py-1.5 rounded-xl bg-black/60 text-[10px] font-black uppercase tracking-widest border border-white/10 flex items-center gap-2 z-40 backdrop-blur-md">
+                  {countryToFlag(peer?.country)} 
+                  <span className={peer?.isCreator ? 'text-cyan-400 flex items-center gap-1.5' : 'text-white'}>
+                    {peer?.nickname || 'Someone'}
+                    {peer?.isCreator && <BlueTick />}
+                  </span>
                 </div>
-              )}
-              <div className="absolute bottom-3 left-3 px-2 py-1 rounded bg-black/60 text-[10px] font-black uppercase tracking-widest border border-white/10 flex items-center gap-2 z-30">
-                {peer?.isCreator ? (
-                  <span className="text-cyan-400 flex items-center gap-1.5">{countryToFlag(peer?.country)} {peer?.nickname || 'Stranger'} <BlueTick /></span>
-                ) : (
-                  <>{countryToFlag(peer?.country)} {peer?.nickname || 'Stranger'}</>
-                )}
               </div>
-            </div>
-          )}
+            ) : (
+              status !== 'searching' && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-black/20 italic">
+                   <p className="text-[10px] font-black uppercase tracking-[0.4em] text-white/5 animate-pulse">Waiting for Match...</p>
+                </div>
+              )
+            )}
+          </div>
         </div>
 
         {showChat && status === 'connected' && (
-          <div className={`transition-all duration-300 flex flex-col bg-[#0d0d0d] border-white/[0.06] ${isMobile ? 'h-[45%] w-full border-t z-[150]' : 'static w-80 border-l'}`}>
+          <div className={`transition-all duration-300 flex flex-col bg-[#0d0d0d] border-white/[0.06] ${isMobile ? 'h-[45%] w-full border-t z-[150]' : 'static w-80 border-l animate-slide-left'}`}>
             <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar" id="video-chat-messages">
               {messages.map((m, i) => (
                 <div key={m.id || i} className={`flex flex-col group ${m.socketId === socket.id ? 'items-end' : 'items-start'}`}>
@@ -1426,8 +1399,8 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
             </div>
             <div className="p-3 bg-white/[0.01] border-t border-white/[0.06]">
               <div className="flex gap-1.5 items-center">
-                <input ref={inputRef} value={input} onChange={handleInputChange} onKeyDown={(e) => e.key === 'Enter' && sendMsg()} className="flex-1 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm outline-none" />
-                <button onClick={sendMsg} className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-[11px] font-black uppercase">Send</button>
+                <input ref={inputRef} value={input} onChange={handleInputChange} onKeyDown={(e) => e.key === 'Enter' && sendMsg()} className="flex-1 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm outline-none focus:border-indigo-500/50 transition-all font-medium" />
+                <button onClick={sendMsg} className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-[11px] font-black uppercase shadow-lg shadow-indigo-600/20 active:scale-95 transition-all">Send</button>
               </div>
             </div>
           </div>
@@ -1440,7 +1413,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
         <div className="flex items-center gap-3">
           {(status === 'connected' || status === 'searching' || status === 'disconnected') && (
             <div className="flex flex-col items-center gap-0.5">
-              <button onClick={handleStop} className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-lg" title="Stop Session">
+              <button onClick={handleStop} className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-lg" title="Stop">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
               <span className="text-[7px] uppercase tracking-tighter text-white/20 font-bold">ESC / ←</span>
@@ -1531,7 +1504,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       {showEmojiPicker && (
         <div className="fixed bottom-24 right-4 sm:right-0 sm:mr-4 z-[150] p-4 rounded-2xl bg-[#111] border border-white/10 shadow-2xl shrink-0 w-[300px] animate-fade-in-up">
           <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2">
-            <h3 className="text-xs font-black uppercase text-amber-500 tracking-wider">Premium 3D Emojis</h3>
+            <h3 className="text-xs font-black uppercase text-amber-500 tracking-wider">Big Emojis</h3>
             <span className="text-[10px] font-bold text-white/50 bg-black/40 px-2 py-0.5 rounded">5 Coins</span>
           </div>
           <div className="grid grid-cols-4 gap-2">
@@ -1579,11 +1552,11 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
         <div className="absolute inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-[280px] bg-[#111] border border-white/10 rounded-2xl p-6 shadow-2xl flex flex-col gap-4">
             <div className="flex justify-between items-center border-b border-white/5 pb-2">
-              <h3 className="text-sm font-black uppercase tracking-widest text-indigo-400 flex items-center gap-2"><span className="text-amber-500">🪙</span> Premium Filters</h3>
+              <h3 className="text-sm font-black uppercase tracking-widest text-indigo-400 flex items-center gap-2"><span className="text-amber-500">🪙</span> Simple Filters</h3>
               <button onClick={() => setShowFilterMenu(false)} className="text-white/40 hover:text-white">✕</button>
             </div>
             <p className="text-[10px] text-white/40 text-center leading-relaxed">
-              Premium filters cost <strong className="text-amber-500">15 coins</strong> for 1 minute of exploration. Normal filters are always free.
+              Effects cost <strong className="text-amber-500">15 coins</strong> for 1 minute. Normal filters are always free.
             </p>
             <div className="grid grid-cols-2 gap-2 mt-2">
               {VIDEO_FILTERS.map(f => (

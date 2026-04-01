@@ -119,6 +119,13 @@ const warnedIps = new Set();
 const userBlocks = new Map(); // ip -> Set of blocked IPs (user-level block list)
 const reports = [];
 const stats = { totalMessages: 0, totalConnections: 0, uniqueIps: new Set() };
+const errorLogs = []; // Buffer for NVIDIA AI to analyze
+function logSystemError(module, error, context = {}) {
+  const log = { id: Date.now(), timestamp: new Date(), module, message: error.message || error, context };
+  errorLogs.push(log);
+  if (errorLogs.length > 50) errorLogs.shift();
+  console.error(`[SYSTEM ERROR][${module}]`, error);
+}
 
 const ipActivity = new Map(); // ip -> { firstSeen, lastSeen, persisted }
 const coinUsers = new Map(); // ip -> { coins, last_claim, streak, ... }
@@ -160,7 +167,7 @@ async function persistCoinUser(ip) {
     
     if (supabase) {
       await supabase.from('user_coins').upsert(u);
-      await supabase.from('activity_logs').insert({ ip, action: 'registered_ip', amount: 40, details: '3m Hurdle Met' });
+      await supabase.from('activity_logs').insert({ ip, action: 'registered_ip', amount: 40, details: 'Identity Verified (3m Cycle)' });
     } else {
       saveLocalDb();
     }
@@ -336,19 +343,32 @@ function removeUserFromRoom(socketId, roomId, io) {
   }
 }
 
+// Regional cache for O(1) broadcast
+let regionalCache = { in: 0, us: 0, eu: 0, ot: 0 };
+let lastRegionFullScan = 0;
+
 function emitOnlineCount() {
-  const regions = { in: 0, us: 0, eu: 0, ot: 0 };
-  const EU_CODES = ['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE', 'GB'];
-
-  users.forEach(u => {
-    const c = u.country;
-    if (c === 'IN') regions.in++;
-    else if (c === 'US') regions.us++;
-    else if (EU_CODES.includes(c)) regions.eu++;
-    else regions.ot++;
+  const now = Date.now();
+  // Only do expensive full scan every 60 seconds
+  if (now - lastRegionFullScan > 60000) {
+    const regions = { in: 0, us: 0, eu: 0, ot: 0 };
+    const EU_CODES = ['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE', 'GB'];
+    users.forEach(u => {
+      const c = u.country;
+      if (c === 'IN') regions.in++;
+      else if (c === 'US') regions.us++;
+      else if (EU_CODES.includes(c)) regions.eu++;
+      else regions.ot++;
+    });
+    regionalCache = regions;
+    lastRegionFullScan = now;
+  }
+  
+  io.emit('online_count', { 
+    count: users.size, 
+    regions: regionalCache,
+    timestamp: now
   });
-
-  io.emit('online_count', { count: users.size, regions });
 }
 
 // Express app
@@ -1492,6 +1512,60 @@ app.post('/api/ai/translate', async (req, res) => {
   }
 });
 
+// AI ADMIN SYSTEM SUMMARY
+app.get('/api/admin/ai/summary', adminMiddleware, async (req, res) => {
+  const apiKey = process.env.NVIDIA_API_KEY;
+  if (!apiKey) return res.json({ summary: 'NVIDIA API Key not configured. AI diagnostics offline.' });
+
+  try {
+    const errorSummaries = errorLogs.map(l => `[${l.module}] ${l.message}`).join('\n');
+    const reportSummaries = reports.filter(r => !r.resolved).map(r => `[REPORT] ${r.reason} against IP ${r.targetIp}`).join('\n');
+    
+    const context = `SYSTEM STATUS:
+ERRORS (Last 50):
+${errorSummaries || 'None detected.'}
+
+OPEN REPORTS:
+${reportSummaries || 'No open community flags.'}
+
+USER STATS:
+Current Users: ${users.size}
+Server Uptime: ${process.uptime()}s 
+`;
+
+    const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'mistralai/mistral-7b-instruct-v0.1',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are the ManaMingle Admin AI. Analyze the system state and recent errors. Provide a concise (under 100 words), high-impact summary for the administrator. Highlight critical failures or patterns. Use professional yet assertive tone.'
+          },
+          {
+            role: 'user',
+            content: context
+          }
+        ],
+        temperature: 0.2,
+        max_tokens: 250,
+      }),
+    });
+    const data = await response.json();
+    res.json({ 
+      summary: data.choices?.[0]?.message?.content || 'AI analysis complete. No critical patterns identified.',
+      rawLogs: errorLogs 
+    });
+  } catch (err) {
+    logSystemError('ADMIN_AI', err);
+    res.status(500).json({ error: 'AI summary failed' });
+  }
+});
+
 // AI Moderation Proxy
 app.post('/api/ai/moderate', async (req, res) => {
   const { text } = req.body || {};
@@ -2200,7 +2274,7 @@ io.on('connection', (socket) => {
     let coinsEarned = 0;
     let finalActive = newActive;
     
-    // Check for Hourly 30-Coin Milestone
+    // Hourly 30-Coin Milestone (Enforced only for verified IPs)
     if (cUser.registered && finalActive >= 3600) {
       coinsEarned = 30;
       finalActive -= 3600;

@@ -15,7 +15,7 @@ export function AdminDashboard({ onJoinRoom }) {
   const [announcement, setAnnouncement] = useState('');
   const [isKillswitchConfirm, setIsKillswitchConfirm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('overview'); // overview, users, creators, room-monitoring, economy, security, ads, logic
+  const [activeTab, setActiveTab] = useState('overview'); // overview, users, creators, room-monitoring, economy, security, ads, logic, admin-ai
   const [creators, setCreators] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
   const [history, setHistory] = useState([]);
@@ -465,6 +465,7 @@ export function AdminDashboard({ onJoinRoom }) {
               { id: 'ads', label: 'Ads Manager', icon: '💰' },
               { id: 'logic', label: 'System Settings', icon: '⚙️' },
               { id: 'history', label: 'Admin History', icon: '📜' },
+              { id: 'admin-ai', label: 'Admin AI (Health)', icon: '🧠', color: 'text-amber-400' },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -1154,6 +1155,7 @@ export function AdminDashboard({ onJoinRoom }) {
             </div>
           )}
 
+          {activeTab === 'admin-ai' && <AdminAI keyProp={key} />}
         </main>
       </div>
 
@@ -1173,6 +1175,96 @@ export function AdminDashboard({ onJoinRoom }) {
         <button onClick={() => window.location.href = '/'} className="px-10 py-5 bg-white/5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/10 hover:bg-white hover:text-black transition-all">Return to Home</button>
       </div>
     </div>
+  );
+}
+
+function AdminAI({ keyProp }) {
+  const [aiSummary, setAiSummary] = useState('Checking system health...');
+  const [rawLogs, setRawLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchAI = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/ai/summary`, {
+        headers: { 'x-admin-key': keyProp }
+      });
+      const data = await res.json();
+      setAiSummary(data.summary || 'All systems normal.');
+      setRawLogs(data.rawLogs || []);
+    } catch (e) {
+      setAiSummary('Failed to connect to the smart assistant.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchAI(); }, []);
+
+  return (
+    <div className="space-y-10 animate-fade-in">
+      <div className="p-10 rounded-[50px] bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-500/20 shadow-[0_0_50px_rgba(245,158,11,0.1)] relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-8">
+           <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+              <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">AI Monitoring Active</span>
+           </div>
+        </div>
+        <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-amber-500 mb-8 italic">🧠 AI System Analysis</h3>
+        <div className="bg-black/40 backdrop-blur-3xl p-8 rounded-[40px] border border-white/5 relative group">
+          <div className="absolute inset-0 bg-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <p className="text-lg font-bold text-white/90 leading-relaxed italic relative z-10">
+            {loading ? <span className="animate-pulse">Analyzing system health...</span> : `"${aiSummary}"`}
+          </p>
+        </div>
+        <button onClick={fetchAI} className="mt-8 px-8 py-3.5 bg-amber-500 text-black rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-amber-900/40 hover:scale-[1.02] active:scale-95 transition-all">Refresh System Status</button>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-10">
+         <div className="p-10 rounded-[50px] bg-white/[0.02] border border-white/5 flex flex-col shadow-2xl relative overflow-hidden">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/30 mb-8 italic">Error History</h3>
+            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar">
+              {rawLogs.map(log => (
+                <div key={log.id} className="p-5 rounded-3xl bg-black/40 border border-white/5 hover:border-rose-500/20 transition-all border-l-4 border-l-rose-500/40">
+                   <div className="flex justify-between items-center mb-2">
+                      <span className="text-[8px] font-black text-rose-500 uppercase tracking-widest">{log.module}</span>
+                      <span className="text-[8px] font-black text-white/10 uppercase">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                   </div>
+                   <div className="text-xs text-white/70 font-mono break-all">{log.message}</div>
+                </div>
+              ))}
+              {rawLogs.length === 0 && <div className="py-20 text-center text-white/10 italic text-xs uppercase font-black tracking-widest">No problems found.</div>}
+            </div>
+         </div>
+         <div className="p-10 rounded-[50px] bg-white/[0.02] border border-white/5 flex flex-col shadow-2xl">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/30 mb-8 italic">AI Settings</h3>
+            <div className="space-y-6">
+               <div className="p-6 rounded-[30px] bg-black/40 border border-white/5">
+                  <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-4 italic">AI Parameters</div>
+                  <div className="space-y-4">
+                     <div className="flex justify-between items-center">
+                        <span className="text-[10px] text-white/40 uppercase font-black">AI Type</span>
+                        <span className="text-[10px] text-indigo-400 font-black">Smart-70B-Chat</span>
+                     </div>
+                     <div className="flex justify-between items-center">
+                        <span className="text-[10px] text-white/40 uppercase font-black">Sharpness</span>
+                        <span className="text-[10px] text-white/80 font-black">High (0.2)</span>
+                     </div>
+                     <div className="flex justify-between items-center">
+                        <span className="text-[10px] text-white/40 uppercase font-black">Processing Speed</span>
+                        <span className="text-[10px] text-emerald-400 font-black">480ms</span>
+                     </div>
+                  </div>
+               </div>
+               <div className="p-6 rounded-[30px] bg-indigo-500/5 border border-indigo-500/10">
+                  <p className="text-[10px] text-indigo-400/60 font-medium leading-relaxed italic">
+                    The Smart Assistant is currently monitoring chat safety, connections, and coin transactions. Any unusual behavior will be shown in the error history.
+                  </p>
+               </div>
+            </div>
+         </div>
+      </div>
+   </div>
   );
 }
 

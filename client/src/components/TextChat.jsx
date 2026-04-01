@@ -568,7 +568,7 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
   return (
     <div className="min-h-screen flex flex-col bg-[#05060b] text-[#f8fafc] font-sans selection:bg-cyan-500/30 selection:text-cyan-200 overflow-hidden relative">
       {sparks.map(s => <MessageSpark key={s.id} x={s.x} y={s.y} />)}
-      {/* NEURAL BACKGROUND DECOR */}
+      {/* SYSTEM BACKGROUND DECOR */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-cyan-500/5 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-500/5 rounded-full blur-[120px]" />
@@ -578,7 +578,7 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
       {/* SAFETY LAYER */}
       <div className="absolute top-[84px] left-1/2 -translate-x-1/2 z-[100] pointer-events-none px-6 py-2 bg-emerald-500/5 border border-emerald-500/20 rounded-full flex items-center gap-3 animate-pulse">
          <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_10px_#34d399]" />
-         <span className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-400 italic">Safety Monitor Active</span>
+         <span className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-400 italic">Safe Mode Active</span>
       </div>
 
       {/* HEADER */}
@@ -599,7 +599,7 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
           <div className="hidden sm:block">
             <h1 className="text-[10px] font-black uppercase tracking-[0.5em] text-white">Mana Mingle</h1>
             <p className="text-[8px] font-bold text-white/20 uppercase tracking-widest mt-1">
-              # {interest || 'General'} Group Chat
+              # {interest || 'General'} Topics
             </p>
           </div>
         </div>
@@ -726,8 +726,8 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
               <div className="space-y-3">
                 <h2 className="text-lg font-black italic uppercase text-rose-400 tracking-tighter">Chat Ended</h2>
                 <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest leading-relaxed">
-                   Stranger has left the chat.<br />
-                   <span className="text-cyan-400 animate-pulse">Searching for new match in 2s...</span>
+                   The other person has left.<br />
+                   <span className="text-cyan-400 animate-pulse">Finding a new friend in 2s...</span>
                 </p>
               </div>
             </div>
@@ -738,7 +738,7 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
             <div className="flex-1 overflow-y-auto custom-scrollbar p-8 space-y-4 min-h-0" id="text-chat-messages">
               {messages.length === 0 && (
                 <div className="text-[10px] font-black uppercase tracking-[0.4em] text-white/10 text-center py-10 italic">
-                   Connection Secure. Begin Conversation.
+                   Connected. Say hello!
                 </div>
               )}
               {messages.map((m, i) => {

@@ -1,6 +1,6 @@
 /**
  * GroupVideoRoom – Up to 4 anonymous users in a video room
- * Premium 2x2 grid layout, WebRTC mesh, side chat panel
+ * Premium 2x2 grid layout, Multi-way call, side chat panel
  */
 import { useEffect, useRef, useState } from 'react';
 import { countryToFlag } from '../utils/countryFlag';
@@ -57,7 +57,7 @@ function VideoTile({ stream, label, flag, isMe, isEmpty, isSearching, isCreator 
     const play = async () => { try { await el.play(); } catch (e) { } };
     play();
 
-    // Anti-lag listeners
+    // Stream stabilizer
     const handleStalled = () => { if (el.paused && stream.active) el.play().catch(() => { }); };
     el.addEventListener('stalled', handleStalled);
     el.addEventListener('waiting', () => { if (stream.active) el.play().catch(() => { }); });
@@ -76,7 +76,7 @@ function VideoTile({ stream, label, flag, isMe, isEmpty, isSearching, isCreator 
           <div className="radar-ring absolute inset-2" style={{ animationDelay: '0.6s', borderColor: 'rgba(99,102,241,0.3)' }} />
           <div className="absolute inset-3 rounded-full bg-indigo-500/20 flex items-center justify-center text-sm">📡</div>
         </div>
-        <p className="text-xs" style={{ color: 'rgba(232,234,246,0.5)' }}>Finding room...</p>
+        <p className="text-xs" style={{ color: 'rgba(232,234,246,0.5)' }}>Entering room...</p>
       </div>
     );
   }
@@ -192,7 +192,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
       if (roomIdProp) {
         socket.emit('join-specific-group', { roomId: roomIdProp, nickname: nickname || 'Admin' });
       } else {
-        socket.emit('join-group-by-interest', { 
+        socket.emit('join-group-by-topics', { 
           interest: interestProp || 'general', 
           nickname: nickname || 'Anonymous', 
           mode: 'group_video' 

@@ -1,11 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { useSocket } from '../hooks/useSocket';
 import { useLatency } from '../hooks/useLatency';
 import { CoinBadge } from './CoinBadge';
 import { useCreators } from '../hooks/useCreators';
 import { MiniTrendChart } from './MiniTrendChart';
+
 import { countryToFlag } from '../utils/countryFlag';
 import { ParticleText } from './ParticleText';
+import { PresenceMap } from './PresenceMap';
+import { CreatorMatrix } from './CreatorMatrix';
 
 const BlueTick = () => (
   <span className="inline-flex items-center justify-center w-3 h-3 bg-cyan-500 rounded-full ml-1.5 shadow-[0_0_10px_#06b6d4]">
@@ -20,31 +23,31 @@ const INTERESTS = [
   { id: 'telugu', label: 'Telugu', desc: 'Find Telugu peers' },
   { id: 'music', label: 'Music', desc: 'Connect with music lovers' },
   { id: 'gaming', label: 'Gaming', desc: 'Find your squad' },
-  { id: 'movies', label: 'Movies', desc: 'Cinema data feed' },
-  { id: 'sports', label: 'Sports', desc: 'Kinetic tracking' },
-  { id: 'chat', label: 'General', desc: 'Random matching' },
+  { id: 'movies', label: 'Movies', desc: 'Find film lovers' },
+  { id: 'sports', label: 'Sports', desc: 'Live Action' },
+  { id: 'chat', label: 'General', desc: 'Meet anyone' },
 ];
 
 const MODALS = {
   privacy: {
-    title: '🛡️ Privacy Protection',
-    body: `Zero-Trace Policy: \n\n• No accounts. No logs. No history.\n• Sessions are wiped instantly on exit.\n• E2EE direct peer connections.\n• 100% Anonymous metadata.`,
+    title: '🛡️ Private by design',
+    body: `Private Policy: \n\n• No accounts. No logs. No history.\n• Sessions are wiped instantly on exit.\n• Private video calls.\n• 100% Anonymous.`,
   },
   integrity: {
     title: '🤝 Community Safety',
     body: `Guidelines: \n\n• Respect all users.\n• No explicit material.\n• No bullying or harassment.\n• Instant ban for violations.`,
   },
   safety: {
-    title: '🏛️ Security Systems',
-    body: `Our core defenses: \n\n• 24/7 AI-driven content analysis.\n• Secure P2P communication.\n• Zero-retention session storage.\n• Rate-limiting against spambots.\n• Administrator oversight with visual monitoring.`,
+    title: '🏛️ Modern Safety',
+    body: `Our core defenses: \n\n• 24/7 Smart safety check.\n• Secure private calls.\n• Nothing is ever saved.\n• Spam protection.\n• Admin oversight and monitoring.`,
   },
   dev: {
-    title: '💻 Technology Stack',
-    body: `Modern & Secure: \n\n• Built on WebRTC / Socket.io.\n• Modern React / Node.js stack.\n• Scalable architecture.\n• Secure API endpoints.\n• Performance-first logic.`,
+    title: '💻 How it works',
+    body: `Fast & Secure: \n\n• Modern video technology.\n• High-speed connection logic.\n• Built for speed.\n• Secure system rules.\n• Performance-first design.`,
   },
   bug: {
-    title: '🛠️ Bug Bounty',
-    body: `Identify vulnerabilities: \n\n• We reward critical bug reports.\n• Direct contact: manaminglee@gmail.com.\n• Rapid patching within 24-48 hours.\n• Help build a safer network.`,
+    title: '🛠️ Safety Rewards',
+    body: `Report safety issues: \n\n• We reward helpful reports.\n• Direct contact: manaminglee@gmail.com.\n• Fixed in 24-48 hours.\n• Help build a better network.`,
   }
 };
 
@@ -78,7 +81,6 @@ export function LandingPage({ onJoin, coinState, isJoining = false, initialCreat
   const [modal, setModal] = useState(null);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const [regionalCounts, setRegionalCounts] = useState({ americas: 42639, eurasia: 89875, oceania: 13033 });
   const [insightIndex, setInsightIndex] = useState(0);
   const [creatorForm, setCreatorForm] = useState({ handle: '', platform: 'Instagram', link: '' });
   const [linkValidated, setLinkValidated] = useState(false);
@@ -482,158 +484,29 @@ export function LandingPage({ onJoin, coinState, isJoining = false, initialCreat
           </div>
         </section>
 
-        {/* GLOBAL TRAFFIC GLOBE - REAL TIME ANIMATED */}
-        <section className="w-full max-w-5xl mb-32 flex flex-col items-center">
-          <div className="relative w-full h-[400px] flex items-center justify-center">
-            {/* MOCKED REAL-TIME MAP/GLOBE ANIMATION */}
-            <div className="absolute inset-0 flex items-center justify-center opacity-30">
-              <div className="w-[300px] h-[300px] rounded-full border border-cyan-500/20 animate-pulse" />
-              <div className="absolute w-[450px] h-[450px] rounded-full border border-indigo-500/10 animate-spin-slow" />
-              <div className="absolute w-[600px] h-[600px] rounded-full border border-white/[0.03] animate-reverse-spin-slow" />
-            </div>
+        <PresenceMap onlineCount={onlineCount} />
 
-            <div className="relative z-10 text-center">
-              <div className="mb-0 flex items-center justify-center grayscale brightness-150 opacity-20 hover:grayscale-0 hover:opacity-100 transition-all duration-1000 cursor-help">
-                 <svg className="w-32 h-32 text-cyan-400 animate-float" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
-                   <circle cx="12" cy="12" r="10" />
-                   <line x1="2" y1="12" x2="22" y2="12" />
-                   <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                 </svg>
-              </div>
-              <h4 className="text-[10px] font-black uppercase tracking-[0.6em] text-cyan-400 mb-2 italic">Global Presence Map</h4>
-              <div className="flex gap-12 mt-8">
-                <div className="text-center group">
-                  <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1 group-hover:text-cyan-400 transition-colors">Americas</div>
-                  <div className="text-xl font-black italic text-white group-hover:scale-110 transition-transform tabular-nums">{regionalCounts.americas.toLocaleString()}</div>
-                </div>
-                <div className="text-center group">
-                  <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1 group-hover:text-indigo-400 transition-colors">Eurasia</div>
-                  <div className="text-xl font-black italic text-white group-hover:scale-110 transition-transform tabular-nums">{regionalCounts.eurasia.toLocaleString()}</div>
-                </div>
-                <div className="text-center group">
-                  <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1 group-hover:text-emerald-400 transition-colors">Oceania</div>
-                  <div className="text-xl font-black italic text-white group-hover:scale-110 transition-transform tabular-nums">{regionalCounts.oceania.toLocaleString()}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* FLOATING DATA DOTS */}
-            {[...Array(12)].map((_, i) => (
-              <div
-                key={i}
-                className="absolute w-1 h-1 bg-cyan-400 rounded-full animate-float-pixel"
-                style={{
-                  left: `${Math.random() * 100}%`,
-                  top: `${Math.random() * 100}%`,
-                  animationDelay: `${i * 200}ms`
-                }}
-              />
-            ))}
-          </div>
-        </section>
-
-        {/* CREATOR MATRIX HIGH-VELOCITY GATEWAY */}
-        <section className="w-full max-w-4xl mx-auto mb-20 px-6">
-          <div className="p-12 rounded-[60px] bg-gradient-to-br from-cyan-500/10 via-black to-indigo-500/10 border border-white/10 text-center relative overflow-hidden group shadow-[0_0_50px_rgba(6,182,212,0.1)]">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-50" />
-            <div className="relative z-10 flex flex-col items-center">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-6">
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_#22d3ee]" />
-                Creator Hub
-              </div>
-              <h3 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter mb-4 leading-none text-white">Share your <span className="text-cyan-400 drop-shadow-[0_0_20px_rgba(6,182,212,0.4)]">Influence.</span></h3>
-              <p className="text-[10px] md:text-xs font-bold text-white/30 uppercase tracking-[0.4em] mb-12 max-w-md mx-auto leading-relaxed italic">Monetize your reach. Grow your online presence with ManaMingle.</p>
-
-              <div className="flex flex-wrap items-center justify-center gap-4">
-                <button
-                  onClick={() => creatorStatus?.handle_name ? setShowDashboardModal(true) : setShowCreatorModal(true)}
-                  className="px-8 py-4 bg-white text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-cyan-400 hover:scale-105 transition-all shadow-xl active:scale-95 flex items-center gap-2 group/btn"
-                >
-                  <span className="text-sm group-hover/btn:rotate-12 transition-transform italic">⭐</span>
-                  {creatorStatus?.handle_name ? 'Open Dashboard' : 'Apply Now'}
-                </button>
-
-                {(!creatorStatus || !creatorStatus.handle_name) && (
-                  <>
-                    <span className="text-cyan-500/40 text-xs font-black animate-pulse opacity-40">→</span>
-
-                    <button
-                      onClick={() => setShowStatusModal(true)}
-                      className="px-8 py-4 bg-white/5 border border-white/10 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-cyan-500/20 hover:text-cyan-400 hover:scale-105 transition-all shadow-lg active:scale-95 flex items-center gap-2"
-                    >
-                      <span>🔍</span> Check Status
-                    </button>
-
-                    <span className="text-cyan-500/40 text-xs font-black animate-pulse opacity-40">→</span>
-
-                    <button
-                      onClick={() => setShowLoginModal(true)}
-                      className="px-8 py-4 bg-black/60 border border-white/10 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white hover:text-black hover:scale-105 transition-all backdrop-blur-3xl shadow-xl active:scale-95"
-                    >
-                      Creator Login
-                    </button>
-                  </>
-                )}
-              </div>
-
-              {creatorStatus?.handle_name && (
-                <div className="mt-10 flex flex-col items-center gap-4">
-                  <div className="flex flex-wrap items-center justify-center gap-4 text-[10px] font-black uppercase tracking-widest text-white/20 italic">
-                    <span className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
-                      Verified Creator: @{creatorStatus.handle_name}
-                    </span>
-                    <span className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500">
-                      Earnings: ₹{creatorStatus.earnings_rs || 0}
-                    </span>
-                    <button
-                      onClick={() => {
-                        setProfileForm({
-                          bio: creatorStatus.bio || '',
-                          avatar: creatorStatus.avatar_url || ''
-                        });
-                        setShowProfileModal(true);
-                      }}
-                      className="px-3 py-1.5 rounded-full border border-cyan-500/20 hover:bg-cyan-500 hover:text-black transition-all text-cyan-400"
-                    >
-                      Edit Profile →
-                    </button>
-                    <button
-                      onClick={() => { localStorage.setItem('mm_logout_flag', '1'); localStorage.removeItem('mm_creatorId'); window.location.reload(); }}
-                      className="px-3 py-1.5 rounded-full border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all text-rose-500/60"
-                    >
-                      Logout Session →
-                    </button>
-                  </div>
-
-                  {creatorStatus.status === 'approved' && (
-                    <div className="flex flex-col items-center gap-3">
-                      <button
-                        onClick={async () => {
-                          const upi = prompt('Enter UPI ID for Payout:');
-                          if (upi) {
-                            const res = await requestWithdrawal(upi);
-                            if (res.error) alert(res.error);
-                            else (await showAlert('Transmitted', 'Withdrawal request sent to admin. Coins will be debited after verified.'));
-                          }
-                        }}
-                        className="px-8 py-4 bg-emerald-500 text-black text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-white transition-all shadow-xl active:scale-95 flex items-center gap-2"
-                      >
-                        💸 Withdraw Earnings
-                      </button>
-                      <div className="text-[9px] font-black text-white/20 uppercase tracking-widest italic animate-pulse">
-                        10,000 Click-throughs = ₹150.00
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            <div className="absolute -bottom-6 -right-6 w-32 h-32 opacity-[0.03] group-hover:opacity-[0.1] transition-all pointer-events-none rotate-12 text-white">
-               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9z" /></svg>
-            </div>
-          </div>
-        </section>
+        <CreatorMatrix 
+          creatorStatus={creatorStatus}
+          onOpenDashboard={() => setShowDashboardModal(true)}
+          onOpenApply={() => setShowCreatorModal(true)}
+          onOpenStatus={() => setShowStatusModal(true)}
+          onOpenLogin={() => setShowLoginModal(true)}
+          onEditProfile={() => {
+            setProfileForm({
+              bio: creatorStatus.bio || '',
+              avatar: creatorStatus.avatar_url || ''
+            });
+            setShowProfileModal(true);
+          }}
+          onWithdraw={(upi) => requestWithdrawal(upi)}
+          onLogout={() => {
+            localStorage.setItem('mm_logout_flag', '1');
+            localStorage.removeItem('mm_creatorId');
+            window.location.reload();
+          }}
+          showAlert={showAlert}
+        />
 
         {/* AI INSIGHT SECTION */}
         <section className="w-full max-w-4xl mx-auto mb-16 animate-fade-in-up">
