@@ -115,7 +115,9 @@ export function useSocket() {
       });
 
       s.on('coins-updated', (data) => {
-        // Handled in App.js via listener but logic moved here causes duplication
+        if (!mounted) return;
+        if (data?.registered !== undefined) setRegistered(!!data.registered);
+        if (data?.activeSeconds !== undefined) setActiveSeconds(data.activeSeconds);
       });
     })();
 

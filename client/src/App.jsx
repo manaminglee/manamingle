@@ -52,9 +52,24 @@ export default function App() {
   useEffect(() => {
     if (socket) {
       socket.on('coins-updated', (data) => coinState.setBalance(data.coins));
-      return () => socket.off('coins-updated');
+      socket.on('connected', (data) => {
+        if (data?.coins !== undefined) coinState.setBalance(data.coins);
+      });
+      
+      // Activity Accumulator: Heartbeat every 20s to ensure milestones (3m, 1h) are tracked by server
+      const activityInterval = setInterval(() => {
+        if (connected) {
+          socket.emit('accumulate-activity', { seconds: 20 });
+        }
+      }, 20000);
+
+      return () => {
+        socket.off('coins-updated');
+        socket.off('connected');
+        clearInterval(activityInterval);
+      };
     }
-  }, [socket, coinState]);
+  }, [socket, connected, coinState]);
 
   // Manage browser back button
   useEffect(() => {

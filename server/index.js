@@ -1280,13 +1280,13 @@ app.get('/api/turn', (req, res) => {
 const COIN_CLAIM_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
 app.post('/api/user/credit-age', async (req, res) => {
-  const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || (req.ip === '::1' ? '127.0.0.1' : req.ip);
   await getCoinUser(ip);
   res.json({ success: true });
 });
 
 app.get('/api/user/coins', async (req, res) => {
-  const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || (req.ip === '::1' ? '127.0.0.1' : req.ip);
   try {
     const user = await getCoinUser(ip);
     const now = Date.now();
@@ -1304,7 +1304,7 @@ app.get('/api/user/coins', async (req, res) => {
 });
 
 app.post('/api/user/claim', async (req, res) => {
-  const ip = req.ip === '::1' ? '127.0.0.1' : req.ip;
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || (req.ip === '::1' ? '127.0.0.1' : req.ip);
   const user = await getCoinUser(ip);
   const now = Date.now();
   const waitTime = COIN_CLAIM_INTERVAL_MS;
@@ -1653,6 +1653,7 @@ io.on('connection', (socket) => {
       nickname: finalNick, 
       isCreator: finalIsCreator, 
       country,
+      coins: coinData.coins || 0,
       registered: !!coinData.registered,
       activeSeconds: coinData.active_seconds || 0,
       settings: { adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools } 
