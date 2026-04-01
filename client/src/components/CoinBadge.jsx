@@ -74,7 +74,6 @@ export function CoinBadge({ balance = 0, streak = 1, canClaim, nextClaim = 0, cl
   };
 
   const progress = nextClaim > 0 ? Math.max(0, 1 - nextClaim / CLAIM_INTERVAL_MS) : 1;
-  const activeProgress = (activeTime / REWARD_DUR) * 100;
 
   return (
     <div className="relative flex items-center gap-2" ref={popoverRef}>

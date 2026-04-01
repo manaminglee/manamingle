@@ -128,8 +128,10 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='user_coins' AND column_name='last_reward_claimed') THEN
         ALTER TABLE user_coins ADD COLUMN last_reward_claimed BIGINT DEFAULT 0;
     ELSE
-        -- Ensure it is BIGINT for timestamps
-        ALTER TABLE user_coins ALTER COLUMN last_reward_claimed TYPE BIGINT USING (CASE WHEN last_reward_claimed IS TRUE THEN EXTRACT(EPOCH FROM NOW())::BIGINT ELSE 0 END);
+        -- Fix: Drop default first to avoid casting errors if previous default was incompatible
+        ALTER TABLE user_coins ALTER COLUMN last_reward_claimed DROP DEFAULT;
+        ALTER TABLE user_coins ALTER COLUMN last_reward_claimed TYPE BIGINT USING (CASE WHEN last_reward_claimed::text = 'true' THEN EXTRACT(EPOCH FROM NOW())::BIGINT ELSE 0 END);
+        ALTER TABLE user_coins ALTER COLUMN last_reward_claimed SET DEFAULT 0;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='user_coins' AND column_name='active_seconds') THEN
         ALTER TABLE user_coins ADD COLUMN active_seconds INTEGER DEFAULT 0;

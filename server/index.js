@@ -153,17 +153,31 @@ async function persistCoinUser(ip) {
   const activity = ipActivity.get(ip);
   if (u.registered) return;
 
-  // 3-minute threshold for initial registry
+  // 3-minute threshold for initial registry (180 seconds)
   if (activity && (Date.now() - activity.firstSeen > 180000)) {
     u.registered = true;
+    u.coins = (u.coins || 0) + 40; // CREDIT 40 COINS ON REGISTRATION
+    
     if (supabase) {
       await supabase.from('user_coins').upsert(u);
-      await supabase.from('activity_logs').insert({ ip, action: 'registered_ip', details: 'Stayed 3 Minutes' });
+      await supabase.from('activity_logs').insert({ ip, action: 'registered_ip', amount: 40, details: '3m Hurdle Met' });
     } else {
       saveLocalDb();
     }
+    
     if (activity) activity.persisted = true;
-    console.log(`[DB] Registered IP ${ip} after 3m hurdle.`);
+    console.log(`[DB] Registered IP ${ip} - 40 Coins Synthesized.`);
+    
+    // Broadcast updated balance to all sockets sharing this IP
+    for (const [sid, user] of users.entries()) {
+      if (user.ip === ip) {
+        io.to(sid).emit('coins-updated', { 
+          coins: u.coins, 
+          reason: 'Initial Registration (3m)',
+          registered: true 
+        });
+      }
+    }
   }
 }
 
@@ -396,7 +410,8 @@ app.post('/api/coins/activity-reward', async (req, res) => {
 
     await updateCoinUser(ip, {
       coins: nextBalance,
-      last_reward_claimed: now
+      last_reward_claimed: now,
+      registered: true
     });
 
     if (supabase) {
@@ -2053,9 +2068,7 @@ io.on('connection', (socket) => {
     // If they haven't gotten their welcome bonus yet and hit 3m
     if (!cUser.registered && (now - activity.firstSeen >= 180000)) {
        await persistCoinUser(ip);
-       const newBalance = (cUser.coins || 0) + 40;
-       await updateCoinUser(ip, { coins: newBalance, last_reward_claimed: now });
-       io.to(socket.id).emit('coins-updated', { coins: newBalance, reason: 'Welcome Bonus' });
+       // persistCoinUser already credits 40 coins and emits updates
     }
   });
 
