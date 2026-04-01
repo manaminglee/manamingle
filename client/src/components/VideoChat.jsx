@@ -424,7 +424,12 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
             : { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
           audio: selectedAudioDeviceId ? { deviceId: { exact: selectedAudioDeviceId } } : { echoCancellation: true, noiseSuppression: true },
         };
-        s = await navigator.mediaDevices.getUserMedia(baseConstraints);
+        try {
+          s = await navigator.mediaDevices.getUserMedia(baseConstraints);
+        } catch (e) {
+          // Robust fallback for mobile
+          s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        }
         localStreamRef.current = s;
         setLocalStream(s);
         if (localVideoRef.current) localVideoRef.current.srcObject = s;
@@ -953,7 +958,8 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
     };
 
     const onUserLeft = () => {
-      setPeer((p) => (p ? { ...p, stream: null } : null));
+      // Immediate UI update for speed
+      setPeer(null);
       setStatus('disconnected');
       setPartnerLeft(true);
       playDisconnectSound();
@@ -962,7 +968,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       setTimeout(() => {
         if (roomIdRef.current) return;
         handleSkip();
-      }, 800);
+      }, 700);
       
       setTimeout(() => setPartnerLeft(false), 5000);
     };
@@ -1016,17 +1022,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
 
     socket.on('partner-found', onPartnerFound);
     socket.on('chat-history', onHistory);
-    socket.on('chat-message', (data) => {
-      if (data.roomId === roomIdRef.current) {
-        setMessages(m => [...m, data]);
-        // Trigger spark for incoming messages
-        const el = document.getElementById('video-chat-messages');
-        if (el) {
-          const rect = el.getBoundingClientRect();
-          setSparks(prev => [...prev.slice(-20), { id: Date.now(), x: rect.left + rect.width / 2, y: rect.bottom - 100 }]);
-        }
-      }
-    });
+    socket.on('chat-message', onMsg);
     socket.on('user-left', onUserLeft);
     socket.on('waiting-for-partner', onWaiting);
     socket.on('webrtc-signal', onSignal);
@@ -1748,7 +1744,7 @@ function RemoteVideoComponent({ stream, muted, strangerFilter, strangerBlur }) {
       autoPlay
       playsInline
       muted={muted}
-      className="absolute inset-0 w-full h-full object-cover transition-all duration-300"
+      className="absolute inset-0 w-full h-full object-cover -scale-x-100 transition-all duration-300"
       style={{ 
         backgroundColor: '#000', 
         filter: strangerBlur && strangerFilter === 'none' ? 'blur(20px)' : (strangerFilter !== 'none' ? strangerFilter : 'none'),
