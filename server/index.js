@@ -1491,6 +1491,51 @@ app.post('/api/ai/translate', async (req, res) => {
   }
 });
 
+// AI Moderation Proxy
+app.post('/api/ai/moderate', async (req, res) => {
+  const { text } = req.body || {};
+  const apiKey = process.env.NVIDIA_API_KEY;
+  if (!apiKey) {
+    // Fallback: simple keyword check if AI is offline
+    const badWords = ['hate', 'kill', 'suicide', 'die', 'murder', 'racist', 'nazi'];
+    const isBad = badWords.some(w => text.toLowerCase().includes(w));
+    return res.json({ safe: !isBad, warning: isBad ? 'Your message contains protected or harmful speech. Please follow our community guidelines.' : null });
+  }
+
+  try {
+    const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'mistralai/mistral-7b-instruct-v0.1',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a chat moderator. Analyze the input text for hate speech, harassment, or severe toxicity. Respond with "SAFE" or "UNSAFE: [reason for flagging]". Keep reasons very brief (max 5 words).'
+          },
+          {
+            role: 'user',
+            content: text
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 20,
+      }),
+    });
+    const data = await response.json();
+    const result = data.choices?.[0]?.message?.content || 'SAFE';
+    const isSafe = result.trim().toUpperCase().startsWith('SAFE');
+    res.json({ safe: isSafe, warning: isSafe ? null : result.split('UNSAFE:')[1]?.trim() || 'Potential hate speech detected.' });
+  } catch (err) {
+    res.json({ safe: true });
+  }
+});
+
+
+
 
 // Duplicate Approve Endpoint Removed to resolve 401 Neural Key Mismatch.
 // Using the primary one at line 409 which correctly generates passwords.

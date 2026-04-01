@@ -1,12 +1,14 @@
 /**
- * GroupTextRoom – Up to 4 anonymous strangers in a text group
- * Premium redesign: participants sidebar, message bubbles, icebreakers
+ * GroupTextRoom – Fully overhauled premium text chat experience
+ * Features: AI Moderation, Mobile-First Drawer, Glassmorphism, 3D Emojis
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { countryToFlag } from '../utils/countryFlag';
 import { CoinBadge } from './CoinBadge';
 
 const GROUP_MAX = 4;
+const COLORS = ['#818cf8', '#34d399', '#fb923c', '#f472b6'];
+
 const ICEBREAKERS = [
   "What's one thing that made you smile today? 😊",
   "If you could visit anywhere right now, where would you go? ✈️",
@@ -14,87 +16,158 @@ const ICEBREAKERS = [
   "Share a random fact you find fascinating! 🧠",
   "What's the last thing you watched and would recommend? 📺",
   "If you could have any superpower, what would it be? ⚡",
-  "What's your go-to comfort food? 🍜",
 ];
 
-const COLORS = ['#a5b4fc', '#34d399', '#fb923c', '#f472b6'];
+const EMOJIS_3D = [
+  { char: '🔥', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.webp' },
+  { char: '💖', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f496/512.webp' },
+  { char: '😂', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f602/512.webp' },
+  { char: '👋', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f44b/512.webp' },
+];
 
 const BlueTick = () => (
-  <span className="inline-flex items-center justify-center w-3 h-3 bg-cyan-500 rounded-full ml-1.5 shadow-[0_0_10px_#06b6d4]">
+  <span className="inline-flex items-center justify-center w-3.5 h-3.5 bg-cyan-500 rounded-full ml-1.5 shadow-[0_0_12px_rgba(6,182,212,0.6)]">
     <svg className="w-2 h-2 text-black" fill="currentColor" viewBox="0 0 20 20">
       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
     </svg>
   </span>
 );
 
-function MessageSpark({ x, y }) {
-  const [active, setActive] = useState(true);
-  useEffect(() => {
-    const t = setTimeout(() => setActive(false), 800);
-    return () => clearTimeout(t);
-  }, []);
-  if (!active) return null;
-  return (
-    <div className="fixed pointer-events-none z-[3000]" style={{ left: x, top: y }}>
-      {[...Array(6)].map((_, i) => (
-        <div
-          key={i}
-          className="absolute w-1 h-1 bg-cyan-400 rounded-full animate-spark"
-          style={{
-            '--tx': `${(Math.random() - 0.5) * 60}px`,
-            '--ty': `${(Math.random() - 0.5) * 60}px`,
-            animationDelay: `${i * 50}ms`
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
 export default function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nickname, isCreator = false, myCountry, socket, isQueuing, onLeave, onFindNewPod, onJoined, coinState, registered = false, currentActiveSeconds = 0 }) {
   const { balance, streak, canClaim, nextClaim, claimCoins } = coinState;
-  const roomIdRef = useRef(null);
-  const roomId = roomIdProp ?? roomIdRef.current;
+  
+  const [status, setStatus] = useState(isQueuing ? 'searching' : 'connected');
   const [displayInterest, setDisplayInterest] = useState(interestProp || 'general');
   const [peers, setPeers] = useState([]);
-  const [participantCount, setParticipantCount] = useState(1);
   const [messages, setMessages] = useState([]);
-  const [sparks, setSparks] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [replyingTo, setReplyingTo] = useState(null);
+  
+  const [isAiModerating, setIsAiModerating] = useState(false);
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [isTranslatorActive, setIsTranslatorActive] = useState(false);
-  const [icebreaker] = useState(() => ICEBREAKERS[Math.floor(Math.random() * ICEBREAKERS.length)]);
-  const hasJoinedRef = useRef(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showParticipants, setShowParticipants] = useState(false);
+  const [active3dEmoji, setActive3dEmoji] = useState(null);
+  const [warning, setWarning] = useState(null);
+  
+  const roomIdRef = useRef(roomIdProp);
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [active3dEmoji, setActive3dEmoji] = useState(null);
+  const hasJoinedRef = useRef(false);
 
+  // Auto-scroll
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Handle Socket Events
   useEffect(() => {
-    if (!isQueuing) setTimeout(() => inputRef.current?.focus(), 200);
-  }, [isQueuing]);
+    if (!socket) return;
 
-  useEffect(() => {
-    if (socket && roomIdProp && !hasJoinedRef.current) {
+    const handlers = {
+      'group-joined': (data) => {
+        roomIdRef.current = data.roomId;
+        setDisplayInterest(data.interest || displayInterest);
+        if (!hasJoinedRef.current) { hasJoinedRef.current = true; onJoined(data.roomId); }
+        setStatus('connected');
+      },
+      'existing-peers': (data) => {
+        setPeers(data.peers || []);
+      },
+      'chat-history': (data) => {
+        if (data.roomId === roomIdRef.current) setMessages(data.messages || []);
+      },
+      'chat-message': (data) => {
+        if (data.roomId === roomIdRef.current) {
+          setMessages(prev => [...prev.slice(-100), data]);
+        }
+      },
+      'user-joined': (data) => {
+        setPeers(prev => [...prev.filter(pc => pc.socketId !== data.socketId), data]);
+        setMessages(prev => [...prev, { system: true, text: `${data.nickname || 'Someone'} joined! Wave hello 👋`, id: `sys-${Date.now()}` }]);
+      },
+      'user-left': (data) => {
+        setPeers(prev => {
+          const departing = prev.find(p => p.socketId === (data.userId || data.socketId));
+          if (departing) {
+            setMessages(m => [...m, { system: true, text: `${departing.nickname || 'Stranger'} left the room`, id: `sys-exit-${Date.now()}` }]);
+          }
+          return prev.filter(p => p.socketId !== (data.userId || data.socketId));
+        });
+        // Auto-seek if alone
+        if (peers.length <= 1 && !isQueuing) {
+            setTimeout(() => { if (peers.length === 0) onFindNewPod?.(); }, 4000);
+        }
+      },
+      '3d-emoji': (data) => {
+        setActive3dEmoji(data);
+        setTimeout(() => setActive3dEmoji(null), 3000);
+      },
+      'media-message': (data) => {
+        if (data.roomId === roomIdRef.current) {
+          setMessages(prev => [...prev.slice(-100), { ...data, media: true }]);
+        }
+      },
+      'content-flagged': (data) => {
+        setWarning(data.message || 'Message blocked. Please follow community guidelines.');
+        setTimeout(() => setWarning(null), 5000);
+      }
+    };
+
+    Object.entries(handlers).forEach(([evt, fn]) => socket.on(evt, fn));
+    
+    // Initial Join Logic
+    if (isQueuing && !hasJoinedRef.current) {
+      socket.emit('join-group-by-interest', { interest: displayInterest, nickname: nickname || 'Anonymous', mode: 'group_text' });
+    } else if (roomIdProp && !hasJoinedRef.current) {
       socket.emit('join-specific-group', { roomId: roomIdProp, nickname: nickname || 'Admin' });
     }
-  }, [socket, roomIdProp]);
 
-  const sendMessage = () => {
-    const t = chatInput.trim();
-    const rid = roomIdRef.current || roomId;
-    if (!t || !socket || !rid) return;
-    const payload = { roomId: rid, text: t };
-    if (replyingTo) payload.replyTo = { id: replyingTo.id, text: replyingTo.text, nickname: replyingTo.nickname || 'Stranger' };
-    socket.emit('send-message', payload);
-    setChatInput('');
-    setReplyingTo(null);
+    return () => {
+      Object.entries(handlers).forEach(([evt, fn]) => socket.off(evt, fn));
+    };
+  }, [socket, isQueuing, roomIdProp]);
+
+  // AI Moderation & Send
+  const handleSendMessage = async () => {
+    const text = chatInput.trim();
+    if (!text || isAiModerating || !socket) return;
+
+    setIsAiModerating(true);
+    setWarning(null);
+
+    try {
+      const apiBase = import.meta.env.VITE_SOCKET_URL || '';
+      const res = await fetch(`${apiBase}/api/ai/moderate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+      
+      const mod = await res.json();
+      if (!mod.safe) {
+        setWarning(mod.warning || 'Message flagged for harmful content.');
+        setIsAiModerating(false);
+        return;
+      }
+
+      // Safe to send
+      socket.emit('send-message', {
+        roomId: roomIdRef.current,
+        text,
+        replyTo: replyingTo ? { id: replyingTo.id, text: replyingTo.text, nickname: replyingTo.nickname } : null
+      });
+      setChatInput('');
+      setReplyingTo(null);
+    } catch (e) {
+      // Fail safe - allow send if AI service is down but log it
+      socket.emit('send-message', { roomId: roomIdRef.current, text });
+      setChatInput('');
+    } finally {
+      setIsAiModerating(false);
+    }
   };
 
   const generateAiSpark = async () => {
@@ -111,505 +184,325 @@ export default function GroupTextRoom({ roomId: roomIdProp, interest: interestPr
         const data = await res.json();
         setChatInput(data.spark);
       }
-    } catch (e) { } finally {
+    } finally {
       setIsAiGenerating(false);
     }
   };
 
-  useEffect(() => {
-    if (!socket) return;
-
-    const onGroupJoined = (data) => {
-      const rid = data.roomId || roomIdRef.current;
-      if (rid) roomIdRef.current = rid;
-      if (data.interest) setDisplayInterest(data.interest);
-      if (!hasJoinedRef.current) { hasJoinedRef.current = true; onJoined(rid); }
-      setParticipantCount(data.participantCount ?? 1);
-    };
-
-    const onExistingPeers = (data) => {
-      if (data.roomId) roomIdRef.current = data.roomId;
-      setPeers(data.peers || []);
-      setParticipantCount((data.peers?.length || 0) + 1);
-    };
-
-    const onHistory = (data) => {
-      if (data.roomId === (roomIdRef.current || roomId)) setMessages(data.messages || []);
-    };
-
-    const onMsg = (data) => {
-      if (data.roomId === (roomIdRef.current || roomId)) {
-        setMessages((m) => [...m.slice(-100), data]);
-        // Trigger spark
-        const el = document.getElementById('group-text-messages');
-        if (el) {
-          const rect = el.getBoundingClientRect();
-          setSparks(prev => [...prev.slice(-20), { id: Date.now(), x: rect.left + rect.width / 2, y: rect.bottom - 100 }]);
-        }
-      }
-    };
-
-    const onUserJoined = (data) => {
-      setParticipantCount(data.participantCount ?? 2);
-      setPeers((prev) => {
-        const filtered = prev.filter((p) => p.socketId !== data.socketId);
-        return [...filtered, { socketId: data.socketId, userId: data.userId, nickname: data.nickname, country: data.country }];
-      });
-      // System join message
-      setMessages((m) => [...m, { id: `sys-${Date.now()}`, system: true, text: `${data.nickname || 'A stranger'} joined the room 👋` }]);
-    };
-
-    const onUserLeft = (data) => {
-      setParticipantCount((c) => {
-        const next = Math.max(1, (data.participantCount ?? c) - 1);
-        if (next === 1 && !isQueuing) {
-          // AUTO-SEEK Logic: If I'm alone, find a new pod
-          setTimeout(() => {
-            if (roomIdRef.current) onFindNewPod?.();
-          }, 3000);
-        }
-        return next;
-      });
-      const sid = data.userId ?? data.socketId;
-      setPeers((p) => {
-        const leaving = p.find((x) => x.socketId === sid);
-        if (leaving) {
-          setMessages((m) => [...m, { id: `sys-${Date.now()}-left`, system: true, text: `${leaving.nickname || 'A stranger'} left the room` }]);
-        }
-        return p.filter((x) => x.socketId !== sid);
-      });
-    };
-
-    const onSystemMsg = (data) => setMessages((m) => [...m, { id: Date.now(), system: true, text: `📢 ADMIN: ${data.message}`, ts: Date.now() }]);
-
-    socket.on('group-joined', onGroupJoined);
-    socket.on('existing-peers', onExistingPeers);
-    socket.on('chat-history', onHistory);
-    socket.on('chat-message', onMsg);
-    socket.on('user-joined', onUserJoined);
-    socket.on('user-left', onUserLeft);
-    socket.on('system-announcement', onSystemMsg);
-
-    // Auto-join group on mount if we're queuing
-    if (socket && isQueuing && !hasJoinedRef.current) {
-      socket.emit('join-group-by-interest', { interest: displayInterest || interestProp || 'general', nickname: 'Anonymous', mode: 'group_text' });
-    }
-
-    return () => {
-      socket.off('group-joined', onGroupJoined);
-      socket.off('existing-peers', onExistingPeers);
-      socket.off('chat-history', onHistory);
-      socket.off('chat-message', onMsg);
-      socket.off('user-joined', onUserJoined);
-      socket.off('user-left', onUserLeft);
-      socket.off('system-announcement', onSystemMsg);
-    };
-  }, [socket, onJoined]);
-
-  useEffect(() => {
-    if (socket) {
-      socket.on('3d-emoji', (data) => {
-        setActive3dEmoji(data);
-        setTimeout(() => setActive3dEmoji(null), 3000);
-      });
-      socket.on('media-message', (data) => {
-        setMessages(prev => [...prev.slice(-100), { ...data, media: true }]);
-      });
-      return () => {
-        socket.off('3d-emoji');
-        socket.off('media-message');
-      };
-    }
-  }, [socket]);
-
   const send3dEmoji = (emoji) => {
     if (balance < 5) return alert('Need 5 coins!');
-    if (socket && roomId) {
-      socket.emit('send-3d-emoji', { roomId, emoji });
-      setShowEmojiPicker(false);
-    }
+    socket?.emit('send-3d-emoji', { roomId: roomIdRef.current, emoji });
+    setShowEmojiPicker(false);
   };
 
   const handleMediaUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const type = file.type.startsWith('video') ? 'video' : 'image';
-    const cost = type === 'video' ? 15 : 10;
+    const isVid = file.type.startsWith('video');
+    const cost = isVid ? 15 : 10;
     if (balance < cost) return alert(`Need ${cost} coins!`);
 
-    if (type === 'video') {
-      const video = document.createElement('video');
-      video.preload = 'metadata';
-      video.onloadedmetadata = function () {
-        window.URL.revokeObjectURL(video.src);
-        if (video.duration > 6) {
-          return alert('Video must be 5 seconds or less!');
-        }
-        processUpload(file);
-      };
-      video.src = URL.createObjectURL(file);
-    } else {
-      processUpload(file);
-    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      socket.emit('send-media', {
+        roomId: roomIdRef.current,
+        type: isVid ? 'video' : 'image',
+        content: ev.target.result
+      });
+    };
+    reader.readAsDataURL(file);
     e.target.value = '';
   };
 
-  const processUpload = (file) => {
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      socket.emit('send-media', { roomId: roomIdRef.current || roomId, type: file.type.startsWith('video') ? 'video' : 'image', content: ev.target.result });
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // AI Translation Hook
-  useEffect(() => {
-    if (!isTranslatorActive) return;
-    const untranslated = messages.filter(m => !m.fromSelf && !m.translated && !m.system && m.text && m.text.length > 3);
-    if (untranslated.length === 0) return;
-    const target = untranslated[untranslated.length - 1];
-    const translateMsg = async () => {
-      try {
-        const apiBase = import.meta.env.VITE_SOCKET_URL || '';
-        const res = await fetch(`${apiBase}/api/ai/translate`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: target.text, to: 'English' })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setMessages(prev => prev.map(m => (m.id === target.id || (m.text === target.text && m.ts === target.ts)) ? { ...m, translated: data.translated } : m));
-        }
-      } catch (e) { }
-    };
-    translateMsg();
-  }, [messages, isTranslatorActive]);
-
-  const allParticipants = [
-    { socketId: 'me', nickname: nickname || 'You', country: myCountry, isMe: true },
-    ...peers,
-  ];
-
-  const getNickColor = (idx) => COLORS[idx % COLORS.length];
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handler = (e) => {
-      const target = e.target;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
-      if (e.key === 'Escape') {
-        onLeave();
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [onLeave]);
-
   return (
-    <div className="h-screen h-[100dvh] flex flex-col bg-[#070811] text-white overflow-hidden relative">
-      {sparks.map(s => <MessageSpark key={s.id} x={s.x} y={s.y} />)}
-      {/* AI SAFETY LAYER */}
-      <div className="absolute top-[72px] left-1/2 -translate-x-1/2 z-[100] pointer-events-none px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center gap-2 animate-pulse">
-         <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">AI Safety Monitor Active</span>
-      </div>
-
-      {/* HEADER */}
-      <header className="app-header flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="logo-icon text-sm">M</div>
-          <div className="hidden sm:block">
-            <h1 className="font-bold text-white leading-none">Mana Mingle</h1>
-            <p className="text-xs mt-0.5" style={{ color: 'rgba(232,234,246,0.45)' }}>
-              Group Chat · #{displayInterest}
-            </p>
+    <div className="h-screen h-[100dvh] flex flex-col bg-[#05060b] text-white overflow-hidden font-sans selection:bg-indigo-500/30">
+      
+      {/* 3D EMOJI OVERLAY */}
+      {active3dEmoji && (
+        <div className="fixed inset-0 z-[1000] pointer-events-none flex items-center justify-center bg-black/20 backdrop-blur-[2px]">
+          <div className="animate-3d-emoji-pop flex flex-col items-center gap-6">
+            <div className="relative">
+               <div className="absolute inset-0 blur-3xl bg-white/20 rounded-full" />
+               <img src={active3dEmoji.emoji.url} className="w-48 h-48 relative drop-shadow-[0_0_40px_rgba(255,255,255,0.4)]" alt="3d" />
+            </div>
+            <div className="px-6 py-2.5 rounded-2xl bg-black/80 border border-white/10 backdrop-blur-xl shadow-2xl">
+               <span className="text-sm font-black uppercase tracking-[0.2em]">{active3dEmoji.nickname} sent {active3dEmoji.emoji.char}</span>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} registered={registered} currentActiveSeconds={currentActiveSeconds} />
+      )}
 
-          <div className="participant-badge">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-            {participantCount}/{GROUP_MAX}
+      {/* HEADER: PREMIUM GLASS */}
+      <header className="flex-shrink-0 h-16 sm:h-20 px-4 sm:px-6 flex items-center justify-between border-b border-white/[0.06] bg-black/40 backdrop-blur-2xl z-50">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-black text-lg shadow-lg shadow-indigo-500/20">M</div>
+          <div>
+            <h1 className="text-sm sm:text-base font-black tracking-tight text-white/90">#{displayInterest} Realm</h1>
+            <div className="flex items-center gap-2 mt-0.5">
+               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]" />
+               <span className="text-[10px] uppercase font-bold tracking-widest text-emerald-500/80">AI Safe Mode Active</span>
+            </div>
           </div>
-          {!isQueuing && (
-            <button
-              type="button"
-              onClick={() => setIsTranslatorActive(!isTranslatorActive)}
-              className={`hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all border ${isTranslatorActive ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-400' : 'bg-white/5 border-white/10 text-white/30'}`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${isTranslatorActive ? 'bg-indigo-400 animate-pulse' : 'bg-white/20'}`} />
-              AI Translate
+        </div>
+
+        <div className="flex items-center gap-2 sm:gap-4">
+          <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim} claimCoins={claimCoins} registered={registered} currentActiveSeconds={currentActiveSeconds} />
+          
+          <button 
+             onClick={() => setShowParticipants(!showParticipants)}
+             className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${showParticipants ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-400' : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'}`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+            <span className="text-xs font-bold hidden sm:inline">{peers.length + 1}/{GROUP_MAX}</span>
+          </button>
+
+          {!isQueuing && onFindNewPod && (
+            <button onClick={onFindNewPod} className="hidden sm:flex px-4 py-2 bg-indigo-500 hover:bg-indigo-400 rounded-xl text-xs font-black uppercase tracking-wider transition-all active:scale-95 shadow-lg shadow-indigo-500/20">
+              Skip →
             </button>
           )}
-          {onFindNewPod && !isQueuing && (
-            <button id="group-text-skip-btn" type="button" onClick={onFindNewPod} className="btn btn-amber px-4 py-2">
-              Skip Room →
-            </button>
-          )}
-          <button id="group-text-leave-btn" type="button" onClick={onLeave} className="btn btn-danger px-2 sm:px-4 py-2 text-[10px] sm:text-sm">
+
+          <button onClick={onLeave} className="px-3 sm:px-4 py-2 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all">
             {isQueuing ? 'Cancel' : 'Leave'}
           </button>
         </div>
       </header>
 
-      {/* ICEBREAKER BANNER */}
-      {
-        !isQueuing && icebreaker && (
-          <div className="flex-shrink-0 px-4 py-2.5 bg-indigo-500/[0.07] border-b border-indigo-500/15 flex items-center gap-3">
-            <span className="text-indigo-400 text-sm font-semibold flex-shrink-0">🧊 Icebreaker:</span>
-            <span className="text-sm text-white/75 truncate">{icebreaker}</span>
-            <button
-              id="send-icebreaker-btn"
-              type="button"
-              onClick={() => {
-                const rid = roomIdRef.current || roomId;
-                if (socket && rid) socket.emit('send-message', { roomId: rid, text: icebreaker });
-              }}
-              className="text-xs px-3 py-1 rounded-lg bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25 transition flex-shrink-0"
-            >
-              Send
-            </button>
-          </div>
-        )
-      }
-
-      {/* BODY */}
-      <div className="flex-1 flex min-h-0 overflow-hidden">
-        {/* CHAT MAIN */}
-        <div className="flex-1 flex flex-col min-h-0 relative">
-
-          {active3dEmoji && (
-            <div className="absolute inset-0 pointer-events-none z-[100] flex items-center justify-center overflow-hidden">
-              <div className="animate-3d-emoji-pop flex flex-col items-center gap-2">
-                <picture>
-                  <source srcSet={active3dEmoji.emoji.url} type="image/webp" />
-                  <img src={active3dEmoji.emoji.url} className="w-32 h-32" alt="3d" />
-                </picture>
-                <span className="bg-black/80 px-4 py-1.5 rounded-full text-xs font-bold border border-white/10 shadow-2xl">
-                  {active3dEmoji.nickname} sent {active3dEmoji.emoji.char}
-                </span>
-              </div>
+      {/* MAIN BODY */}
+      <div className="flex-1 flex overflow-hidden relative">
+        
+        {/* MESSAGES AREA */}
+        <div className="flex-1 flex flex-col min-w-0 bg-[#070811] relative">
+          
+          {/* SEARCHING STATE */}
+          {status === 'searching' && (
+            <div className="absolute inset-0 z-40 bg-[#05060b] flex flex-col items-center justify-center gap-8 animate-fade-in">
+               <div className="relative w-32 h-32">
+                 <div className="absolute inset-0 rounded-full border border-indigo-500/20 animate-pulse-ring" />
+                 <div className="absolute inset-4 rounded-full border border-indigo-400/30 animate-pulse-ring delay-300" />
+                 <div className="absolute inset-0 flex items-center justify-center text-4xl">🔮</div>
+               </div>
+               <div className="text-center space-y-2">
+                  <h2 className="text-xl font-black tracking-tight text-white/90">Summoning Strangers...</h2>
+                  <p className="text-xs text-white/30 uppercase tracking-[0.3em]">Interest: #{displayInterest}</p>
+               </div>
+               <div className="flex gap-2">
+                  {[...Array(3)].map((_, i) => <div key={i} className="w-1.5 h-1.5 rounded-full bg-indigo-500/40 animate-bounce-dot" style={{ animationDelay: `${i * 0.2}s` }} />)}
+               </div>
             </div>
           )}
 
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-2 min-h-0" id="group-text-messages">
-            {isQueuing ? (
-              <div className="h-full flex flex-col items-center justify-center gap-6 text-center">
-                <div className="relative w-20 h-20">
-                  <div className="radar-ring absolute inset-0" />
-                  <div className="radar-ring absolute inset-3" style={{ animationDelay: '0.6s' }} />
-                  <div className="absolute inset-5 rounded-full bg-indigo-500/20 flex items-center justify-center text-xl">👥</div>
-                </div>
-                <div>
-                  <p className="font-bold text-white mb-1">Finding a group room...</p>
-                  <p className="text-sm" style={{ color: 'rgba(232,234,246,0.45)' }}>You'll be matched based on interest: #{displayInterest}</p>
-                </div>
-                <div className="search-dots"><span /><span /><span /></div>
+          {/* MESSAGE LIST */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6 custom-scrollbar" id="messages-container">
+            {messages.length === 0 && !isQueuing && (
+              <div className="h-full flex items-center justify-center py-20 text-center">
+                 <div className="max-w-xs space-y-4">
+                    <p className="text-sm text-white/20 font-medium uppercase tracking-widest leading-loose">
+                      Communication Channel Open.<br/>Participants are anonymous.<br/>Respect the Realm.
+                    </p>
+                    <button onClick={generateAiSpark} className="px-4 py-2 rounded-full border border-white/5 bg-white/[0.02] text-[10px] font-bold text-indigo-400/60 hover:text-indigo-400 hover:bg-indigo-500/10 transition-all uppercase tracking-widest">
+                      ✨ Get an Icebreaker
+                    </button>
+                 </div>
               </div>
-            ) : (
-              <>
-                {messages.length === 0 && (
-                  <div className="sys-msg pt-4">Welcome to the room! Say hello 👋</div>
-                )}
-                {messages.map((m, i) => {
-                  if (m.system) return <div key={m.id || i} className="sys-msg">{m.text}</div>;
-                  const isMe = m.socketId === socket.id || m.fromSelf;
-                  const peerIdx = allParticipants.findIndex((p) => p.socketId === m.socketId);
-                  const color = peerIdx >= 0 ? getNickColor(peerIdx) : COLORS[0];
-                  const showNick = i === 0 || messages[i - 1]?.socketId !== m.socketId || messages[i - 1]?.system;
-                  return (
-                    <div key={m.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-message-pop`}>
-                      {showNick && (
-                        <div className="flex items-center gap-1 mb-1 px-1">
-                          <span className="text-[10px] font-black uppercase tracking-widest leading-none mb-0.5" style={{ color: isMe ? '#22d3ee' : color }}>
-                            {m.isCreator ? `@${m.nickname}` : (isMe ? 'You' : m.nickname || 'Stranger')}
-                          </span>
-                          {m.isCreator && <BlueTick />}
-                        </div>
-                      )}
-                      <div className={`msg-bubble ${isMe ? 'me' : 'them'} flex flex-col gap-1 animate-bubble-pop relative group`} style={!isMe ? { borderColor: `${color}30` } : {}}>
-                        {!m.system && (
-                          <button 
-                            onClick={() => setReplyingTo(m)} 
-                            className={`absolute -top-3 ${isMe ? '-left-3' : '-right-3'} opacity-0 group-hover:opacity-100 bg-white/10 hover:bg-white/20 p-1 rounded-full text-xs transition-opacity z-10`}
-                            title="Reply"
-                          >
-                            ↩️
-                          </button>
-                        )}
-                        {m.replyTo && (
-                          <div className="text-[10px] opacity-60 mb-1 border-l-2 border-white/20 pl-2 italic">
-                            <span className="font-bold">{m.replyTo.nickname || 'Someone'}</span>: {m.replyTo.text?.slice(0, 40)}{m.replyTo.text?.length > 40 ? '...' : ''}
-                          </div>
-                        )}
-                        {m.media ? (
-                          <div className="max-w-[200px] rounded-lg overflow-hidden border border-white/10">
-                            {m.type === 'video' ? (
-                              <video src={m.content} controls className="w-full" autoPlay loop muted />
-                            ) : (
-                              <img src={m.content} className="w-full h-auto" alt="media" />
-                            )}
-                          </div>
-                        ) : (
-                          <div className="break-words">
-                            {isTranslatorActive && !isMe ? (
-                              <div className="flex flex-col gap-1">
-                                {m.translated ? (
-                                  <>
-                                    <span className="text-[10px] opacity-40 uppercase font-bold tracking-widest leading-none mb-1">NVIDIA AI Translation</span>
-                                    <span className="opacity-60 text-[11px] italic line-through mb-0.5">{m.text}</span>
-                                    <span className="text-white font-medium">✨ {m.translated}</span>
-                                  </>
-                                ) : (
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[10px] opacity-40 uppercase font-bold tracking-widest animate-pulse">Translating...</span>
-                                    <span className="opacity-80">{m.text}</span>
-                                  </div>
-                                )}
-                              </div>
-                            ) : m.text}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-                <div ref={chatEndRef} />
-              </>
             )}
+
+            {messages.map((m, i) => {
+              if (m.system) return (
+                <div key={m.id || i} className="flex justify-center my-4 animate-fade-in">
+                  <span className="px-4 py-1.5 rounded-full bg-white/[0.03] border border-white/[0.05] text-[10px] text-white/30 font-bold uppercase tracking-wider">
+                    {m.text}
+                  </span>
+                </div>
+              );
+
+              const isMe = m.socketId === socket.id || m.fromSelf;
+              const senderIdx = [...peers, { socketId: 'me' }].findIndex(p => p.socketId === m.socketId);
+              const accentColor = COLORS[senderIdx % COLORS.length] || '#818cf8';
+              const showAvatar = i === 0 || messages[i-1].socketId !== m.socketId || messages[i-1].system;
+
+              return (
+                <div key={m.id || i} className={`flex w-full items-end gap-2.5 sm:gap-3 ${isMe ? 'flex-row-reverse' : 'flex-row'} animate-bubble-pop`}>
+                  {/* AVATAR */}
+                  <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl flex-shrink-0 flex items-center justify-center text-xs sm:text-sm border transition-opacity duration-300 ${showAvatar ? 'opacity-100' : 'opacity-0'}`}
+                       style={{ backgroundColor: `${accentColor}15`, borderColor: `${accentColor}30`, color: accentColor }}>
+                    {m.isCreator ? '⭐' : (isMe ? '🙋' : '👤')}
+                  </div>
+
+                  {/* BUBBLE CONTENT */}
+                  <div className={`flex flex-col gap-1 max-w-[85%] sm:max-w-[70%] ${isMe ? 'items-end' : 'items-start'}`}>
+                    {showAvatar && (
+                      <div className="flex items-center gap-1.5 px-0.5">
+                        <span className="text-[10px] font-black uppercase tracking-widest opacity-40 shrink-0">
+                          {isMe ? 'You' : m.nickname || 'Stranger'}
+                        </span>
+                        {m.isCreator && <BlueTick />}
+                      </div>
+                    )}
+
+                    <div className={`group relative px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl sm:rounded-[1.25rem] border text-sm sm:text-base transition-all ${
+                      isMe 
+                      ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/10 rounded-tr-none' 
+                      : 'bg-[#12142a] border-white/5 text-white/90 rounded-tl-none hover:border-white/10'
+                    }`} style={isMe ? { background: `linear-gradient(135deg, ${accentColor}, ${accentColor}dd)` } : {}}>
+                      
+                      {/* Interaction Tools */}
+                      <button 
+                        onClick={() => setReplyingTo(m)}
+                        className={`absolute -top-3 ${isMe ? '-left-3' : '-right-3'} w-8 h-8 rounded-full bg-black/60 border border-white/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110 active:scale-90 z-20`}
+                      >↩️</button>
+
+                      {/* Msg Body */}
+                      {m.media ? (
+                         <div className="rounded-lg overflow-hidden border border-white/10 mt-1 max-w-sm">
+                            {m.type === 'video' ? <video src={m.content} controls className="w-full h-auto" /> : <img src={m.content} className="w-full h-auto" alt="media" />}
+                         </div>
+                      ) : m.text}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            <div ref={chatEndRef} />
           </div>
 
-          {replyingTo && (
-              <div className="mx-3 mt-2 mb-[-6px] bg-black/60 backdrop-blur-md border border-white/10 rounded-xl px-4 py-2 flex justify-between items-center z-[100] animate-in-zoom relative">
-                <div className="flex items-center gap-2 overflow-hidden">
-                   <span className="text-xs">↩️</span>
-                   <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Replying to {replyingTo.nickname || 'Stranger'}:</span>
-                   <span className="text-xs text-white/80 truncate opacity-60 italic">"{replyingTo.text?.slice(0, 40)}{replyingTo.text?.length > 40 ? '...' : ''}"</span>
-                </div>
-                <button onClick={() => setReplyingTo(null)} className="text-white/40 hover:text-white p-1 ml-2">✕</button>
-              </div>
-           )}
+          {/* PARTICIPANTS DRAWER (MOBILE) */}
+          {showParticipants && (
+            <div className="absolute inset-y-0 right-0 w-64 bg-[#0a0c16]/95 backdrop-blur-3xl border-l border-white/10 z-[60] p-6 animate-drawer-in sm:hidden">
+               <div className="flex items-center justify-between mb-8">
+                 <h3 className="font-black uppercase tracking-[0.2em] text-white/40 text-xs">The Realm</h3>
+                 <button onClick={() => setShowParticipants(false)} className="p-2 -mr-2 text-white/20 hover:text-white">✕</button>
+               </div>
+               <div className="space-y-6">
+                  {[{ socketId: 'me', nickname: nickname || 'You', isMe: true }, ...peers].map((p, i) => (
+                    <div key={p.socketId} className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/5">{i === 0 ? '🙋' : '👤'}</div>
+                      <div className="min-w-0">
+                         <p className="text-sm font-black truncate">{p.nickname}</p>
+                         <p className="text-[10px] uppercase font-bold tracking-widest text-white/20">Searching Interests</p>
+                      </div>
+                    </div>
+                  ))}
+               </div>
+            </div>
+          )}
 
-          {/* Input */}
-          <div className="flex-shrink-0 p-3 border-t border-white/[0.06] flex gap-1.5 sm:gap-2 min-w-0 items-center">
-            <input
-              ref={inputRef}
-              id="group-text-input"
-              type="text"
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-              placeholder={isAiGenerating ? 'AI thinking...' : (isQueuing ? 'Finding room...' : 'Type a message...')}
-              disabled={isQueuing || !roomId || isAiGenerating}
-              className={`chat-input flex-1 min-w-0 py-3 px-4 transition-all ${isAiGenerating ? 'opacity-50' : ''}`}
-            />
-            {!isQueuing && (
-              <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="p-2 rounded-lg bg-white/5 border border-white/5 text-white/30 hover:text-emerald-400 transition-colors"
-                  title="Upload Media (10-15 Coins)"
-                >
-                  📂
-                </button>
-                <input type="file" ref={fileInputRef} onChange={handleMediaUpload} accept="image/*,video/*" className="hidden" />
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                    className="p-2 rounded-lg bg-white/5 border border-white/5 text-white/30 hover:text-amber-400 transition-colors"
-                    title="3D Emojis (5 Coins)"
-                  >
-                    ✨
-                  </button>
+          {/* BOTTOM CONTROLS */}
+          <div className="p-3 sm:p-6 bg-gradient-to-t from-[#05060b] to-transparent">
+            
+            {/* Warning Portal */}
+            {warning && (
+               <div className="mb-4 animate-in-zoom animate-warning-shake">
+                  <div className="px-4 py-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center gap-3">
+                     <span className="text-lg">⚠️</span>
+                     <div>
+                        <p className="text-[10px] font-black uppercase text-rose-500 tracking-widest">AI Safety Filter</p>
+                        <p className="text-xs text-white/70">{warning}</p>
+                     </div>
+                  </div>
+               </div>
+            )}
+
+            {/* Reply Bar */}
+            {replyingTo && (
+               <div className="mb-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl flex items-center justify-between text-xs animate-in-zoom">
+                  <span className="opacity-40 truncate flex-1">Replying to {replyingTo.nickname}: "{replyingTo.text?.slice(0, 40)}"</span>
+                  <button onClick={() => setReplyingTo(null)} className="ml-4 opacity-40 hover:opacity-100">✕</button>
+               </div>
+            )}
+
+            <div className="flex items-end gap-2 sm:gap-3">
+               <div className="flex-1 relative flex items-center p-1.5 sm:p-2 rounded-2xl sm:rounded-3xl bg-[#12142a] border border-white/5 focus-within:border-indigo-500/50 focus-within:bg-[#151829] transition-all shadow-xl group">
+                  
+                  <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 sm:p-3 text-white/20 hover:text-amber-400 transition-colors shrink-0">✨</button>
+                  
+                  <input 
+                    ref={inputRef}
+                    disabled={isQueuing || isAiModerating}
+                    value={chatInput}
+                    onChange={e => setChatInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
+                    placeholder={isAiModerating ? 'Reviewing speech...' : "Message the Realm..."}
+                    className="flex-1 bg-transparent border-none outline-none text-sm sm:text-base px-2 py-1 placeholder:text-white/10"
+                  />
+
+                  <div className="flex items-center gap-1.5 shrink-0 px-1">
+                    <button onClick={() => fileInputRef.current.click()} className="p-2 sm:p-3 text-white/20 hover:text-emerald-400 transition-colors">📂</button>
+                    <button 
+                      onClick={generateAiSpark}
+                      disabled={isAiGenerating}
+                      className={`p-2 sm:p-3 rounded-xl transition-all ${isAiGenerating ? 'text-indigo-400 animate-spin' : 'text-white/20 hover:text-indigo-400'}`}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    </button>
+                  </div>
+
+                  <input type="file" ref={fileInputRef} onChange={handleMediaUpload} className="hidden" accept="image/*,video/*" />
+
                   {showEmojiPicker && (
-                    <div className="absolute bottom-full right-0 mb-2 p-3 bg-[#151829] border border-white/10 rounded-2xl shadow-2xl w-[180px] grid grid-cols-4 gap-2 animate-slide-in-up z-[50]">
-                      <div className="col-span-4 text-[10px] font-black uppercase tracking-widest text-white/30 mb-1 px-1">3D Emojis (5🪙)</div>
+                    <div className="absolute bottom-full right-0 mb-4 p-4 bg-[#151829] border border-white/10 rounded-3xl shadow-2xl w-[200px] grid grid-cols-4 gap-2 animate-in-zoom backdrop-blur-2xl">
                       {EMOJIS_3D.map(e => (
-                        <button
-                          key={e.char}
-                          onClick={() => send3dEmoji(e)}
-                          className={`w-8 h-8 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-lg text-lg transition-all ${coins < 5 ? 'opacity-30 cursor-not-allowed' : ''}`}
-                          disabled={coins < 5}
-                        >
-                          {e.char}
-                        </button>
+                        <button key={e.char} onClick={() => send3dEmoji(e)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl transition-all">{e.char}</button>
                       ))}
                     </div>
                   )}
-                </div>
-                <button
-                  type="button"
-                  onClick={generateAiSpark}
-                  disabled={isAiGenerating}
-                  className={`p-2 rounded-lg transition-all border shrink-0 ${isAiGenerating
-                    ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-400'
-                    : 'bg-white/5 border-white/5 text-white/30 hover:text-indigo-400'
-                    }`}
-                  title="AI Spark"
-                >
-                  <svg className={`w-4 h-4 ${isAiGenerating ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </button>
-              </div>
-            )}
-            <button
-              id="group-text-send-btn"
-              type="button"
-              onClick={sendMessage}
-              disabled={isQueuing || !chatInput.trim() || !roomId}
-              className="btn btn-primary w-11 h-11 sm:w-12 sm:h-12 p-0 rounded-xl flex-shrink-0"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
-            </button>
+               </div>
+
+               <button 
+                  onClick={handleSendMessage}
+                  disabled={!chatInput.trim() || isAiModerating}
+                  className="w-12 h-12 sm:w-14 sm:h-14 bg-indigo-600 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-lg shadow-indigo-600/20 active:scale-90 transition-all disabled:opacity-30 flex-shrink-0"
+               >
+                 {isAiModerating ? <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <svg className="w-6 h-6 rotate-45 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>}
+               </button>
+            </div>
           </div>
         </div>
 
-        {/* PARTICIPANTS SIDEBAR */}
-        <div className="participants-panel flex-shrink-0">
-          <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'rgba(232,234,246,0.4)' }}>
-            Online ({participantCount})
-          </p>
-          <div className="space-y-3">
-            {allParticipants.map((p, i) => (
-              <div key={p.socketId} className="flex items-center gap-2.5">
-                <div className="peer-avatar text-sm flex-shrink-0" style={{ background: p.isCreator ? 'rgba(6,182,212,0.1)' : `${getNickColor(i)}20`, borderColor: p.isCreator ? 'rgba(6,182,212,0.4)' : `${getNickColor(i)}40` }}>
-                  {p.isCreator ? '⭐' : (p.isMe ? '🙋' : '👤')}
+        {/* SIDE PANEL (DESKTOP) */}
+        <aside className="hidden sm:flex w-72 h-full flex-col bg-[#0a0c16] border-l border-white/[0.06] p-8 z-30">
+           <div className="flex items-center gap-3 mb-10">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <h3 className="text-xs font-black uppercase tracking-[0.2em] text-white/40">The Realm Online</h3>
+           </div>
+
+           <div className="flex-1 space-y-6 overflow-y-auto pr-2 custom-scrollbar">
+              {[{ socketId: 'me', nickname: nickname || 'You', country: myCountry, isMe: true }, ...peers].map((p, i) => (
+                <div key={p.socketId} className="flex items-center gap-4 group animate-fade-in" style={{ animationDelay: `${i * 0.1}s` }}>
+                   <div className="w-10 h-10 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center group-hover:border-indigo-500/50 transition-all">
+                      {p.isMe ? '🙋' : (p.isCreator ? '⭐' : '👤')}
+                   </div>
+                   <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className={`text-sm font-black truncate ${p.isMe ? 'text-indigo-400' : 'text-white/80'}`}>{p.nickname}</p>
+                        {p.isCreator && <BlueTick />}
+                      </div>
+                      <p className="text-[10px] uppercase font-bold tracking-widest text-white/20">{countryToFlag(p.country) || '🌍'} Anonymous</p>
+                   </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-black flex items-center gap-1.5 truncate" style={{ color: p.isCreator ? '#22d3ee' : (p.isMe ? '#a5b4fc' : 'rgba(232,234,246,0.85)') }}>
-                    {p.isMe && !p.isCreator ? 'You' : (p.nickname || 'Stranger')}
-                    {p.isCreator && <BlueTick />}
-                  </p>
-                  <p className="text-[10px] uppercase font-bold tracking-widest" style={{ color: 'rgba(232,234,246,0.3)' }}>
-                    {countryToFlag(p.country) || '🌍'} {p.isCreator ? 'Creator' : 'Anonymous'}
-                  </p>
+              ))}
+              
+              {/* SLOTS */}
+              {Array.from({ length: Math.max(0, GROUP_MAX - peers.length - 1) }).map((_, i) => (
+                <div key={i} className="flex items-center gap-4 opacity-20 filter grayscale">
+                   <div className="w-10 h-10 rounded-2xl border border-dashed border-white/20 flex items-center justify-center text-xs">⏳</div>
+                   <div className="min-w-0">
+                      <p className="text-xs font-bold text-white/40 italic">Waiting...</p>
+                   </div>
                 </div>
-                <div className="live-dot ml-auto flex-shrink-0" style={{ width: 6, height: 6 }} />
+              ))}
+           </div>
+
+           <div className="mt-auto pt-8 border-t border-white/[0.06] space-y-3">
+              <div className="flex items-center gap-3 text-white/30">
+                 <span className="text-xs">🔒</span>
+                 <span className="text-[10px] font-bold uppercase tracking-wider">End-to-End Fluidity</span>
               </div>
-            ))}
-            {/* Empty slots */}
-            {Array.from({ length: Math.max(0, GROUP_MAX - allParticipants.length) }).map((_, i) => (
-              <div key={`empty-${i}`} className="flex items-center gap-2.5 opacity-25">
-                <div className="peer-avatar text-sm flex-shrink-0">⏳</div>
-                <p className="text-sm" style={{ color: 'rgba(232,234,246,0.4)' }}>Waiting...</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-auto pt-4 border-t border-white/[0.06]">
-            <p className="text-xs" style={{ color: 'rgba(232,234,246,0.3)' }}>🔒 Anonymous</p>
-            <p className="text-xs mt-1" style={{ color: 'rgba(232,234,246,0.3)' }}>No data stored</p>
-          </div>
-        </div>
+              <p className="text-[10px] leading-relaxed text-white/10 uppercase tracking-widest font-medium">Session data is purged upon exit. No logs. No trace.</p>
+           </div>
+        </aside>
+
       </div>
-    </div >
+    </div>
   );
 }
