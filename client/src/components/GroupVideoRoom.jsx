@@ -1478,7 +1478,7 @@ function PiPLocalVideo({ stream, cameraBlur }) {
     if (ref.current && stream) ref.current.srcObject = stream;
   }, [stream]);
   if (!stream) return <div className="w-full h-full flex items-center justify-center bg-indigo-500/20 text-2xl">🙋</div>;
-  return <video ref={ref} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" style={cameraBlur ? { filter: 'blur(15px)' } : {}} />;
+  return <video ref={ref} autoPlay muted playsInline className="w-full h-full object-cover -scale-x-100" style={cameraBlur ? { filter: 'blur(15px)' } : {}} />;
 }
 
 function RemoteVideoTile({ stream, socketId }) {

@@ -84,7 +84,7 @@ function VideoEl({ stream, muted = false, mirror = false, className = '' }) {
       autoPlay
       playsInline
       muted={muted}
-      className={`w-full h-full object-cover ${mirror ? 'scale-x-[-1]' : ''} ${className}`}
+      className={`w-full h-full object-cover -scale-x-100 ${className}`}
     />
   );
 }
@@ -479,7 +479,10 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
   }, [lowBandwidth, autoBandwidth, latency]);
 
   useEffect(() => {
-    if (localVideoRef.current && localStream) localVideoRef.current.srcObject = localStream;
+    if (localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream;
+      localVideoRef.current.play().catch(() => {});
+    }
   }, [localStream, status]);
 
   // Attach remote stream, volume, and ensure play on mobile (fixes black screen)
@@ -775,7 +778,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
 
   const createPeerConnection = useCallback((remoteId) => {
     if (peerConnectionsRef.current.has(remoteId)) return peerConnectionsRef.current.get(remoteId);
-    const pc = new RTCPeerConnection({ iceServers });
+    const pc = new RTCPeerConnection({ iceServers, iceCandidatePoolSize: 10 });
 
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((t) => pc.addTrack(t, localStreamRef.current));
@@ -1395,13 +1398,13 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
             )}
             {(status === 'idle' || status === 'searching') && (
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-32 h-24 sm:w-40 sm:h-28 rounded-2xl overflow-hidden border border-white/10 bg-black/50 z-10 backdrop-blur-md">
-                <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover scale-x-[-1] ${cameraOff ? 'opacity-30' : ''}`} style={{ filter: activeFilter !== 'none' ? activeFilter : 'none' }} />
+                <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover -scale-x-100 ${cameraOff ? 'opacity-30' : ''}`} style={{ filter: activeFilter !== 'none' ? activeFilter : 'none' }} />
                 <div className="absolute inset-0 border-2 border-white/5 pointer-events-none rounded-2xl" />
               </div>
             )}
             {status === 'connected' && (
               <>
-                <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover scale-x-[-1] transition-opacity duration-300 ${cameraOff ? 'opacity-20' : ''}`} style={{ filter: cameraBlur && activeFilter === 'none' ? 'blur(20px)' : (activeFilter !== 'none' ? activeFilter : 'none') }} />
+                <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover -scale-x-100 transition-opacity duration-300 ${cameraOff ? 'opacity-20' : ''}`} style={{ filter: cameraBlur && activeFilter === 'none' ? 'blur(20px)' : (activeFilter !== 'none' ? activeFilter : 'none') }} />
                 <div className="absolute bottom-3 left-3 flex items-center gap-1.5 z-10">
                   {isCreator ? (
                     <div className="flex items-center gap-1 px-2 py-1 rounded bg-black/60 border border-cyan-500/30">
@@ -1443,7 +1446,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
                 ) : (
                   <>
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    {countryToFlag(peer?.country)} Stranger Matching
+                    {countryToFlag(peer?.country)} {status === 'connected' ? (peer?.nickname || 'Stranger Connected') : 'Stranger Matching'}
                   </>
                 )}
               </div>
@@ -1705,31 +1708,31 @@ function RemoteVideoComponent({ stream, muted, strangerFilter, strangerBlur }) {
 
     const playVideo = async () => {
       try {
-        await el.play();
+        if (el.paused && stream?.active) {
+            await el.play();
+        }
       } catch (e) {
-        // Retry on interaction if needed
+        // Fallback for browsers that block autoplay
+        const retry = () => {
+             if (el.paused && stream?.active) {
+                 el.play().catch(() => setTimeout(retry, 1000));
+             }
+        };
+        setTimeout(retry, 500);
       }
     };
-
     playVideo();
 
-    // LISTENERS FOR SMOOTH PLAYBACK
-    const handleStalled = () => {
-      if (el.paused && stream.active) el.play().catch(() => { });
-    };
-    
-    const handleWaiting = () => {
-      // Visual indicator of buffering if needed, but here we just try to keep it playing
-      if (stream.active) el.play().catch(() => {});
-    };
-
-    el.addEventListener('stalled', handleStalled);
-    el.addEventListener('waiting', handleWaiting);
-    el.addEventListener('canplay', () => el.play().catch(() => { }));
+    // Forced-play listeners for stalled/waiting streams
+    const handleActive = () => { if (el.paused) el.play().catch(() => {}); };
+    el.addEventListener('stalled', handleActive);
+    el.addEventListener('waiting', handleActive);
+    el.addEventListener('canplay', handleActive);
 
     return () => {
-      el.removeEventListener('stalled', handleStalled);
-      el.removeEventListener('waiting', handleWaiting);
+      el.removeEventListener('stalled', handleActive);
+      el.removeEventListener('waiting', handleActive);
+      el.removeEventListener('canplay', handleActive);
     };
   }, [stream]);
 
