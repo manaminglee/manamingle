@@ -127,30 +127,13 @@ export function LandingPage({ onJoin, coinState, isJoining = false, initialCreat
   });
 
   useEffect(() => {
-    const rawCount = onlineCount || 0;
-    const baseAmericas = Math.floor(rawCount * 0.32) || 42639;
-    const baseEurasia = Math.floor(rawCount * 0.58) || 89875;
-    const baseOceania = Math.floor(rawCount * 0.10) || 13033;
-
     if (initialCreatorHandle) {
       setTimeout(() => {
         setProfileForm({ handle: initialCreatorHandle });
         setShowProfileModal(true);
-        // Also set the specific handle for the popup component if available
-        // Wait, LandingPage doesn't have a dedicated popup for stranger profiles? 
-        // It has its own 'setShowProfileModal'. Let's ensure it's used.
       }, 500);
     }
-
-    const interval = setInterval(() => {
-      setRegionalCounts({
-        americas: baseAmericas + Math.floor(Math.random() * 20 - 10),
-        eurasia: baseEurasia + Math.floor(Math.random() * 40 - 20),
-        oceania: baseOceania + Math.floor(Math.random() * 10 - 5)
-      });
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [onlineCount]);
+  }, [initialCreatorHandle]);
 
   useEffect(() => {
     // Detect Referral Link

@@ -138,7 +138,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
   const [sparks, setSparks] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [muted, setMuted] = useState(false);
-   const [cameraOff, setCameraOff] = useState(false);
+  const [cameraOff, setCameraOff] = useState(false);
   const [facingMode, setFacingMode] = useState('user');
   const [showChat, setShowChat] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
@@ -192,10 +192,10 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
       if (roomIdProp) {
         socket.emit('join-specific-group', { roomId: roomIdProp, nickname: nickname || 'Admin' });
       } else {
-        socket.emit('join-group-by-topics', { 
-          interest: interestProp || 'general', 
-          nickname: nickname || 'Anonymous', 
-          mode: 'group_video' 
+        socket.emit('join-group-by-topics', {
+          interest: interestProp || 'general',
+          nickname: nickname || 'Anonymous',
+          mode: 'group_video'
         });
       }
       // Auto-join logic — NO WAITING SCREEN
@@ -365,9 +365,9 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
         s = await navigator.mediaDevices.getUserMedia(constraints);
       } catch (e) {
         // Fallback for strict mobile devices
-        s = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: { ideal: facingMode } }, 
-            audio: true 
+        s = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: facingMode } },
+          audio: true
         });
       }
       localStreamRef.current = s;
@@ -415,15 +415,15 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
     if (!s) return;
     const vt = s.getVideoTracks()[0];
     const at = s.getAudioTracks()[0];
-    
+
     peerConnectionsRef.current.forEach((pc) => {
       if (pc.signalingState === 'closed') return;
       const senders = pc.getSenders();
       const vs = senders.find(s => s.track?.kind === 'video');
       const as = senders.find(s => s.track?.kind === 'audio');
-      
-      if (vs && vt) vs.replaceTrack(vt).catch(() => {});
-      if (as && at) as.replaceTrack(at).catch(() => {});
+
+      if (vs && vt) vs.replaceTrack(vt).catch(() => { });
+      if (as && at) as.replaceTrack(at).catch(() => { });
     });
   }, [localStreamReady, facingMode]);
 
@@ -635,16 +635,16 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
       const rid = data.roomId || roomIdRef.current;
       if (rid) roomIdRef.current = rid;
       if (data.interest) setDisplayInterest(data.interest);
-      if (!hasJoinedRef.current) { 
-        hasJoinedRef.current = true; 
-        onJoined(rid); 
+      if (!hasJoinedRef.current) {
+        hasJoinedRef.current = true;
+        onJoined(rid);
 
         // Automated Group Presence Synthesis for Creators
         if (isCreator && rid) {
           setTimeout(() => {
-            socket.emit('send-message', { 
-              roomId: rid, 
-              text: `🌟 Hey team! I'm @${nickname} (Verified Creator). Check out my world: ${window.location.origin}/creator/${nickname}` 
+            socket.emit('send-message', {
+              roomId: rid,
+              text: `🌟 Hey team! I'm @${nickname} (Verified Creator). Check out my world: ${window.location.origin}/creator/${nickname}`
             });
             setToast('Identity Broadcasted to Room');
           }, 2000);
@@ -721,7 +721,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
       if (sid) {
         // Immediate removal for speed
         setPeers((p) => p.filter((x) => x.socketId !== sid));
-        
+
         setParticipantCount((c) => {
           const next = Math.max(1, (data.participantCount ?? c) - 1);
           if (next === 1 && !isQueuing && !hasAutoLeftRef.current) {
@@ -1051,7 +1051,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
   }
 
   // PERSISTENT 2x2 GRID: Always show 4 panels
-  const displayTiles = tiles; 
+  const displayTiles = tiles;
   const gridClass = 'grid-cols-2 grid-rows-2';
 
   const localStream = localStreamRef.current;
@@ -1362,7 +1362,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
           </button>
         ))}
         <div className="w-[1px] h-6 bg-white/10 mx-1" />
-        <button 
+        <button
           onClick={() => {
             setRenameInput(displayInterest);
             setShowRenameModal(true);
@@ -1393,10 +1393,10 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
           )}
         </button>
-        <button 
-          onClick={() => setFacingMode(prev => prev === 'user' ? 'environment' : 'user')} 
-          title="Flip camera" 
-          aria-label="Flip camera" 
+        <button
+          onClick={() => setFacingMode(prev => prev === 'user' ? 'environment' : 'user')}
+          title="Flip camera"
+          aria-label="Flip camera"
           className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-black/60"
         >
           🔄
@@ -1423,38 +1423,38 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
       {/* MINIMAL RENAME OVERLAY — Inline focus */}
       {showRenameModal && (
         <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[260] w-72 bg-[#1a1d21]/95 backdrop-blur-3xl border border-white/10 rounded-3xl p-5 shadow-2xl animate-fade-in flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-               <h5 className="text-[10px] font-black uppercase tracking-widest text-amber-500">Specialize Topic (25c)</h5>
-               <span className="text-[8px] font-bold text-white/20">ENTER TO APPLY</span>
-            </div>
-            <input
-              autoFocus
-              type="text"
-              maxLength={25}
-              value={renameInput}
-              onChange={(e) => setRenameInput(e.target.value)}
-              onKeyDown={(e) => {
-                 if (e.key === 'Enter') {
-                    if (balance < 25) return alert("Insufficient Mana");
-                    socket.emit('rename-group-room', { roomId: roomIdProp || roomIdRef.current, newInterest: renameInput.trim() });
-                    setShowRenameModal(false);
-                 }
-                 if (e.key === 'Escape') setShowRenameModal(false);
+          <div className="flex items-center justify-between">
+            <h5 className="text-[10px] font-black uppercase tracking-widest text-amber-500">Specialize Topic (25c)</h5>
+            <span className="text-[8px] font-bold text-white/20">ENTER TO APPLY</span>
+          </div>
+          <input
+            autoFocus
+            type="text"
+            maxLength={25}
+            value={renameInput}
+            onChange={(e) => setRenameInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                if (balance < 25) return alert("Insufficient Mana");
+                socket.emit('rename-group-room', { roomId: roomIdProp || roomIdRef.current, newInterest: renameInput.trim() });
+                setShowRenameModal(false);
+              }
+              if (e.key === 'Escape') setShowRenameModal(false);
+            }}
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white focus:border-amber-500 outline-none transition-all"
+            placeholder="e.g. Gaming, Tech..."
+          />
+          <div className="flex gap-2">
+            <button onClick={() => setShowRenameModal(false)} className="flex-1 py-2.5 rounded-xl bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/50 hover:bg-white/10">Back</button>
+            <button
+              onClick={() => {
+                if (balance < 25) return alert("Insufficient Mana");
+                socket.emit('rename-group-room', { roomId: roomIdProp || roomIdRef.current, newInterest: renameInput.trim() });
+                setShowRenameModal(false);
               }}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white focus:border-amber-500 outline-none transition-all"
-              placeholder="e.g. Gaming, Tech..."
-            />
-            <div className="flex gap-2">
-               <button onClick={() => setShowRenameModal(false)} className="flex-1 py-2.5 rounded-xl bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/50 hover:bg-white/10">Back</button>
-               <button 
-                  onClick={() => {
-                    if (balance < 25) return alert("Insufficient Mana");
-                    socket.emit('rename-group-room', { roomId: roomIdProp || roomIdRef.current, newInterest: renameInput.trim() });
-                    setShowRenameModal(false);
-                  }}
-                  className="flex-1 py-2.5 rounded-xl bg-amber-500 text-black text-[9px] font-black uppercase tracking-widest shadow-lg shadow-amber-500/20"
-                >Apply Now</button>
-            </div>
+              className="flex-1 py-2.5 rounded-xl bg-amber-500 text-black text-[9px] font-black uppercase tracking-widest shadow-lg shadow-amber-500/20"
+            >Apply Now</button>
+          </div>
         </div>
       )}
       {toast && (
@@ -1476,7 +1476,7 @@ function PiPLocalVideo({ stream, cameraBlur }) {
     <div className="relative w-full h-full">
       <video ref={ref} autoPlay muted playsInline className={`w-full h-full object-cover ${facingMode === 'user' ? '-scale-x-100' : ''}`} style={cameraBlur ? { filter: 'blur(15px)' } : {}} />
       <div className="absolute top-2 left-2 z-50 flex items-center gap-2">
-         <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
       </div>
       <div className="absolute bottom-2 right-2 z-50 text-[10px] font-bold text-white/70">You</div>
     </div>
@@ -1530,14 +1530,14 @@ function RemoteVideoTile({ stream, socketId }) {
   return (
     <div className="absolute inset-0 w-full h-full bg-[#0c0e1a] overflow-hidden">
       <video ref={ref} autoPlay playsInline className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${isPlaying && hasVideo ? 'opacity-100' : 'opacity-0'}`} />
-      
+
       {/* WATERMARKS & AI STATUS */}
       <div className="absolute top-4 left-4 z-50 flex items-center gap-3">
-         <div className="ai-status-dot" />
-         <div className="glass-watermark">AI MONITOR ACTIVE</div>
+        <div className="ai-status-dot" />
+        <div className="glass-watermark">AI MONITOR ACTIVE</div>
       </div>
       <div className="absolute bottom-4 right-4 z-50">
-         <div className="glass-watermark">ManaMingle</div>
+        <div className="glass-watermark">ManaMingle</div>
       </div>
 
       {(!isPlaying || !hasVideo) && (
