@@ -120,7 +120,7 @@ export default function GroupTextRoom({ roomId: roomIdProp, interest: interestPr
     
     // Initial Join Logic
     if (isQueuing && !hasJoinedRef.current) {
-      socket.emit('join-group-by-interest', { interest: displayInterest, nickname: nickname || 'Anonymous', mode: 'group_text' });
+      socket.emit('join-group-by-topics', { interest: displayInterest, nickname: nickname || 'Anonymous', mode: 'group_text' });
     } else if (roomIdProp && !hasJoinedRef.current) {
       socket.emit('join-specific-group', { roomId: roomIdProp, nickname: nickname || 'Admin' });
     }
