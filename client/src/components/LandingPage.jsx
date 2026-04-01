@@ -103,6 +103,10 @@ export function LandingPage({ onJoin, coinState, isJoining = false, initialCreat
   const [browserRooms, setBrowserRooms] = useState([]);
   const [isBrowserFetching, setIsBrowserFetching] = useState(false);
   const [customRoomName, setCustomRoomName] = useState('');
+  const [rotatingPlaceholder] = useState(() => {
+    const picks = ['anime', 'movies', 'politics', 'music', 'gaming', 'tech', 'dating', 'fashion', 'sport', 'cars'];
+    return picks[Math.floor(Math.random() * picks.length)];
+  });
   const [profileForm, setProfileForm] = useState({ bio: '', avatar: '' });
   const [loginForm, setLoginForm] = useState({ handle: '', password: '' });
   const [loginError, setLoginError] = useState('');
@@ -1494,16 +1498,17 @@ export function LandingPage({ onJoin, coinState, isJoining = false, initialCreat
               <div className="flex gap-3">
                 <input 
                   type="text"
-                  placeholder="Enter custom realm name..."
+                  placeholder={`ENTER CUSTOM REALM NAME (e.g. ${rotatingPlaceholder})...`}
                   className="flex-1 h-14 bg-white/[0.02] border border-white/5 focus:border-cyan-500/40 rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest outline-none text-white transition-all"
                   value={customRoomName}
                   onChange={e => setCustomRoomName(e.target.value)}
                 />
                 <button 
                   onClick={() => {
-                    if (!customRoomName.trim()) return;
-                    onJoin(customRoomName, 'Anonymous', browserMode);
+                    const finalTopic = (customRoomName || '').trim() || rotatingPlaceholder;
+                    onJoin(finalTopic, 'Anonymous', browserMode);
                     setShowGroupBrowser(false);
+                    setCustomRoomName('');
                   }}
                   className="px-8 h-14 bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-white hover:text-black transition-all active:scale-95 shadow-xl shadow-indigo-500/10"
                 >Start New →</button>
