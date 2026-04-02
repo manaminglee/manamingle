@@ -4,6 +4,7 @@
 import { useEffect, useState, useRef } from 'react';
 
 const FALLBACK_MS = 2000;
+const SKIP_AFTER_MS = 1500;
 
 const PRELOAD_MESSAGES = [
   'Connecting to Secure Network',
