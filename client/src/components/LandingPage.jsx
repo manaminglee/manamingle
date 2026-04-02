@@ -71,7 +71,7 @@ const AdSection = ({ position, script }) => {
   );
 };
 
-export function LandingPage({ onJoin, coinState, isJoining = false, initialCreatorHandle = null, registered = false, currentActiveSeconds = 0 }) {
+export function LandingPage({ onJoin, coinState, isJoining = false, registered = false, currentActiveSeconds = 0 }) {
   const { balance, streak, canClaim, nextClaim, claimCoins, adsEnabled, adScripts } = coinState || {};
   const [interests, setInterests] = useState([]);
   const [inputValue, setInputValue] = useState('');
@@ -112,6 +112,8 @@ export function LandingPage({ onJoin, coinState, isJoining = false, initialCreat
   const [profileForm, setProfileForm] = useState({ bio: '', avatar: '' });
   const [loginForm, setLoginForm] = useState({ handle: '', password: '' });
   const [loginError, setLoginError] = useState('');
+  const [isSecretAuthorized] = useState(() => new URLSearchParams(window.location.search).has('manage_creator'));
+  const [isReferredUser] = useState(() => new URLSearchParams(window.location.search).has('ref'));
   // Custom dialog modal — replaces system alert/confirm
   const [dialog, setDialog] = useState(null); // { title, body, confirm?, onConfirm?, onCancel? }
   const { creatorStatus, registerCreator, verifyReferral, requestWithdrawal, login, checkStatus, reRequestApproval, updateProfile } = useCreators();
@@ -126,14 +128,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, initialCreat
     setDialog({ title, body, confirm: true, onConfirm: () => { setDialog(null); resolve(true); }, onCancel: () => { setDialog(null); resolve(false); } });
   });
 
-  useEffect(() => {
-    if (initialCreatorHandle) {
-      setTimeout(() => {
-        setProfileForm({ handle: initialCreatorHandle });
-        setShowProfileModal(true);
-      }, 500);
-    }
-  }, [initialCreatorHandle]);
+
 
   useEffect(() => {
     // Detect Referral Link
@@ -469,27 +464,29 @@ export function LandingPage({ onJoin, coinState, isJoining = false, initialCreat
 
         <PresenceMap onlineCount={onlineCount} />
 
-        <CreatorMatrix 
-          creatorStatus={creatorStatus}
-          onOpenDashboard={() => setShowDashboardModal(true)}
-          onOpenApply={() => setShowCreatorModal(true)}
-          onOpenStatus={() => setShowStatusModal(true)}
-          onOpenLogin={() => setShowLoginModal(true)}
-          onEditProfile={() => {
-            setProfileForm({
-              bio: creatorStatus.bio || '',
-              avatar: creatorStatus.avatar_url || ''
-            });
-            setShowProfileModal(true);
-          }}
-          onWithdraw={(upi) => requestWithdrawal(upi)}
-          onLogout={() => {
-            localStorage.setItem('mm_logout_flag', '1');
-            localStorage.removeItem('mm_creatorId');
-            window.location.reload();
-          }}
-          showAlert={showAlert}
-        />
+        {(creatorStatus || (isSecretAuthorized && !isReferredUser)) && (
+          <CreatorMatrix 
+            creatorStatus={creatorStatus}
+            onOpenDashboard={() => setShowDashboardModal(true)}
+            onOpenApply={() => setShowCreatorModal(true)}
+            onOpenStatus={() => setShowStatusModal(true)}
+            onOpenLogin={() => setShowLoginModal(true)}
+            onEditProfile={() => {
+              setProfileForm({
+                bio: creatorStatus.bio || '',
+                avatar: creatorStatus.avatar_url || ''
+              });
+              setShowProfileModal(true);
+            }}
+            onWithdraw={(upi) => requestWithdrawal(upi)}
+            onLogout={() => {
+              localStorage.setItem('mm_logout_flag', '1');
+              localStorage.removeItem('mm_creatorId');
+              window.location.reload();
+            }}
+            showAlert={showAlert}
+          />
+        )}
 
         {/* AI INSIGHT SECTION */}
         <section className="w-full max-w-4xl mx-auto mb-16 animate-fade-in-up">

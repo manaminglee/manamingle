@@ -29,14 +29,7 @@ export default function App() {
 
   const [appState, setAppState] = useState(() => {
     if (window.location.pathname === '/matrix-admin') return STATES.ADMIN;
-    if (window.location.pathname.startsWith('/creator/')) return STATES.CREATOR_PROFILE;
     return STATES.LANDING;
-  });
-  const [profileHandle, setProfileHandle] = useState(() => {
-    if (window.location.pathname.startsWith('/creator/')) {
-      return window.location.pathname.split('/creator/')[1];
-    }
-    return '';
   });
   const [mode, setMode] = useState(null);
   const [interest, setInterest] = useState('general');
@@ -55,7 +48,7 @@ export default function App() {
       socket.on('connected', (data) => {
         if (data?.coins !== undefined) coinState.setBalance(data.coins);
       });
-      
+
       // Activity Accumulator: Heartbeat every 20s to ensure milestones (3m, 1h) are tracked by server
       const activityInterval = setInterval(() => {
         if (connected) {
@@ -111,7 +104,7 @@ export default function App() {
   };
 
   const handleJoined = (rid) => setRoomId(rid);
-  
+
   const handleAdminJoin = (rid, m, intst) => {
     setRoomId(rid);
     setMode(m);
@@ -180,7 +173,6 @@ export default function App() {
             onlineCount={onlineCount}
             coinState={coinState}
             isJoining={isJoining}
-            initialCreatorHandle={appState === STATES.CREATOR_PROFILE ? profileHandle : null}
             registered={registered}
             currentActiveSeconds={activeSeconds}
           />
