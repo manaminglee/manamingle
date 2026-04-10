@@ -51,6 +51,8 @@ const MODALS = {
   }
 };
 
+const COMMUNITY_POLICY_KEY = 'mm_community_policy_video';
+
 const INSIGHTS = [
   "Trending now: Retro music enthusiasts in EU regions.",
   "Trending Chat: Casual debates active in the US.",
@@ -116,6 +118,8 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
   const [isReferredUser] = useState(() => new URLSearchParams(window.location.search).has('ref'));
   // Custom dialog modal — replaces system alert/confirm
   const [dialog, setDialog] = useState(null); // { title, body, confirm?, onConfirm?, onCancel? }
+  const [showCommunityPolicy, setShowCommunityPolicy] = useState(false);
+  const [pendingVideoMode, setPendingVideoMode] = useState(null);
   const { creatorStatus, registerCreator, verifyReferral, requestWithdrawal, login, checkStatus, reRequestApproval, updateProfile } = useCreators();
   const startRef = useRef(null);
 
@@ -247,7 +251,18 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
     }
   };
 
-  const handleStartInteraction = (mode) => {
+  const handleStartInteraction = (mode, policyBypass = false) => {
+    if (!policyBypass && (mode === 'video' || mode === 'group_video')) {
+      try {
+        if (!sessionStorage.getItem(COMMUNITY_POLICY_KEY)) {
+          setPendingVideoMode(mode);
+          setShowCommunityPolicy(true);
+          return;
+        }
+      } catch {
+        /* sessionStorage unavailable */
+      }
+    }
     if (mode === 'group_video' || mode === 'group_text') {
       setBrowserMode(mode);
       setShowGroupBrowser(true);
@@ -259,6 +274,16 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
       onJoin(interests.length === 0 ? 'general' : interests.map(i => i.label || i).join(', '), 'Anonymous', mode);
       setScanning(false);
     }, 1000);
+  };
+
+  const acceptCommunityPolicyAndContinue = () => {
+    try {
+      sessionStorage.setItem(COMMUNITY_POLICY_KEY, '1');
+    } catch { /* ignore */ }
+    const mode = pendingVideoMode;
+    setShowCommunityPolicy(false);
+    setPendingVideoMode(null);
+    if (mode) handleStartInteraction(mode, true);
   };
 
   const handleAvatarUpload = (e) => {
@@ -297,6 +322,35 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black" />
       </div>
+
+      {/* COMMUNITY POLICY (first-time video / group video) */}
+      {showCommunityPolicy && (
+        <div className="fixed inset-0 z-[2100] flex items-center justify-center p-6 bg-black/90 backdrop-blur-xl" role="dialog" aria-modal="true" aria-labelledby="community-policy-title">
+          <div className="w-full max-w-lg rounded-[2rem] border border-white/10 bg-[#0c0e14] p-8 shadow-2xl">
+            <h2 id="community-policy-title" className="text-lg font-black uppercase tracking-wide text-white mb-2">Community safety</h2>
+            <p className="text-[11px] text-white/50 leading-relaxed mb-6">
+              Video on Mana Mingle is anonymous and live. You must be 18+ where required. No nudity, no harassment, no illegal content.
+              Reports are reviewed; violations can lead to blocks and bans. By continuing you agree to follow these rules and our guidelines.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => { setShowCommunityPolicy(false); setPendingVideoMode(null); }}
+                className="flex-1 rounded-2xl border border-white/10 py-3 text-[11px] font-black uppercase text-white/50 hover:bg-white/5"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={acceptCommunityPolicyAndContinue}
+                className="flex-1 rounded-2xl bg-cyan-500 py-3 text-[11px] font-black uppercase text-black hover:bg-cyan-400"
+              >
+                I understand — continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* SCANNING OVERLAY */}
       {scanning && (

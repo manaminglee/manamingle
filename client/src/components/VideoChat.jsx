@@ -17,6 +17,8 @@ const BlueTick = () => (
 import { useLatency } from '../hooks/useLatency';
 import { useIceServers } from '../hooks/useIceServers';
 import { CoinBadge } from './CoinBadge';
+import { ReportSafetyModal } from './ReportSafetyModal';
+import { ensureNotifyPermission, notifyIfBackground } from '../utils/browserNotify';
 import { playConnectSound, playMessageSound, playDisconnectSound, playWaveSound } from '../utils/sounds';
 
 function MessageSpark({ x, y }) {
@@ -250,6 +252,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [cameraError, setCameraError] = useState(null);
   const [toast, setToast] = useState(null);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [autoBandwidth, setAutoBandwidth] = useState(true);
   const [videoDevices, setVideoDevices] = useState([]);
   const [audioDevices, setAudioDevices] = useState([]);
@@ -295,6 +298,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
   const pipDragRef = useRef(null);
   const pcRef = useRef(null);
   const roomIdRef = useRef(null);
+  const firstSocketConnectRef = useRef(true);
   const isMounted = useRef(true);
   const statusRef = useRef(status);
   
@@ -567,6 +571,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
 
   const handleStart = () => {
     if (!socket || !connected) return;
+    void ensureNotifyPermission();
     clearRoom();
     setStatus('searching');
     socket.emit('find-partner', { mode: 'video', interest: interest || 'general', nickname: nickname || 'Anonymous' });
@@ -605,13 +610,18 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
 
   const handleBack = () => { handleStop(); onBack?.(); };
 
-  const handleReport = () => {
-    if (!isConnected) return;
-    setToast('🚩 User reported. Our safety system is now performing a deep scan.');
+  const submitSafetyReport = ({ reason, block }) => {
+    const targetId = peer?.socketId;
     if (socket && roomIdRef.current) {
-      socket.emit('report-user', { roomId: roomIdRef.current, reason: 'unspecified' });
+      socket.emit('report-user', {
+        roomId: roomIdRef.current,
+        reason: String(reason || 'unspecified'),
+        ...(targetId ? { targetSocketId: targetId } : {}),
+      });
+      if (block && targetId) socket.emit('block-user', { targetSocketId: targetId });
     }
-    setTimeout(handleSkip, 2000);
+    setToast('🚩 Report submitted. Thank you — safety reviews every report.');
+    setTimeout(handleSkip, 1500);
   };
 
   const toggleMute = () => {
@@ -981,6 +991,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       }
       setStatus('connected');
       onJoined?.(data.roomId);
+      notifyIfBackground('Match found', 'Someone joined your Mana Mingle video chat.');
 
       // Automated Creator Introduction Synthesis
       if (isCreator && data.roomId) {
@@ -1088,13 +1099,24 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
     socket.on('error', (data) => {
       setMessages(m => [...m, { id: Date.now(), system: true, text: `❌ ERROR: ${data.message || 'Something went wrong.'}`, ts: Date.now() }]);
     });
+    const onSignalRateLimited = (data) => {
+      const msg = data?.message || 'Too many connection signals. Please wait a moment.';
+      setToast(typeof msg === 'string' ? `⏱️ ${msg}` : '⏱️ Rate limited — slow down for a few seconds.');
+    };
+
+    socket.on('signal-rate-limited', onSignalRateLimited);
     socket.on('connect', () => {
       console.log('Socket connected:', socket.id);
+      if (firstSocketConnectRef.current) {
+        firstSocketConnectRef.current = false;
+        return;
+      }
+      setMessages((m) => [...m, { id: Date.now(), system: true, text: '✅ Reconnected to chat server.', ts: Date.now() }]);
     });
     socket.on('disconnect', (reason) => {
       console.warn('Socket disconnected:', reason);
       if (reason === 'io server disconnect' || reason === 'transport close' || reason === 'ping timeout') {
-        setMessages(m => [...m, { id: Date.now(), system: true, text: '⚠️ Connection lost. Trying to reconnect...', ts: Date.now() }]);
+        setMessages(m => [...m, { id: Date.now(), system: true, text: '⚠️ Connection lost. Reconnecting… stay on this screen.', ts: Date.now() }]);
       }
     });
 
@@ -1115,6 +1137,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       socket.off('room-ended-by-admin', onRoomEndedByAdmin);
       socket.off('content-flagged');
       socket.off('error');
+      socket.off('signal-rate-limited', onSignalRateLimited);
       socket.off('connect');
       socket.off('disconnect');
     };
@@ -1500,6 +1523,17 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
                 <button onClick={sendGoodVibes} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${goodVibesSent ? 'bg-rose-500 text-white' : 'bg-rose-500/10 text-rose-500 hover:bg-rose-500/20'}`} title="Good Vibes">💖</button>
                 <span className="text-[7px] text-white/10 font-bold uppercase">V</span>
               </div>
+              <div className="flex flex-col items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => setShowReportModal(true)}
+                  className="w-8 h-8 rounded-full bg-white/5 text-rose-400/80 hover:bg-rose-500/20 flex items-center justify-center border border-white/10"
+                  title="Report or block"
+                >
+                  🚩
+                </button>
+                <span className="text-[7px] text-white/10 font-bold uppercase">R</span>
+              </div>
             </>
           )}
         </div>
@@ -1523,6 +1557,12 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
           </div>
         </div>
       </footer>
+
+      <ReportSafetyModal
+        open={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        onSubmit={submitSafetyReport}
+      />
 
       {toast && (
         <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[200] px-4 py-2 rounded-lg bg-black/90 border border-white/10 text-sm text-white shadow-xl animate-fade-in">

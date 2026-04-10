@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { countryToFlag } from '../utils/countryFlag';
 import { CoinBadge } from './CoinBadge';
+import { ReportSafetyModal } from './ReportSafetyModal';
 
 const GROUP_MAX = 4;
 const COLORS = ['#818cf8', '#34d399', '#fb923c', '#f472b6'];
@@ -65,6 +66,8 @@ export default function GroupTextRoom({ roomId: roomIdProp, interest: interestPr
   const [isTranslatorActive, setIsTranslatorActive] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportTargetSid, setReportTargetSid] = useState('');
   const [active3dEmoji, setActive3dEmoji] = useState(null);
   const [warning, setWarning] = useState(null);
   
@@ -78,6 +81,11 @@ export default function GroupTextRoom({ roomId: roomIdProp, interest: interestPr
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    const remote = peers.find((p) => p.socketId !== socket?.id);
+    if (remote?.socketId) setReportTargetSid(remote.socketId);
+  }, [peers, socket?.id]);
 
   // Handle Socket Events
   useEffect(() => {
@@ -217,6 +225,36 @@ export default function GroupTextRoom({ roomId: roomIdProp, interest: interestPr
     setShowEmojiPicker(false);
   };
 
+  const submitGroupTextReport = ({ reason, block }) => {
+    const rid = roomIdRef.current;
+    const target = reportTargetSid || peers.find((p) => p.socketId !== socket?.id)?.socketId;
+    if (socket && rid) {
+      socket.emit('report-user', {
+        roomId: rid,
+        reason: String(reason || 'unspecified'),
+        ...(target ? { targetSocketId: target } : {}),
+      });
+      if (block && target) socket.emit('block-user', { targetSocketId: target });
+    }
+  };
+
+  const reportParticipantPicker = peers.filter((p) => p.socketId !== socket?.id).length > 0 ? (
+    <div className="mb-5">
+      <label className="block text-[10px] font-black uppercase tracking-widest text-white/35 mb-2">Participant</label>
+      <select
+        value={reportTargetSid}
+        onChange={(e) => setReportTargetSid(e.target.value)}
+        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-rose-500/40"
+      >
+        {peers.filter((p) => p.socketId !== socket?.id).map((p) => (
+          <option key={p.socketId} value={p.socketId} className="bg-[#111]">
+            {p.nickname || p.socketId?.slice(0, 8) || 'User'}
+          </option>
+        ))}
+      </select>
+    </div>
+  ) : null;
+
   const handleMediaUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -284,6 +322,9 @@ export default function GroupTextRoom({ roomId: roomIdProp, interest: interestPr
             </button>
           )}
 
+          <button type="button" onClick={() => setShowReportModal(true)} className="px-3 sm:px-4 py-2 bg-white/5 border border-white/15 hover:bg-white/10 text-white/80 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all">
+            Report
+          </button>
           <button onClick={onLeave} className="px-3 sm:px-4 py-2 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all">
             {isQueuing ? 'Cancel' : 'Leave'}
           </button>
@@ -529,6 +570,13 @@ export default function GroupTextRoom({ roomId: roomIdProp, interest: interestPr
         </aside>
 
       </div>
+
+      <ReportSafetyModal
+        open={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        onSubmit={submitGroupTextReport}
+        prepend={reportParticipantPicker}
+      />
     </div>
   );
 }

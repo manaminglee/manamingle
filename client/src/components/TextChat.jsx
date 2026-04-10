@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { countryToFlag } from '../utils/countryFlag';
 import { useLatency } from '../hooks/useLatency';
 import { CoinBadge } from './CoinBadge';
+import { ReportSafetyModal } from './ReportSafetyModal';
+import { ensureNotifyPermission, notifyIfBackground } from '../utils/browserNotify';
 import { ProFeaturesMenu } from './ProFeaturesMenu';
 
 const AI_ICEBREAKERS = {
@@ -188,6 +190,7 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
   const [connectedSecs, setConnectedSecs] = useState(0);
   const [showRating, setShowRating] = useState(false);
   const [showSkipSuggestion, setShowSkipSuggestion] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
   const roomIdRef = useRef(null);
   const chatEndRef = useRef(null);
@@ -235,6 +238,7 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
       setPeer(data.peer);
       setStatus('connected');
       onJoined?.(data.roomId);
+      notifyIfBackground('Text match', 'You have a new Mana Mingle text chat.');
       setTimeout(() => inputRef.current?.focus(), 100);
     };
 
@@ -469,8 +473,22 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
   // Fix #4: Cleanup typing timer on unmount
   useEffect(() => () => clearTimeout(typingTimerRef.current), []);
 
+  const submitSafetyReport = ({ reason, block }) => {
+    const targetId = peer?.socketId;
+    if (socket && roomIdRef.current) {
+      socket.emit('report-user', {
+        roomId: roomIdRef.current,
+        reason: String(reason || 'unspecified'),
+        ...(targetId ? { targetSocketId: targetId } : {}),
+      });
+      if (block && targetId) socket.emit('block-user', { targetSocketId: targetId });
+    }
+    setTimeout(() => handleSkip(), 800);
+  };
+
   const handleStart = () => {
     if (!socket || !connected) return;
+    void ensureNotifyPermission();
     clearRoom();
     setStatus('searching');
     emitFind();
@@ -678,6 +696,13 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
                   {mutedStranger ? '🔇' : '🔊'}
                 </button>
                 <div className="w-px h-6 bg-white/5 mx-1" />
+                <button
+                  type="button"
+                  onClick={() => setShowReportModal(true)}
+                  className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-rose-300/90 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/10 transition-all"
+                >
+                  Report
+                </button>
                 <button
                   type="button"
                   onClick={() => handleSkip()}
@@ -899,6 +924,12 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
            <span>User ID {socket?.id?.substring(0, 8)}</span>
         </div>
       </main>
+
+      <ReportSafetyModal
+        open={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        onSubmit={submitSafetyReport}
+      />
 
       {/* RATING MODAL */}
       {showRating && (

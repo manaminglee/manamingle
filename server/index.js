@@ -88,6 +88,8 @@ function countryFromIP(ip) {
 
 const GROUP_MAX = 4;
 const PAIR_MAX = 2;
+/** Max WebRTC signaling messages per socket per rolling minute */
+const SIGNAL_MAX_PER_MINUTE = 400;
 
 // Runtime feature flags / settings
 const settings = {
@@ -906,6 +908,77 @@ app.post('/api/creators/verify-ref', async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Sync failed' }); }
 });
 
+/** Public: whether TURN is configured (no secrets) */
+app.get('/api/debug/webrtc-config', (req, res) => {
+  const turnUrl = (process.env.TURN_URL || '').trim();
+  const turnUser = (process.env.TURN_USERNAME || '').trim();
+  const turnPass = (process.env.TURN_PASSWORD || '').trim();
+  const turnConfigured = !!(turnUrl && turnUser && turnPass);
+  res.json({
+    stun: true,
+    turnConfigured,
+    hint: turnConfigured ? 'Relay available for strict NAT' : 'STUN only unless TURN_* env is set',
+  });
+});
+
+/** Approved creator: recent economy activity for this IP */
+app.get('/api/creators/my-activity', async (req, res) => {
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || (req.ip === '::1' ? '127.0.0.1' : req.ip);
+  try {
+    let creator = null;
+    if (supabase) {
+      const { data } = await supabase.from('creators').select('id, handle_name').contains('authorized_ips', [ip]).eq('status', 'approved').single();
+      creator = data;
+    } else {
+      creator = localDb.creators.find((c) => c.authorized_ips.includes(ip) && c.status === 'approved');
+    }
+    if (!creator) return res.status(403).json({ error: 'Not an approved creator' });
+
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('activity_logs')
+        .select('*')
+        .eq('ip', ip)
+        .order('created_at', { ascending: false })
+        .limit(80);
+      if (error) return res.json({ entries: [] });
+      return res.json({ entries: data || [] });
+    }
+    res.json({ entries: [] });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load activity' });
+  }
+});
+
+/** Approved creator: withdrawal requests for this account */
+app.get('/api/creators/my-withdrawals', async (req, res) => {
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || (req.ip === '::1' ? '127.0.0.1' : req.ip);
+  try {
+    let creator = null;
+    if (supabase) {
+      const { data } = await supabase.from('creators').select('id').contains('authorized_ips', [ip]).eq('status', 'approved').single();
+      creator = data;
+    } else {
+      creator = localDb.creators.find((c) => c.authorized_ips.includes(ip) && c.status === 'approved');
+    }
+    if (!creator) return res.status(403).json({ error: 'Not an approved creator' });
+
+    if (supabase) {
+      const { data } = await supabase
+        .from('withdrawals')
+        .select('*')
+        .eq('creator_id', creator.id)
+        .order('created_at', { ascending: false })
+        .limit(25);
+      return res.json({ withdrawals: data || [] });
+    }
+    const list = (localDb.withdrawals || []).filter((w) => w.creator_id === creator.id).slice(-25).reverse();
+    res.json({ withdrawals: list });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load withdrawals' });
+  }
+});
+
 app.get('/api/creator/profile/:handle', async (req, res) => {
   const { handle } = req.params;
   try {
@@ -1067,8 +1140,20 @@ app.get('/api/admin/overview', requireAdmin, async (req, res) => {
 
   const totalCoins = economyList.reduce((sum, u) => sum + (u.coins || 0), 0);
 
+  const turnUrl = (process.env.TURN_URL || '').trim();
+  const turnUser = (process.env.TURN_USERNAME || '').trim();
+  const turnPass = (process.env.TURN_PASSWORD || '').trim();
+  const turnConfigured = !!(turnUrl && turnUser && turnPass);
+
   res.json({
     ...settings,
+    infrastructure: {
+      turnConfigured,
+      turnUrlHint: turnConfigured ? turnUrl.split(':')[0] + ':***' : null,
+      signalMaxPerMinute: SIGNAL_MAX_PER_MINUTE,
+      stunEndpoints: 2,
+      relayFallback: !turnConfigured,
+    },
     users: users.size,
     rooms: rooms.size,
     queues: {
@@ -1651,9 +1736,10 @@ const io = new Server(server, {
   allowEIO3: true
 });
 
-// Per-socket rate limit for signaling
+// Per-socket rate limit for signaling (WebRTC offer/answer/ICE bursts)
 const signalCount = new Map();
-function isSignalRateLimited(socketId) {
+const rateLimitNotifyAt = new Map();
+function isSignalRateLimited(socketId, socket) {
   const now = Date.now();
   const entry = signalCount.get(socketId) || { count: 0, reset: now + 60000 };
   if (now > entry.reset) {
@@ -1662,7 +1748,18 @@ function isSignalRateLimited(socketId) {
   }
   entry.count++;
   signalCount.set(socketId, entry);
-  return entry.count > 300;
+  if (entry.count > SIGNAL_MAX_PER_MINUTE) {
+    const last = rateLimitNotifyAt.get(socketId) || 0;
+    if (now - last > 12000 && socket) {
+      rateLimitNotifyAt.set(socketId, now);
+      socket.emit('signal-rate-limited', {
+        message: 'WebRTC signaling rate limit reached. Pause a moment and try again.',
+        retryAfterMs: 60000,
+      });
+    }
+    return true;
+  }
+  return false;
 }
 
 io.on('connection', (socket) => {
@@ -1759,22 +1856,28 @@ io.on('connection', (socket) => {
 
   socket.on('report-user', (data) => {
     let targetIp = 'unknown';
-    // find opponent in rooms
-    for (const [roomId, room] of rooms) {
-      if (room.users.has(socket.id)) {
-        for (let pt of room.participants) {
-          if (pt.socketId !== socket.id) {
-            const opponentData = users.get(pt.socketId);
-            if (opponentData) targetIp = opponentData.ip || targetIp;
+    const targetSid = data?.targetSocketId;
+    if (targetSid && users.has(targetSid)) {
+      targetIp = users.get(targetSid).ip || 'unknown';
+    } else {
+      for (const [, room] of rooms) {
+        if (!room.users.has(socket.id)) continue;
+        for (const pt of room.participants) {
+          if (pt.socketId === socket.id) continue;
+          const opponentData = users.get(pt.socketId);
+          if (opponentData) {
+            targetIp = opponentData.ip || targetIp;
+            break;
           }
         }
+        if (targetIp !== 'unknown') break;
       }
     }
     reports.push({
       id: generateId('rpt'),
       reporterIp: ip,
       targetIp,
-      reason: data?.reason || 'Inappropriate Behavior',
+      reason: sanitize(String(data?.reason || 'unspecified'), 120),
       timestamp: Date.now()
     });
   });
@@ -2338,7 +2441,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('webrtc-signal', (data) => {
-    if (isSignalRateLimited(socket.id)) return;
+    if (isSignalRateLimited(socket.id, socket)) return;
     const { roomId, targetSocketId, type, signal } = data || {};
     const userData = users.get(socket.id);
     const room = rooms.get(roomId);
@@ -2373,6 +2476,7 @@ io.on('connection', (socket) => {
     }
     users.delete(socket.id);
     signalCount.delete(socket.id);
+    rateLimitNotifyAt.delete(socket.id);
     emitOnlineCount();
   });
 });

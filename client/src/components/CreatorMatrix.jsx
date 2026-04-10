@@ -1,4 +1,6 @@
-import { memo } from 'react';
+import { memo, useEffect, useState } from 'react';
+
+const API_BASE = import.meta.env.VITE_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
 const perks = [
   { icon: '✓', title: 'Verified badge', desc: 'Stand out in video & text with the cyan tick' },
@@ -6,6 +8,92 @@ const perks = [
   { icon: '💰', title: 'Payouts', desc: 'Withdraw to UPI when you hit the threshold' },
   { icon: '📊', title: 'Dashboard', desc: 'Track referrals, earnings, and profile in one place' },
 ];
+
+function ReferralQrBlock({ referralCode }) {
+  const [copied, setCopied] = useState(false);
+  const refUrl = referralCode && typeof window !== 'undefined' ? `${window.location.origin}/?ref=${referralCode}` : '';
+  const qrSrc = refUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=${encodeURIComponent(refUrl)}` : '';
+
+  const copy = () => {
+    if (!refUrl) return;
+    navigator.clipboard.writeText(refUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (!referralCode) return null;
+
+  return (
+    <div className="w-full max-w-lg rounded-2xl border border-white/[0.08] bg-black/30 p-5 flex flex-col sm:flex-row items-center gap-6">
+      {qrSrc && (
+        <img src={qrSrc} alt="Referral QR" className="w-28 h-28 rounded-xl border border-white/10 bg-white p-1 shrink-0" />
+      )}
+      <div className="flex-1 min-w-0 text-center sm:text-left">
+        <div className="text-[9px] font-black uppercase tracking-widest text-white/35 mb-2">Your referral link</div>
+        <p className="text-[10px] text-cyan-300/90 break-all font-mono mb-3">{refUrl}</p>
+        <button type="button" onClick={copy} className="px-4 py-2 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-[10px] font-black uppercase text-cyan-300 hover:bg-cyan-500/30">
+          {copied ? 'Copied' : 'Copy link'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CreatorLedgerStrip({ enabled }) {
+  const [activity, setActivity] = useState([]);
+  const [withdrawals, setWithdrawals] = useState([]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    fetch(`${API_BASE}/api/creators/my-activity`)
+      .then((r) => r.json())
+      .then((d) => setActivity(d.entries || []))
+      .catch(() => setActivity([]));
+    fetch(`${API_BASE}/api/creators/my-withdrawals`)
+      .then((r) => r.json())
+      .then((d) => setWithdrawals(d.withdrawals || []))
+      .catch(() => setWithdrawals([]));
+  }, [enabled]);
+
+  if (!enabled) return null;
+
+  return (
+    <div className="w-full max-w-2xl grid sm:grid-cols-2 gap-4 text-left">
+      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 max-h-48 overflow-y-auto">
+        <div className="text-[9px] font-black uppercase tracking-widest text-white/35 mb-2">Recent activity</div>
+        {activity.length === 0 ? (
+          <p className="text-[10px] text-white/25">No log entries yet (requires Supabase activity_logs).</p>
+        ) : (
+          <ul className="space-y-2">
+            {activity.slice(0, 8).map((row, i) => (
+              <li key={i} className="text-[9px] text-white/50 border-b border-white/[0.04] pb-1">
+                <span className="text-emerald-400/80 font-mono">{row.action || row.details || '—'}</span>
+                {row.amount != null && <span className="text-amber-400/80 ml-2">{row.amount > 0 ? '+' : ''}{row.amount}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 max-h-48 overflow-y-auto">
+        <div className="text-[9px] font-black uppercase tracking-widest text-white/35 mb-2">Withdrawals</div>
+        {withdrawals.length === 0 ? (
+          <p className="text-[10px] text-white/25">No withdrawal requests yet.</p>
+        ) : (
+          <ul className="space-y-2">
+            {withdrawals.map((w) => (
+              <li key={w.id} className="text-[9px] text-white/55 flex justify-between gap-2 border-b border-white/[0.04] pb-1">
+                <span className="text-white/40">{new Date(w.created_at).toLocaleDateString()}</span>
+                <span className={`font-black uppercase ${w.status === 'pending' ? 'text-amber-400' : w.status === 'paid' ? 'text-emerald-400' : 'text-white/50'}`}>
+                  {w.status || 'pending'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function CreatorMatrixInner({ creatorStatus, onOpenDashboard, onOpenApply, onOpenStatus, onOpenLogin, onEditProfile, onWithdraw, onLogout, showAlert }) {
   const hasAccount = !!(creatorStatus?.handle_name);
@@ -95,6 +183,12 @@ function CreatorMatrixInner({ creatorStatus, onOpenDashboard, onOpenApply, onOpe
                   Log out
                 </button>
               </div>
+
+              {approved && creatorStatus?.referral_code && (
+                <ReferralQrBlock referralCode={creatorStatus.referral_code} />
+              )}
+
+              {approved && <CreatorLedgerStrip enabled />}
 
               {approved && (
                 <div className="flex flex-col items-center gap-3 w-full max-w-sm">

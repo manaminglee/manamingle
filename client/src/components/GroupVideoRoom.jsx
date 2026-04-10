@@ -2,10 +2,12 @@
  * GroupVideoRoom – Up to 4 anonymous users in a video room
  * Premium 2x2 grid layout, Multi-way call, side chat panel
  */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { countryToFlag } from '../utils/countryFlag';
 import { useIceServers } from '../hooks/useIceServers';
 import { CoinBadge } from './CoinBadge';
+import { ReportSafetyModal } from './ReportSafetyModal';
+import { ensureNotifyPermission, notifyIfBackground } from '../utils/browserNotify';
 import { playConnectSound, playMessageSound, playDisconnectSound, playWaveSound } from '../utils/sounds';
 
 const BlueTick = () => (
@@ -256,6 +258,45 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
   const [reconnectingPeers, setReconnectingPeers] = useState(new Set()); // socketIds with failed/disconnected ICE
   const [connectionQuality, setConnectionQuality] = useState(new Map()); // socketId -> 'good'|'fair'|'poor'
   const [pinnedId, setPinnedId] = useState(null); // 'local' or peer socketId for PiP
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportTargetSid, setReportTargetSid] = useState('');
+  const firstGroupSocketConnectRef = useRef(true);
+
+  const clearGroupRejoinStorage = () => {
+    try {
+      sessionStorage.removeItem('mm_group_rejoin_room');
+      sessionStorage.removeItem('mm_group_rejoin_nick');
+    } catch { /* ignore */ }
+  };
+
+  const handleLeaveRoom = useCallback(() => {
+    clearGroupRejoinStorage();
+    roomIdRef.current = null;
+    onLeave();
+  }, [onLeave]);
+
+  useEffect(() => {
+    const remote = peers.find((p) => p.socketId !== socket?.id);
+    if (remote?.socketId) setReportTargetSid(remote.socketId);
+  }, [peers, socket?.id]);
+
+  useEffect(() => {
+    if (!socket) return;
+    const onConnect = () => {
+      if (firstGroupSocketConnectRef.current) {
+        firstGroupSocketConnectRef.current = false;
+        return;
+      }
+      const rid = roomIdRef.current || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('mm_group_rejoin_room') : null);
+      const nick = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('mm_group_rejoin_nick') : null) || nickname || 'Anonymous';
+      if (rid) {
+        socket.emit('join-specific-group', { roomId: rid, nickname: nick });
+        setToast('🔄 Rejoining your pod after reconnect…');
+      }
+    };
+    socket.on('connect', onConnect);
+    return () => socket.off('connect', onConnect);
+  }, [socket, nickname]);
 
   const startRecording = () => {
     if (peers.length === 0) return alert('No active users to record.');
@@ -690,10 +731,18 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
     const onGroupJoined = (data) => {
       const rid = data.roomId || roomIdRef.current;
       if (rid) roomIdRef.current = rid;
+      if (rid) {
+        try {
+          sessionStorage.setItem('mm_group_rejoin_room', rid);
+          sessionStorage.setItem('mm_group_rejoin_nick', nickname || 'Anonymous');
+        } catch { /* ignore */ }
+      }
       if (data.interest) setDisplayInterest(data.interest);
       if (!hasJoinedRef.current) {
         hasJoinedRef.current = true;
         onJoined(rid);
+        void ensureNotifyPermission();
+        notifyIfBackground('Group video', 'You are connected to a Mana Mingle group room.');
 
         // Automated Group Presence Synthesis for Creators
         if (isCreator && rid) {
@@ -778,7 +827,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
           const next = Math.max(1, (data.participantCount ?? c) - 1);
           if (next === 1 && !isQueuing && !hasAutoLeftRef.current) {
             hasAutoLeftRef.current = true;
-            setTimeout(() => { if (roomIdRef.current) onLeave(); }, 2000);
+            setTimeout(() => { if (roomIdRef.current) handleLeaveRoom(); }, 2000);
           }
           return next;
         });
@@ -832,7 +881,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
     const onSystemMsg = (data) => setMessages((m) => [...m, { id: Date.now(), system: true, text: `📢 ADMIN: ${data.message}`, ts: Date.now() }]);
     const onRoomEndedByAdmin = () => {
       setToast('⚠️ This session was terminated by administrative protocol.');
-      setTimeout(() => onLeave(), 2000);
+      setTimeout(() => handleLeaveRoom(), 2000);
     };
 
     const onGroupRenamed = (data) => {
@@ -850,6 +899,11 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
     socket.on('system-announcement', onSystemMsg);
     socket.on('room-ended-by-admin', onRoomEndedByAdmin);
     socket.on('group-renamed', onGroupRenamed);
+    const onSignalRateLimited = (data) => {
+      const msg = data?.message || 'Too many WebRTC signals. Please wait.';
+      setToast(typeof msg === 'string' ? `⏱️ ${msg}` : '⏱️ Rate limited — wait a few seconds.');
+    };
+    socket.on('signal-rate-limited', onSignalRateLimited);
 
     return () => {
       socket.off('group-joined', onGroupJoined);
@@ -862,8 +916,9 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
       socket.off('system-announcement', onSystemMsg);
       socket.off('room-ended-by-admin', onRoomEndedByAdmin);
       socket.off('group-renamed', onGroupRenamed);
+      socket.off('signal-rate-limited', onSignalRateLimited);
     };
-  }, [socket, onJoined, onLeave]);
+  }, [socket, onJoined, handleLeaveRoom, nickname, isCreator]);
 
   useEffect(() => {
     if (socket) {
@@ -875,11 +930,11 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
         setMessages(prev => [...prev.slice(-100), { ...data, media: true }]);
       });
       socket.on('error', (data) => {
-        alert(data.message);
+        setToast(data?.message || 'Something went wrong.');
       });
       socket.on('room-full', (data) => {
-        alert(data.message);
-        onLeave();
+        setToast(data?.message || 'This room is full. Try another hub or wait.');
+        setTimeout(() => handleLeaveRoom(), 2500);
       });
       socket.on('waiting-in-group-queue', (data) => {
         setQueuePos(data.queuePosition);
@@ -908,7 +963,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
         socket.off('waiting-in-group-queue');
       };
     }
-  }, [socket]);
+  }, [socket, handleLeaveRoom]);
 
   const toggleHandRaise = () => {
     const next = !handRaised;
@@ -1072,11 +1127,11 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
   // Keyboard shortcut - Escape to leave
   useEffect(() => {
     const handler = (e) => {
-      if (e.key === 'Escape') onLeave();
+      if (e.key === 'Escape') handleLeaveRoom();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [onLeave]);
+  }, [handleLeaveRoom]);
 
   // Build adaptive tile array: [local, ...peers, ...empty/searching]
   const prioritizedPeers = [...peers].sort((a, b) => {
@@ -1108,6 +1163,37 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
 
   const localStream = localStreamRef.current;
 
+  const submitGroupReport = ({ reason, block }) => {
+    const rid = roomIdRef.current || roomId;
+    const target = reportTargetSid || peers.find((p) => p.socketId !== socket?.id)?.socketId;
+    if (socket && rid) {
+      socket.emit('report-user', {
+        roomId: rid,
+        reason: String(reason || 'unspecified'),
+        ...(target ? { targetSocketId: target } : {}),
+      });
+      if (block && target) socket.emit('block-user', { targetSocketId: target });
+    }
+    setToast('🚩 Report submitted. Thank you.');
+  };
+
+  const reportParticipantPicker = peers.filter((p) => p.socketId !== socket?.id).length > 0 ? (
+    <div className="mb-5">
+      <label className="block text-[10px] font-black uppercase tracking-widest text-white/35 mb-2">Participant</label>
+      <select
+        value={reportTargetSid}
+        onChange={(e) => setReportTargetSid(e.target.value)}
+        className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-rose-500/40"
+      >
+        {peers.filter((p) => p.socketId !== socket?.id).map((p) => (
+          <option key={p.socketId} value={p.socketId} className="bg-[#111]">
+            {p.nickname || p.socketId?.slice(0, 8) || 'User'}
+          </option>
+        ))}
+      </select>
+    </div>
+  ) : null;
+
   return (
     <div className="h-[100dvh] min-h-0 flex flex-col bg-[#05060b] text-white overflow-hidden font-sans select-none selection:bg-indigo-500/30 pt-[env(safe-area-inset-top)]">
 
@@ -1138,7 +1224,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
           >
             Grant Access
           </button>
-          <button onClick={onLeave} className="mt-4 text-xs text-white/50 hover:text-white underline">Cancel & Leave</button>
+          <button onClick={handleLeaveRoom} className="mt-4 text-xs text-white/50 hover:text-white underline">Cancel & Leave</button>
         </div>
       )}
 
@@ -1168,7 +1254,8 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
           </div>
 
           <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} registered={registered} currentActiveSeconds={currentActiveSeconds} isCreator={isCreator} />
-          <button onClick={onLeave} className="px-3 sm:px-4 py-2 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all">Leave</button>
+          <button type="button" onClick={() => setShowReportModal(true)} className="px-3 sm:px-4 py-2 bg-white/5 border border-white/15 hover:bg-white/10 text-white/80 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all">Report</button>
+          <button onClick={handleLeaveRoom} className="px-3 sm:px-4 py-2 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all">Leave</button>
         </div>
       </header>
 
@@ -1322,7 +1409,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
     >
       🔄
     </button>
-    <button onClick={onLeave} title="Leave call" aria-label="Leave call" className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-full bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-500/30 transition-all focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 focus:ring-offset-black/60">
+    <button onClick={handleLeaveRoom} title="Leave call" aria-label="Leave call" className="min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-full bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-500/30 transition-all focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 focus:ring-offset-black/60">
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.683A1 1 0 008.279 3H5z" /></svg>
     </button>
     {isCreator && (
@@ -1380,6 +1467,14 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
       </div>
     )
   }
+
+      <ReportSafetyModal
+        open={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        onSubmit={submitGroupReport}
+        prepend={reportParticipantPicker}
+      />
+
       {toast && (
         <div className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-[200] max-w-[90vw] px-4 py-3 rounded-2xl bg-black/90 border border-white/10 text-xs font-bold text-white shadow-2xl animate-fade-in-up">
           {toast}

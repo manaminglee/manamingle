@@ -121,6 +121,28 @@ export function useCreators() {
     }
   };
 
+  const fetchMyActivity = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/creators/my-activity`);
+      const data = await res.json();
+      if (!res.ok) return { entries: [], error: data.error };
+      return { entries: data.entries || [] };
+    } catch (e) {
+      return { entries: [], error: 'Network error' };
+    }
+  };
+
+  const fetchMyWithdrawals = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/creators/my-withdrawals`);
+      const data = await res.json();
+      if (!res.ok) return { withdrawals: [], error: data.error };
+      return { withdrawals: data.withdrawals || [] };
+    } catch (e) {
+      return { withdrawals: [], error: 'Network error' };
+    }
+  };
+
   const updateProfile = async (bio, avatar_url) => {
     try {
       const res = await fetch(`${API_BASE}/api/creators/update-profile`, {
@@ -146,6 +168,8 @@ export function useCreators() {
     login,
     checkStatus,
     reRequestApproval,
-    updateProfile
+    updateProfile,
+    fetchMyActivity,
+    fetchMyWithdrawals
   };
 }

@@ -539,6 +539,38 @@ export function AdminDashboard({ onJoinRoom }) {
                 ))}
               </div>
 
+              {stats?.infrastructure && (
+                <div className="p-8 rounded-[40px] bg-white/[0.02] border border-white/5 space-y-4">
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.35em] text-emerald-400">WebRTC / signaling</h3>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 text-[11px] text-white/60">
+                    <div>
+                      <span className="text-white/30 font-black uppercase text-[9px] block mb-1">TURN</span>
+                      {stats.infrastructure.turnConfigured ? (
+                        <span className="text-emerald-400 font-black">Configured</span>
+                      ) : (
+                        <span className="text-amber-400 font-black">STUN only</span>
+                      )}
+                      {stats.infrastructure.turnUrlHint && (
+                        <p className="text-[9px] text-white/25 mt-1 font-mono truncate" title={stats.infrastructure.turnUrlHint}>{stats.infrastructure.turnUrlHint}</p>
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-white/30 font-black uppercase text-[9px] block mb-1">Signal rate limit</span>
+                      <span className="text-cyan-400 font-black">{stats.infrastructure.signalMaxPerMinute ?? '—'} / min / socket</span>
+                    </div>
+                    <div>
+                      <span className="text-white/30 font-black uppercase text-[9px] block mb-1">STUN</span>
+                      <span className="text-white/50">{Array.isArray(stats.infrastructure.stunEndpoints) ? stats.infrastructure.stunEndpoints.length : 0} endpoint(s)</span>
+                    </div>
+                    <div className="sm:col-span-2 lg:col-span-3 text-[10px] text-white/40">
+                      {stats.infrastructure.relayFallback
+                        ? <span className="text-amber-400/90">NAT relay: STUN-only — add TURN for strict corporate / mobile NAT.</span>
+                        : <span className="text-emerald-400/80">NAT relay: TURN credentials present for restrictive networks.</span>}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="grid lg:grid-cols-3 gap-10">
                 <div className="lg:col-span-2 p-10 rounded-[50px] bg-white/[0.02] border border-white/5 shadow-2xl">
                   <div className="flex justify-between items-center mb-10">
