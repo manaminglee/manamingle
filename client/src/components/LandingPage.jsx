@@ -75,7 +75,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
   const { balance, streak, canClaim, nextClaim, claimCoins, adsEnabled, adScripts } = coinState || {};
   const [interests, setInterests] = useState([]);
   const [inputValue, setInputValue] = useState('');
-  const { socket, connected, country, onlineCount: socketOnlineCount } = useSocket();
+  const { socket, connected, country, onlineCount: socketOnlineCount, isCreator: socketIsCreator } = useSocket();
   const onlineCount = typeof socketOnlineCount === 'object' ? socketOnlineCount?.count : (socketOnlineCount || 0);
   const latency = useLatency();
   const [modal, setModal] = useState(null);
@@ -311,161 +311,180 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
 
       {/* HEADER */}
       {!showDashboardModal && (
-        <header className="fixed top-0 left-0 right-0 z-[150] h-16 sm:h-20 px-4 sm:px-8 flex items-center justify-between bg-black/20 backdrop-blur-3xl border-b border-white/5">
-        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-          <img src="/apple-touch-icon.png" alt="Logo" className="w-8 h-8 sm:w-10 sm:h-10 object-contain drop-shadow-[0_0_10px_#06b6d4]" />
-          <div className="flex flex-col">
-            <h1 className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] sm:tracking-[0.4em] whitespace-nowrap">Mana Mingle</h1>
-            <span className="hidden sm:block text-[7px] font-black uppercase tracking-[0.2em] text-cyan-400/40">by WeConnect</span>
+        <header className="fixed top-0 left-0 right-0 z-[150] pt-[env(safe-area-inset-top)] bg-black/30 backdrop-blur-3xl border-b border-white/[0.07]">
+          <div className="h-14 sm:h-16 px-3 sm:px-8 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0 min-w-0">
+            <button type="button" onClick={scrollToStart} className="flex items-center gap-2 sm:gap-4 text-left rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500/40">
+            <img src="/apple-touch-icon.png" alt="Mana Mingle" className="w-8 h-8 sm:w-10 sm:h-10 object-contain drop-shadow-[0_0_10px_#06b6d4] shrink-0" />
+            <div className="flex flex-col min-w-0">
+              <h1 className="text-[11px] sm:text-sm font-black uppercase tracking-[0.15em] sm:tracking-[0.35em] truncate">Mana Mingle</h1>
+              <span className="hidden sm:block text-[7px] font-black uppercase tracking-[0.2em] text-cyan-400/40">by WeConnect</span>
+            </div>
+            </button>
           </div>
-        </div>
-        <div className="flex items-center gap-1.5 sm:gap-4 overflow-hidden">
-          {connected && balance !== undefined && (
-            <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} registered={registered} currentActiveSeconds={currentActiveSeconds} />
-          )}
-          <div className="px-2 sm:px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[8px] sm:text-[10px] font-black text-white/40 uppercase tracking-widest flex items-center gap-1 shrink-0">
-            {country && <span className="opacity-100 grayscale hover:grayscale-0 transition-all cursor-help" title={`Localized to ${country}`}>{countryToFlag(country)}</span>}
-            <span>{(onlineCount ?? 0)} Live</span>
-          </div>
-          {creatorStatus && (
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-              <div className="hidden md:flex items-center px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[9px] font-black text-white/40 uppercase tracking-tighter italic">
-                @{creatorStatus.handle_name}
-                {creatorStatus.status === 'approved' && <BlueTick />}
+          <div className="flex items-center gap-1.5 sm:gap-3 overflow-hidden shrink-0">
+            {connected && balance !== undefined && (
+              <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} registered={registered} currentActiveSeconds={currentActiveSeconds} isCreator={!!creatorStatus || socketIsCreator} />
+            )}
+            <div className="px-2 sm:px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[8px] sm:text-[10px] font-black text-white/40 uppercase tracking-widest flex items-center gap-1 shrink-0">
+              {country && <span className="opacity-100 grayscale hover:grayscale-0 transition-all cursor-help" title={`Localized to ${country}`}>{countryToFlag(country)}</span>}
+              <span>{(onlineCount ?? 0)} Live</span>
+            </div>
+            {creatorStatus && (
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-cyan-500/15 to-indigo-500/10 border border-cyan-500/25 rounded-full text-[9px] font-black text-cyan-200/90 uppercase tracking-tight max-w-[140px] md:max-w-none">
+                  <span className="truncate">@{creatorStatus.handle_name}</span>
+                  {creatorStatus.status === 'approved' && <BlueTick />}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowDashboardModal(true)}
+                  className="hidden sm:inline-flex px-2 py-1.5 bg-white/10 border border-white/15 text-white/90 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-cyan-500/20 transition-all"
+                >Hub</button>
+                <button
+                  onClick={() => {
+                    window.localStorage.setItem('mm_logout_flag', 'true');
+                    window.localStorage.removeItem('mm_creatorId');
+                    window.location.reload();
+                  }}
+                  className="px-2 py-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg text-[8px] font-black uppercase tracking-widest transition-all"
+                  title="Logout Session"
+                >Out</button>
               </div>
-              <button
-                onClick={() => {
-                  window.localStorage.setItem('mm_logout_flag', 'true');
-                  window.localStorage.removeItem('mm_creatorId');
-                  window.location.reload();
-                }}
-                className="px-2 py-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg text-[8px] font-black uppercase tracking-widest transition-all"
-                title="Logout Session"
-              >Logout</button>
+            )}
+          </div>
+          </div>
+          {/* Creator shortcuts — always visible for discovery */}
+          {!creatorStatus && (
+            <div className="flex items-center justify-center gap-1 sm:gap-2 px-3 pb-2 border-t border-white/[0.04] overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              <span className="text-[8px] font-black uppercase tracking-widest text-white/25 shrink-0 hidden sm:inline">Creators</span>
+              <button type="button" onClick={() => setShowCreatorModal(true)} className="shrink-0 px-3 py-1 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-[9px] font-black uppercase tracking-wider text-cyan-300 hover:bg-cyan-500/25 transition-colors">Apply</button>
+              <button type="button" onClick={() => setShowStatusModal(true)} className="shrink-0 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-wider text-white/50 hover:text-white hover:border-white/25">Status</button>
+              <button type="button" onClick={() => setShowLoginModal(true)} className="shrink-0 px-3 py-1 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-[9px] font-black uppercase tracking-wider text-indigo-200/90 hover:bg-indigo-500/25">Login</button>
             </div>
           )}
-        </div>
-      </header>
+        </header>
       )}
 
       {/* HERO SECTION */}
       {!showDashboardModal && (
-        <main className="relative z-10 pt-32 pb-20 px-6 max-w-7xl mx-auto flex flex-col items-center">
+        <main className="relative z-10 pt-[calc(8rem+env(safe-area-inset-top))] sm:pt-36 pb-16 sm:pb-20 px-4 sm:px-6 max-w-7xl mx-auto flex flex-col items-center">
 
-        {adsEnabled && <AdSection position="hero" script={adScripts?.hero} />}
+          {adsEnabled && <AdSection position="hero" script={adScripts?.hero} />}
 
-        <div className="text-center mb-0 w-full">
-          <ParticleText text="MANA MINGLE" className="mb-0" />
-          <p className="text-[9px] font-black uppercase tracking-[0.8em] text-cyan-400 mb-8 animate-pulse">Powered by WeConnect</p>
+          <div className="text-center mb-0 w-full">
+            <ParticleText text="MANA MINGLE" className="mb-0" />
+            <p className="text-[9px] font-black uppercase tracking-[0.8em] text-cyan-400 mb-8 animate-pulse">Powered by WeConnect</p>
 
-          <h2 className="text-4xl md:text-7xl font-black tracking-tighter leading-none italic m-0 animate-in-zoom text-white">
-            Connect <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-500">Instantly.</span>
-          </h2>
-          <p className="text-[11px] text-white/30 max-w-lg mx-auto font-bold uppercase tracking-widest leading-relaxed mt-4">
-            Zero registration. Private P2P. Secure Global Hub.
-          </p>
-        </div>
-
-        {/* INTEREST DOCK - REFINED COMPACT */}
-        <section className="w-full max-w-2xl mx-auto mb-16 px-4 animate-fade-in" style={{ animationDelay: '200ms' }}>
-          <div className="relative group p-6 sm:p-8 rounded-[40px] bg-white/[0.03] border border-white/[0.06] backdrop-blur-3xl overflow-hidden active:scale-[0.98] transition-all">
-            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            <div className="absolute -top-10 -right-10 w-40 h-40 bg-cyan-500/20 rounded-full blur-[80px] pointer-events-none group-hover:bg-cyan-500/30 transition-all" />
-
-            <div className="relative z-10 flex flex-col items-center">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_10px_#00E5FF]" />
-                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 italic">Select Interests</span>
-              </div>
-
-              <div className="flex flex-wrap justify-center gap-1.5 mb-8">
-                {INTERESTS.filter(r => !interests.find(i => i.id === r.id)).slice(0, 8).map((r) => (
-                  <button
-                    key={r.id}
-                    onClick={() => addInterest(r.id)}
-                    className="px-3 py-1.5 rounded-full bg-white/[0.02] border border-white/5 hover:border-cyan-500/40 hover:bg-cyan-500/10 hover:text-cyan-400 transition-all text-[9px] font-black uppercase tracking-widest text-white/40"
-                  >
-                    #{r.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="relative w-full max-w-sm">
-                <input
-                  type="text"
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyDown={handleInputKeyDown}
-                  placeholder="Add specific topics..."
-                  className="w-full h-12 bg-black/40 border border-white/10 focus:border-cyan-500/40 rounded-2xl px-6 text-[12px] text-white outline-none transition-all placeholder:text-white/10 uppercase font-black tracking-widest text-center"
-                />
-                <button onClick={getAiSuggestions} className="absolute right-1 top-1/2 -translate-y-1/2 p-2.5 bg-cyan-500/20 text-cyan-400 rounded-xl hover:bg-cyan-500 hover:text-black transition-all">
-                  <svg className={`w-3.5 h-3.5 ${isSuggesting ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                </button>
-              </div>
-
-              {interests.length > 0 && (
-                <div className="flex flex-wrap justify-center gap-1.5 mt-5">
-                  {interests.map(i => (
-                    <div key={i.id} className="flex items-center gap-2 bg-cyan-400 text-black px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest shadow-[0_0_15px_#06b6d440]">
-                      {i.label}
-                      <button onClick={() => removeInterest(i.id)} className="hover:scale-125 transition-transform">✕</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-
-
-        {/* UNIQUE COMPACT MODES */}
-        <section className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-20">
-          {[
-            { id: 'video', icon: '📹', name: 'Start Video', color: 'from-cyan-400/20', accent: 'cyan' },
-            { id: 'text', icon: '💬', name: 'Start Text', color: 'from-indigo-500/20', accent: 'indigo' },
-            { id: 'group_video', icon: '🎥', name: 'Group Jam', color: 'from-purple-500/20', accent: 'purple' },
-            { id: 'group_text', icon: '👥', name: 'Group Out', color: 'from-emerald-500/20', accent: 'emerald' },
-          ].map((m, i) => (
-            <button
-              key={m.id}
-              onClick={() => handleStartInteraction(m.id)}
-              disabled={!connected || isJoining}
-              className="group relative h-40 rounded-[35px] bg-white/[0.02] border border-white/5 hover:border-white/20 transition-all animate-in-zoom p-[2px] overflow-hidden"
-              style={{ animationDelay: `${i * 100}ms` }}
-            >
-              <div className={`absolute inset-0 bg-gradient-to-br ${m.color} to-transparent opacity-40 group-hover:opacity-100 transition-opacity`} />
-              <div className="relative h-full bg-[#0a0a0a]/90 rounded-[33px] p-6 flex flex-col justify-between items-start text-left">
-                <div className={`w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/40 flex items-center justify-center text-lg group-hover:scale-110 transition-transform group-hover:shadow-[0_0_20px_rgba(6,182,212,0.3)]`}>
-                  {m.icon}
-                </div>
-                <div>
-                  <h3 className="text-sm font-black uppercase tracking-widest italic text-white group-hover:text-cyan-400 transition-colors">{m.name}</h3>
-                  <p className="text-[8px] font-bold text-white/20 uppercase tracking-[0.2em] mt-1">Secure Connection</p>
-                </div>
-              </div>
-            </button>
-          ))}
-        </section>
-
-        {/* AI GENERATED DISCOVERY CONTEXT */}
-        <section className="w-full max-w-3xl mb-24 px-6">
-          <div className="p-8 rounded-[40px] bg-gradient-to-r from-cyan-500/5 via-indigo-500/5 to-transparent border border-white/5 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-4 opacity-10 font-mono text-[80px] pointer-events-none italic font-black">AI</div>
-            <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/40 mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-              Smart Matching Discovery
-            </h4>
-            <p className="text-sm font-medium text-white/70 italic leading-relaxed">
-              System is analyzing global connections... Our secure network ensures that every user is uniquely protected. Currently observing high activity in creative and tech communities. Target a specific interest to initiate a connection.
+            <h2 className="text-4xl md:text-7xl font-black tracking-tighter leading-none italic m-0 animate-in-zoom text-white">
+              Connect <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-500">Instantly.</span>
+            </h2>
+            <p className="text-[11px] text-white/30 max-w-lg mx-auto font-bold uppercase tracking-widest leading-relaxed mt-4">
+              Zero registration. Private P2P. Secure Global Hub.
             </p>
           </div>
-        </section>
 
-        <PresenceMap onlineCount={onlineCount} />
+          {/* INTEREST DOCK - REFINED COMPACT */}
+          <section ref={startRef} className="w-full max-w-2xl mx-auto mb-16 px-4 animate-fade-in scroll-mt-28" style={{ animationDelay: '200ms' }}>
+            <div className="relative group p-6 sm:p-8 rounded-[40px] bg-white/[0.03] border border-white/[0.06] backdrop-blur-3xl overflow-hidden active:scale-[0.98] transition-all">
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="absolute -top-10 -right-10 w-40 h-40 bg-cyan-500/20 rounded-full blur-[80px] pointer-events-none group-hover:bg-cyan-500/30 transition-all" />
 
-        {(creatorStatus || (isSecretAuthorized && !isReferredUser)) && (
-          <CreatorMatrix 
+              <div className="relative z-10 flex flex-col items-center">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_10px_#00E5FF]" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 italic">Select Interests</span>
+                </div>
+
+                <div className="flex flex-wrap justify-center gap-1.5 mb-8">
+                  {INTERESTS.filter(r => !interests.find(i => i.id === r.id)).slice(0, 8).map((r) => (
+                    <button
+                      key={r.id}
+                      onClick={() => addInterest(r.id)}
+                      className="px-3 py-1.5 rounded-full bg-white/[0.02] border border-white/5 hover:border-cyan-500/40 hover:bg-cyan-500/10 hover:text-cyan-400 transition-all text-[9px] font-black uppercase tracking-widest text-white/40"
+                    >
+                      #{r.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="relative w-full max-w-sm">
+                  <input
+                    type="text"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={handleInputKeyDown}
+                    placeholder="Add specific topics..."
+                    className="w-full h-12 bg-black/40 border border-white/10 focus:border-cyan-500/40 rounded-2xl px-6 text-[12px] text-white outline-none transition-all placeholder:text-white/10 uppercase font-black tracking-widest text-center"
+                  />
+                  <button onClick={getAiSuggestions} className="absolute right-1 top-1/2 -translate-y-1/2 p-2.5 bg-cyan-500/20 text-cyan-400 rounded-xl hover:bg-cyan-500 hover:text-black transition-all">
+                    <svg className={`w-3.5 h-3.5 ${isSuggesting ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                  </button>
+                </div>
+
+                {interests.length > 0 && (
+                  <div className="flex flex-wrap justify-center gap-1.5 mt-5">
+                    {interests.map(i => (
+                      <div key={i.id} className="flex items-center gap-2 bg-cyan-400 text-black px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest shadow-[0_0_15px_#06b6d440]">
+                        {i.label}
+                        <button onClick={() => removeInterest(i.id)} className="hover:scale-125 transition-transform">✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+
+
+          {/* UNIQUE COMPACT MODES */}
+          <section className="w-full max-w-6xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-16 sm:mb-20" aria-label="Chat modes">
+            {[
+              { id: 'video', icon: '📹', name: 'Start Video', color: 'from-cyan-400/20', accent: 'cyan', hint: '1:1 video match' },
+              { id: 'text', icon: '💬', name: 'Start Text', color: 'from-indigo-500/20', accent: 'indigo', hint: 'Anonymous text' },
+              { id: 'group_video', icon: '🎥', name: 'Group Jam', color: 'from-purple-500/20', accent: 'purple', hint: 'Up to 4 on video' },
+              { id: 'group_text', icon: '👥', name: 'Group Out', color: 'from-emerald-500/20', accent: 'emerald', hint: 'Group text rooms' },
+            ].map((m, i) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => handleStartInteraction(m.id)}
+                disabled={!connected || isJoining}
+                aria-label={`${m.name}: ${m.hint}`}
+                className="group relative min-h-[148px] sm:h-40 rounded-[28px] sm:rounded-[35px] bg-white/[0.02] border border-white/5 hover:border-white/25 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:ring-offset-2 focus:ring-offset-black transition-all animate-in-zoom p-[2px] overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.99]"
+                style={{ animationDelay: `${i * 100}ms` }}
+              >
+                <div className={`absolute inset-0 bg-gradient-to-br ${m.color} to-transparent opacity-40 group-hover:opacity-100 transition-opacity`} />
+                <div className="relative h-full bg-[#0a0a0a]/90 rounded-[33px] p-6 flex flex-col justify-between items-start text-left">
+                  <div className={`w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/40 flex items-center justify-center text-lg group-hover:scale-110 transition-transform group-hover:shadow-[0_0_20px_rgba(6,182,212,0.3)]`}>
+                    {m.icon}
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-widest italic text-white group-hover:text-cyan-400 transition-colors">{m.name}</h3>
+                    <p className="text-[8px] font-bold text-white/25 uppercase tracking-[0.15em] mt-1">{m.hint}</p>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </section>
+
+          {/* AI GENERATED DISCOVERY CONTEXT */}
+          <section className="w-full max-w-3xl mb-24 px-6">
+            <div className="p-8 rounded-[40px] bg-gradient-to-r from-cyan-500/5 via-indigo-500/5 to-transparent border border-white/5 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4 opacity-10 font-mono text-[80px] pointer-events-none italic font-black">AI</div>
+              <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/40 mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                Smart Matching Discovery
+              </h4>
+              <p className="text-sm font-medium text-white/70 italic leading-relaxed">
+                System is analyzing global connections... Our secure network ensures that every user is uniquely protected. Currently observing high activity in creative and tech communities. Target a specific interest to initiate a connection.
+              </p>
+            </div>
+          </section>
+
+          <PresenceMap onlineCount={onlineCount} />
+
+          <CreatorMatrix
             creatorStatus={creatorStatus}
             onOpenDashboard={() => setShowDashboardModal(true)}
             onOpenApply={() => setShowCreatorModal(true)}
@@ -473,8 +492,8 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
             onOpenLogin={() => setShowLoginModal(true)}
             onEditProfile={() => {
               setProfileForm({
-                bio: creatorStatus.bio || '',
-                avatar: creatorStatus.avatar_url || ''
+                bio: creatorStatus?.bio || '',
+                avatar: creatorStatus?.avatar_url || ''
               });
               setShowProfileModal(true);
             }}
@@ -486,30 +505,29 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
             }}
             showAlert={showAlert}
           />
-        )}
 
-        {/* AI INSIGHT SECTION */}
-        <section className="w-full max-w-4xl mx-auto mb-16 animate-fade-in-up">
-          <div className="bg-gradient-to-r from-indigo-500/5 via-cyan-500/5 to-indigo-500/5 p-6 rounded-3xl border border-white/5 flex items-center gap-6">
-            <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 shadow-[0_0_20px_#06b6d430]">
-               <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                 <rect x="3" y="11" width="18" height="10" rx="2" />
-                 <circle cx="12" cy="5" r="2" />
-                 <path d="M12 7v4" />
-                 <line x1="8" y1="16" x2="8" y2="16" />
-                 <line x1="16" y1="16" x2="16" y2="16" />
-               </svg>
+          {/* AI INSIGHT SECTION */}
+          <section className="w-full max-w-4xl mx-auto mb-16 animate-fade-in-up">
+            <div className="bg-gradient-to-r from-indigo-500/5 via-cyan-500/5 to-indigo-500/5 p-6 rounded-3xl border border-white/5 flex items-center gap-6">
+              <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 shadow-[0_0_20px_#06b6d430]">
+                <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="10" rx="2" />
+                  <circle cx="12" cy="5" r="2" />
+                  <path d="M12 7v4" />
+                  <line x1="8" y1="16" x2="8" y2="16" />
+                  <line x1="16" y1="16" x2="16" y2="16" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <div className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-1">AI System Insight</div>
+                <p className="text-sm font-bold text-white/60 italic transition-all duration-500">{INSIGHTS[insightIndex]}</p>
+              </div>
+              <div className="px-3 py-1 rounded-full border border-white/10 text-[9px] font-black uppercase text-white/20">Real-time Analysis</div>
             </div>
-            <div className="flex-1">
-              <div className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-1">AI System Insight</div>
-              <p className="text-sm font-bold text-white/60 italic transition-all duration-500">{INSIGHTS[insightIndex]}</p>
-            </div>
-            <div className="px-3 py-1 rounded-full border border-white/10 text-[9px] font-black uppercase text-white/20">Real-time Analysis</div>
-          </div>
-        </section>
+          </section>
 
-        {adsEnabled && <AdSection position="footer" script={adScripts?.footer} />}
-      </main>
+          {adsEnabled && <AdSection position="footer" script={adScripts?.footer} />}
+        </main>
       )}
 
       {/* FOOTER */}
@@ -523,7 +541,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
             </p>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-10 flex-1">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-10 flex-1 w-full min-w-0">
             <div className="space-y-4">
               <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400">Legal Center</h5>
               <div className="flex flex-col gap-2">
@@ -541,7 +559,15 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                 <button onClick={() => setModal('safety')} className="text-[10px] font-bold text-left uppercase text-white/30 hover:text-indigo-400 transition-colors">Security Overview</button>
               </div>
             </div>
-            <div className="space-y-4 col-span-2 md:col-span-1">
+            <div className="space-y-4">
+              <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400/90">Creators</h5>
+              <div className="flex flex-col gap-2">
+                <button type="button" onClick={() => setShowCreatorModal(true)} className="text-[10px] font-bold text-left uppercase text-white/30 hover:text-cyan-400 transition-colors">Apply</button>
+                <button type="button" onClick={() => setShowStatusModal(true)} className="text-[10px] font-bold text-left uppercase text-white/30 hover:text-cyan-400 transition-colors">Application status</button>
+                <button type="button" onClick={() => setShowLoginModal(true)} className="text-[10px] font-bold text-left uppercase text-white/30 hover:text-cyan-400 transition-colors">Creator login</button>
+              </div>
+            </div>
+            <div className="space-y-4">
               <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-400">Support Center</h5>
               <p className="text-[10px] font-bold text-white/20 leading-relaxed uppercase tracking-widest">Global load balancing active. Secure correspondence hub.</p>
               <a href="mailto:manaminglee@gmail.com" className="text-[10px] font-black text-cyan-400 underline uppercase hover:text-white">Email Support</a>
@@ -744,8 +770,8 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                         type="url"
                         placeholder={`e.g. https://instagram.com/${creatorForm.handle.replace(/^@/, '') || 'yourhandle'}`}
                         className={`flex-1 h-14 bg-white/5 border rounded-2xl px-4 text-sm outline-none text-white transition-all ${linkValidated ? 'border-emerald-500/50 shadow-[0_0_10px_#10b98120]' :
-                            linkVerifyFailed ? 'border-rose-500/40' :
-                              'border-white/5 focus:border-cyan-500/30'
+                          linkVerifyFailed ? 'border-rose-500/40' :
+                            'border-white/5 focus:border-cyan-500/30'
                           }`}
                         value={creatorForm.link}
                         onChange={e => {
@@ -789,9 +815,9 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                         }}
                         title="Background verify — no new tab opened"
                         className={`h-14 px-4 rounded-2xl font-black text-[9px] uppercase tracking-widest transition-all border min-w-[80px] flex items-center justify-center ${linkValidated ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' :
-                            linkVerifyFailed ? 'bg-rose-500/20 border-rose-500/40 text-rose-400' :
-                              linkVerifying ? 'bg-white/5 border-white/10 text-white/40 cursor-wait' :
-                                'bg-white/5 border-white/10 text-white/40 hover:border-cyan-500/40 hover:text-cyan-400 disabled:opacity-50'
+                          linkVerifyFailed ? 'bg-rose-500/20 border-rose-500/40 text-rose-400' :
+                            linkVerifying ? 'bg-white/5 border-white/10 text-white/40 cursor-wait' :
+                              'bg-white/5 border-white/10 text-white/40 hover:border-cyan-500/40 hover:text-cyan-400 disabled:opacity-50'
                           }`}
                       >
                         {linkVerifying ? (
@@ -1104,8 +1130,8 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                     <div className="flex items-center justify-between pt-3 border-t border-white/5">
                       <span className="text-[10px] font-black uppercase tracking-widest text-white/20">Status</span>
                       <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${statusCheckResult.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                          statusCheckResult.status === 'rejected' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
-                            'bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse'
+                        statusCheckResult.status === 'rejected' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
+                          'bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse'
                         }`}>{statusCheckResult.status === 'approved' ? '✅ Approved' : statusCheckResult.status === 'rejected' ? '❌ Rejected' : '⏳ Pending Review'}</span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -1349,7 +1375,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
 
               {/* CREATE ACTION */}
               <div className="flex flex-col gap-4">
-                <button 
+                <button
                   onClick={() => {
                     onJoin('general', 'Anonymous', browserMode);
                     setShowGroupBrowser(false);
@@ -1369,7 +1395,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
             <div className="flex-1 overflow-y-auto p-8 sm:p-12 space-y-4 custom-scrollbar">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="text-[9px] font-black text-white/20 uppercase tracking-[0.4em]">Available Sessions</h4>
-                <button 
+                <button
                   onClick={() => refreshBrowser()}
                   disabled={isBrowserFetching}
                   className={`text-[9px] font-black uppercase text-cyan-400/60 hover:text-cyan-400 transition-colors flex items-center gap-2 ${isBrowserFetching ? 'animate-pulse' : ''}`}
@@ -1405,8 +1431,8 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                         <p className="text-[8px] font-black text-amber-500/40 uppercase tracking-widest mt-2">⚡ {room.queueLength} Strangers in Queue</p>
                       )}
                     </div>
-                    
-                    <button 
+
+                    <button
                       onClick={() => { onJoin(room.interest, 'Anonymous', room.mode, room.id); setShowGroupBrowser(false); }}
                       className={`mt-8 w-full py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${room.isFull ? 'bg-white/5 border border-white/10 text-white/40 hover:bg-amber-500 hover:text-black' : 'bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 hover:bg-cyan-500 hover:text-black'}`}
                     >

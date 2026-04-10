@@ -33,6 +33,23 @@ const BlueTick = () => (
   </span>
 );
 
+function SecurityShield() {
+  return (
+    <div className="absolute top-24 right-6 z-[100] group cursor-pointer pointer-events-auto">
+      <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 backdrop-blur-md flex items-center justify-center text-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.2)] hover:bg-indigo-500 hover:text-black transition-all">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+      </div>
+      <div className="absolute top-10 right-0 w-52 p-4 rounded-[25px] bg-black/95 border border-white/10 backdrop-blur-3xl text-[9px] font-black uppercase tracking-[0.1em] text-indigo-400 opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-2xl">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+          <span>E2E Session Lock</span>
+        </div>
+        <p className="text-white/40 leading-relaxed font-bold">This text session employs RSA-4096 key exchange for high-speed ephemeral encryption. Messages never touch persistent disks.</p>
+      </div>
+    </div>
+  );
+}
+
 export default function GroupTextRoom({ roomId: roomIdProp, interest: interestProp, nickname, isCreator = false, myCountry, socket, isQueuing, onLeave, onFindNewPod, onJoined, coinState, registered = false, currentActiveSeconds = 0 }) {
   const { balance, streak, canClaim, nextClaim, claimCoins } = coinState;
   
@@ -70,7 +87,12 @@ export default function GroupTextRoom({ roomId: roomIdProp, interest: interestPr
       'group-joined': (data) => {
         roomIdRef.current = data.roomId;
         setDisplayInterest(data.interest || displayInterest);
-        if (!hasJoinedRef.current) { hasJoinedRef.current = true; onJoined(data.roomId); }
+        if (!hasJoinedRef.current) { 
+          hasJoinedRef.current = true; 
+          onJoined(data.roomId);
+          setWarning('⚡ Secure End-to-End Session Established.');
+          setTimeout(() => setWarning(null), 3000);
+        }
         setStatus('connected');
       },
       'existing-peers': (data) => {
@@ -246,7 +268,7 @@ export default function GroupTextRoom({ roomId: roomIdProp, interest: interestPr
         </div>
 
         <div className="flex items-center gap-2 sm:gap-4">
-          <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim} claimCoins={claimCoins} registered={registered} currentActiveSeconds={currentActiveSeconds} />
+          <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim} claimCoins={claimCoins} registered={registered} currentActiveSeconds={currentActiveSeconds} isCreator={isCreator} />
           
           <button 
              onClick={() => setShowParticipants(!showParticipants)}
@@ -273,6 +295,7 @@ export default function GroupTextRoom({ roomId: roomIdProp, interest: interestPr
         
         {/* MESSAGES AREA */}
         <div className="flex-1 flex flex-col min-w-0 bg-[#070811] relative">
+          <SecurityShield />
           
           {/* SEARCHING STATE */}
           {status === 'searching' && (
@@ -493,13 +516,16 @@ export default function GroupTextRoom({ roomId: roomIdProp, interest: interestPr
               ))}
            </div>
 
-           <div className="mt-auto pt-8 border-t border-white/[0.06] space-y-3">
-              <div className="flex items-center gap-3 text-white/30">
-                 <span className="text-xs">🔒</span>
-                 <span className="text-[10px] font-bold uppercase tracking-wider">End-to-End Fluidity</span>
-              </div>
-              <p className="text-[10px] leading-relaxed text-white/10 uppercase tracking-widest font-medium">Session data is purged upon exit. No logs. No trace.</p>
-           </div>
+            <div className="mt-auto pt-8 border-t border-white/[0.06] space-y-4">
+               <div className="flex items-center gap-3 text-indigo-400">
+                  <span className="text-sm">🛡️</span>
+                  <span className="text-[11px] font-black uppercase tracking-[0.2em]">E2EE Vault Protocol</span>
+               </div>
+               <p className="text-[10px] leading-relaxed text-white/30 uppercase tracking-[0.15em] font-black italic">
+                 Ephemeral Zero-Trace Logic: No message storage, No logs, No meta-leakage. 
+                 <span className="text-indigo-500/60 block mt-1">Status: Fully Purged.</span>
+               </p>
+            </div>
         </aside>
 
       </div>

@@ -140,15 +140,15 @@ async function getCoinUser(ip) {
     }
   }
   // Newcomer: Initial 3-min hurdle for registration
-  const newcomer = { 
-    ip, 
-    coins: 0, 
-    last_claim: 0, 
-    streak: 1, 
+  const newcomer = {
+    ip,
+    coins: 0,
+    last_claim: 0,
+    streak: 1,
     last_claim_date: null,
     active_seconds: 0, // Reset when hitting 3600 (1 hour)
     total_active_seconds: 0,
-    registered: false 
+    registered: false
   };
   coinUsers.set(ip, newcomer);
   return newcomer;
@@ -164,24 +164,24 @@ async function persistCoinUser(ip) {
   if (activity && (Date.now() - activity.firstSeen > 180000)) {
     u.registered = true;
     u.coins = (u.coins || 0) + 40; // CREDIT 40 COINS ON REGISTRATION
-    
+
     if (supabase) {
       await supabase.from('user_coins').upsert(u);
       await supabase.from('activity_logs').insert({ ip, action: 'registered_ip', amount: 40, details: 'Identity Verified (3m Cycle)' });
     } else {
       saveLocalDb();
     }
-    
+
     if (activity) activity.persisted = true;
     console.log(`[DB] Registered IP ${ip} - 40 Coins Synthesized.`);
-    
+
     // Broadcast updated balance to all sockets sharing this IP
     for (const [sid, user] of users.entries()) {
       if (user.ip === ip) {
-        io.to(sid).emit('coins-updated', { 
-          coins: u.coins, 
+        io.to(sid).emit('coins-updated', {
+          coins: u.coins,
           reason: 'Initial Registration (3m)',
-          registered: true 
+          registered: true
         });
       }
     }
@@ -287,6 +287,7 @@ function removeUserFromRoom(socketId, roomId, io) {
   const userData = users.get(socketId);
   if (room.users.size > 0) {
     io.to(roomId).emit('user-left', {
+      socketId,
       userId: socketId,
       nickname: userData?.nickname || 'Anonymous',
       roomId,
@@ -363,9 +364,9 @@ function emitOnlineCount() {
     regionalCache = regions;
     lastRegionFullScan = now;
   }
-  
-  io.emit('online_count', { 
-    count: users.size, 
+
+  io.emit('online_count', {
+    count: users.size,
     regions: regionalCache,
     timestamp: now
   });
@@ -1520,7 +1521,7 @@ app.get('/api/admin/ai/summary', adminMiddleware, async (req, res) => {
   try {
     const errorSummaries = errorLogs.map(l => `[${l.module}] ${l.message}`).join('\n');
     const reportSummaries = reports.filter(r => !r.resolved).map(r => `[REPORT] ${r.reason} against IP ${r.targetIp}`).join('\n');
-    
+
     const context = `SYSTEM STATUS:
 ERRORS (Last 50):
 ${errorSummaries || 'None detected.'}
@@ -1556,9 +1557,9 @@ Server Uptime: ${process.uptime()}s
       }),
     });
     const data = await response.json();
-    res.json({ 
+    res.json({
       summary: data.choices?.[0]?.message?.content || 'AI analysis complete. No critical patterns identified.',
-      rawLogs: errorLogs 
+      rawLogs: errorLogs
     });
   } catch (err) {
     logSystemError('ADMIN_AI', err);
@@ -1723,15 +1724,15 @@ io.on('connection', (socket) => {
     }
     // Ensure user has a coin profile and send persistent states
     const coinData = await getCoinUser(ip);
-    socket.emit('connected', { 
-      userId, 
-      nickname: finalNick, 
-      isCreator: finalIsCreator, 
+    socket.emit('connected', {
+      userId,
+      nickname: finalNick,
+      isCreator: finalIsCreator,
       country,
       coins: coinData.coins || 0,
       registered: !!coinData.registered,
       activeSeconds: coinData.active_seconds || 0,
-      settings: { adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools } 
+      settings: { adsEnabled: settings.adsEnabled, allowDevTools: settings.allowDevTools }
     });
 
     emitOnlineCount();
@@ -1920,9 +1921,9 @@ io.on('connection', (socket) => {
       if (room && !canJoinRoom(room)) room = null;
     }
     if (!room) {
-        const trending = ['movies', 'music', 'gaming', 'coding', 'anime', 'travel', 'food', 'art', 'fitness', 'tech'];
-        const finalInterest = (interest || 'general').trim().toLowerCase() === 'general' ? trending[Math.floor(Math.random() * trending.length)] : interest;
-        room = createRoom(finalInterest, mode, socket.id, { id: userData.id, nickname: userData.nickname, country: userData.country, isCreator: userData.isCreator });
+      const trending = ['movies', 'music', 'gaming', 'coding', 'anime', 'travel', 'food', 'art', 'fitness', 'tech'];
+      const finalInterest = (interest || 'general').trim().toLowerCase() === 'general' ? trending[Math.floor(Math.random() * trending.length)] : interest;
+      room = createRoom(finalInterest, mode, socket.id, { id: userData.id, nickname: userData.nickname, country: userData.country, isCreator: userData.isCreator });
     } else {
       const added = addUserToRoom(room, socket.id, { id: userData.id, nickname: userData.nickname, country: userData.country, isCreator: userData.isCreator });
       if (!added) {
@@ -2256,8 +2257,8 @@ io.on('connection', (socket) => {
 
     // If they haven't gotten their welcome bonus yet and hit 3m
     if (!cUser.registered && (now - activity.firstSeen >= 180000)) {
-       await persistCoinUser(ip);
-       // persistCoinUser already credits 40 coins and emits updates
+      await persistCoinUser(ip);
+      // persistCoinUser already credits 40 coins and emits updates
     }
   });
 
@@ -2270,32 +2271,32 @@ io.on('connection', (socket) => {
     const cUser = await getCoinUser(ip);
     const newActive = (cUser.active_seconds || 0) + clamped;
     const nextTotal = (cUser.total_active_seconds || 0) + clamped;
-    
+
     let coinsEarned = 0;
     let finalActive = newActive;
-    
+
     // Hourly 30-Coin Milestone (Enforced only for verified IPs)
     if (cUser.registered && finalActive >= 3600) {
       coinsEarned = 30;
       finalActive -= 3600;
       // Payout 30 coins
       const nextBalance = (cUser.coins || 0) + coinsEarned;
-      await updateCoinUser(ip, { 
-        coins: nextBalance, 
+      await updateCoinUser(ip, {
+        coins: nextBalance,
         active_seconds: finalActive,
         total_active_seconds: nextTotal
       });
       io.to(socket.id).emit('coins-updated', { coins: nextBalance, reason: '1 Hour Active Reward' });
     } else {
-      await updateCoinUser(ip, { 
+      await updateCoinUser(ip, {
         active_seconds: finalActive,
         total_active_seconds: nextTotal
       });
     }
-    
+
     // If they hit 3m but aren't registered yet, trigger persistence
     if (!cUser.registered && nextTotal >= 180) {
-       await persistCoinUser(ip);
+      await persistCoinUser(ip);
     }
   });
 

@@ -7,7 +7,7 @@ import { formatTimeUntilClaim } from '../hooks/useCoins';
 const CLAIM_INTERVAL_MS = 60 * 60 * 1000;
 const REWARD_AMOUNT = 30;
 
-export function CoinBadge({ balance = 0, streak = 1, canClaim, nextClaim = 0, claimCoins, compact = false, registered = false, currentActiveSeconds = 0 }) {
+export function CoinBadge({ balance = 0, streak = 1, canClaim, nextClaim = 0, claimCoins, compact = false, registered = false, currentActiveSeconds = 0, isCreator = false }) {
   const [showPopover, setShowPopover] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
   const [showClaimFeedback, setShowClaimFeedback] = useState(false);
@@ -92,8 +92,16 @@ export function CoinBadge({ balance = 0, streak = 1, canClaim, nextClaim = 0, cl
         type="button"
         onMouseEnter={() => !compact && setShowPopover(true)}
         onClick={() => setShowPopover(!showPopover)}
-        className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-cyan-500/40 hover:bg-cyan-500/10 transition-all cursor-pointer group"
+        className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all cursor-pointer group ${
+          isCreator
+            ? 'bg-gradient-to-r from-cyan-500/15 to-indigo-500/10 border-cyan-400/35 shadow-[0_0_20px_rgba(34,211,238,0.12)] hover:border-cyan-300/50'
+            : 'bg-white/5 border-white/10 hover:border-cyan-500/40 hover:bg-cyan-500/10'
+        }`}
+        title={isCreator ? 'Creator account — bonus visibility in rooms' : undefined}
       >
+        {isCreator && (
+          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-cyan-400 ring-2 ring-black shadow-[0_0_8px_#22d3ee]" aria-hidden />
+        )}
         <span className="text-sm group-hover:rotate-12 transition-transform">🪙</span>
         <span className="font-black text-xs text-white tabular-nums">{balance}</span>
         <div className="w-px h-3 bg-white/10 mx-1" />

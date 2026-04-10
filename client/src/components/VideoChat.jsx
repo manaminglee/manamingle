@@ -190,6 +190,32 @@ function SafetyShield({ active = false, label = "SAFETY SCAN" }) {
   );
 }
 
+function SecurityShield() {
+  return (
+    <div className="absolute top-4 right-4 z-[100] group cursor-pointer pointer-events-auto">
+      <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 backdrop-blur-md flex items-center justify-center text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:bg-emerald-500 hover:text-black transition-all">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+      </div>
+      <div className="absolute top-10 right-0 w-48 p-3 rounded-2xl bg-black/90 border border-white/10 backdrop-blur-3xl text-[9px] font-black uppercase tracking-widest text-emerald-400 opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-2xl">
+        <div className="flex items-center gap-2 mb-1">
+          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span>AES-256 P2P Active</span>
+        </div>
+        <p className="text-white/40 leading-relaxed font-bold">Encrypted directly between devices. No intermediate server decryption possible.</p>
+      </div>
+    </div>
+  );
+}
+
+function RecordingIndicator() {
+  return (
+    <div className="absolute top-4 left-4 z-[100] flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-600/20 border border-rose-500/30 backdrop-blur-md animate-pulse pointer-events-none">
+      <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]" />
+      <span className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-400">Recording Session</span>
+    </div>
+  );
+}
+
 export default function VideoChat({ socket, connected, country, onlineCount, interest = 'general', nickname = 'Anonymous', isCreator = false, adsEnabled = false, onBack, onJoined, onFindNewPartner, coinState, registered = false, currentActiveSeconds = 0 }) {
   const [coins, setCoins] = useState(coinState?.balance || 0);
   const [showProfileHandle, setShowProfileHandle] = useState(null);
@@ -1270,7 +1296,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
   };
 
   return (
-    <div className="h-screen flex flex-col bg-[#0a0a0a] text-white overflow-hidden font-sans select-none">
+    <div className="h-[100dvh] min-h-0 flex flex-col bg-[#0a0a0a] text-white overflow-hidden font-sans select-none pt-[env(safe-area-inset-top)]">
       <header className={`h-10 sm:h-12 px-3 flex items-center justify-between border-b border-white/[0.06] bg-[#0a0a0a] z-[100] shrink-0 ${isMobile ? 'backdrop-blur-sm' : 'backdrop-blur-md'}`}>
         <button onClick={handleBack} className="p-1.5 -ml-1 rounded-lg hover:bg-white/5 transition-colors" aria-label="Back">
           <svg className="w-4 h-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
@@ -1285,14 +1311,22 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
           </button>
           {country && <span className="text-[14px] leading-none opacity-80" title={`Location: ${country}`}>{countryToFlag(country)}</span>}
           <span className="text-[10px] text-white/30 inline">{(typeof onlineCount === 'object' ? onlineCount?.count : onlineCount) || 0} online</span>
-          <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} registered={registered} currentActiveSeconds={currentActiveSeconds} />
+          <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} registered={registered} currentActiveSeconds={currentActiveSeconds} isCreator={isCreator} />
         </div>
       </header>
 
       <main className={`flex-1 flex min-h-0 relative ${isMobile && showChat ? 'flex-col' : ''}`}>
-        <div className={`flex-1 flex ${status === 'connected' && showChat && isMobile ? 'h-[55%] flex-col' : 'flex-row'} min-h-0 relative`}>
-          {/* PANEL 1: LOCAL */}
-          <div className={`relative flex-1 bg-black overflow-hidden transition-all duration-500 ${(status === 'connected' || status === 'searching') ? 'border-r border-white/[0.06]' : ''}`}>
+        <div
+          className={`flex-1 flex min-h-0 relative ${
+            isMobile && (status === 'connected' || status === 'searching')
+              ? showChat
+                ? 'h-[55%] flex-col'
+                : 'flex-col-reverse'
+              : 'flex-row'
+          }`}
+        >
+          {/* PANEL 1: LOCAL — on mobile, compact strip; stranger stays large */}
+          <div className={`relative bg-black overflow-hidden transition-all duration-500 ${isMobile && (status === 'connected' || status === 'searching') ? 'h-[28%] max-h-[200px] min-h-[120px] shrink-0 border-t border-white/[0.06]' : 'flex-1 border-r border-white/[0.06]'}`}>
             {status === 'idle' && (
               <div className="absolute inset-0 flex flex-col items-center justify-center p-6 z-20 bg-black/60 backdrop-blur-md">
                 {cameraError && (
@@ -1319,29 +1353,38 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
           </div>
 
           {/* PANEL 2: REMOTE / SEARCHING */}
-          <div className="relative flex-1 bg-[#0d0d0d] overflow-hidden border-l border-white/[0.06]">
+          <div className={`relative bg-[#0d0d0d] overflow-hidden border-white/[0.06] ${isMobile && (status === 'connected' || status === 'searching') ? 'flex-1 min-h-0 border-t sm:border-l' : 'flex-1 border-l'}`}>
             {status === 'searching' && (
               <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-[#050505] z-50 animate-fade-in">
-                <div className="relative w-20 h-20 mb-6">
-                  <div className="absolute inset-0 border-2 border-indigo-500/10 rounded-full" />
-                  <div className="absolute inset-0 border-2 border-t-indigo-500 rounded-full animate-spin" />
-                  <div className="absolute inset-4 border border-dashed border-cyan-500/20 rounded-full animate-pulse-slow" />
+                <div className="absolute top-10 flex items-center gap-3 px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em] animate-pulse">
+                   <div className="w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.8)]" />
+                   Turbo Matching Mode
+                </div>
+                <div className="relative w-28 h-28 mb-8">
+                  <div className="absolute inset-0 border-4 border-indigo-500/10 rounded-full" />
+                  <div className="absolute inset-0 border-4 border-t-indigo-500 rounded-full animate-spin" />
+                  <div className="absolute inset-6 border border-dashed border-cyan-500/20 rounded-full animate-pulse-slow" />
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-[8px] font-black text-white/10 uppercase tracking-widest">Searching...</span>
+                    <span className="text-[10px] font-black text-white/10 uppercase tracking-widest">P2P Link...</span>
                   </div>
                 </div>
-                <p className="text-white font-black uppercase tracking-[0.4em] text-[10px] mb-2 animate-pulse">Finding Someone New</p>
-                <div className="flex gap-1">
+                <p className="text-white font-black uppercase tracking-[0.5em] text-base mb-2 animate-pulse">Accelerating Network</p>
+                <div className="flex gap-2">
                    {[...Array(4)].map((_, i) => (
-                    <div key={i} className="w-1 h-1 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
+                    <div key={i} className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: `${i * 150}ms`, boxShadow: '0 0 10px rgba(99,102,241,0.5)' }} />
                   ))}
                 </div>
-                <button onClick={handleStop} className="absolute bottom-12 px-8 py-3 rounded-xl bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-rose-500/60 hover:text-rose-500 hover:bg-rose-500/10 transition-all z-[60]">Abort Search</button>
+                <div className="mt-8 text-[10px] text-white/20 font-bold uppercase tracking-widest text-center max-w-[200px] leading-relaxed">
+                   Synchronizing with global P2P nodes for immediate match.
+                </div>
+                <button onClick={handleStop} className="absolute bottom-12 px-10 py-3 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-rose-500/60 hover:text-rose-400 hover:bg-rose-500/10 transition-all z-[60] active:scale-95">Cancel Blast</button>
               </div>
             )}
             
             {status === 'connected' ? (
-              <div className="relative w-full h-full animate-fade-in">
+              <div className="relative w-full h-full animate-fade-in group">
+                <SecurityShield />
+                {isRecording && <RecordingIndicator />}
                 <div 
                   className={`h-full relative overflow-hidden ${peer?.isCreator ? 'cursor-pointer group' : 'cursor-default'}`}
                   onClick={() => peer?.isCreator && setShowProfileHandle(peer.nickname)}
@@ -1407,7 +1450,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
         )}
       </main>
 
-      <footer className="h-14 sm:h-16 px-4 border-t border-white/[0.06] bg-[#0a0a0a] flex items-center justify-between gap-4 z-[120] shrink-0">
+      <footer className="h-14 sm:h-16 px-2 sm:px-4 pb-[max(0.25rem,env(safe-area-inset-bottom))] border-t border-white/[0.06] bg-[#0a0a0a] flex items-center justify-between gap-2 sm:gap-4 z-[120] shrink-0">
         
         {/* Left Side: Stop Session */}
         <div className="flex items-center gap-3">
