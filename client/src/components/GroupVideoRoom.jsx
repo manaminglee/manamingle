@@ -1231,7 +1231,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
       )}
 
       {/* HEADER: PREMIUM GLASS */}
-      <header className="flex-shrink-0 min-h-[4rem] sm:h-20 px-3 sm:px-6 py-2 sm:py-0 flex flex-wrap items-center justify-between gap-x-2 gap-y-2 border-b border-white/[0.06] bg-black/40 backdrop-blur-2xl z-50">
+      <header className="mm-design-panel-header flex-shrink-0 min-h-[4rem] sm:h-20 px-3 sm:px-6 py-2 sm:py-0 flex flex-wrap items-center justify-between gap-x-2 gap-y-2 bg-black/40 backdrop-blur-2xl z-50">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1 basis-[min(100%,12rem)] sm:basis-auto">
           <div className="w-9 h-9 sm:w-12 sm:h-12 shrink-0 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-black text-base sm:text-lg shadow-lg shadow-indigo-500/20">M</div>
           <div className="min-w-0">
@@ -1272,8 +1272,8 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
       )}
 
       {/* MAIN VIEWPORT */}
-      <main className={`flex-1 flex min-h-0 relative ${showChat ? 'max-sm:flex-col' : ''}`}>
-        <div className={`video-grid-container flex-1 min-h-0 bg-black p-1.5 sm:p-4 pb-[calc(6.25rem+env(safe-area-inset-bottom))] sm:pb-4 relative overflow-auto ${viewMode === 'grid' ? 'grid gap-2 sm:gap-4 grid-cols-1 min-[420px]:grid-cols-2 min-[420px]:grid-rows-2 auto-rows-[minmax(100px,1fr)] min-[420px]:auto-rows-fr' : 'flex flex-col'}`}>
+      <main className={`flex-1 flex min-h-0 relative p-1.5 sm:p-2 gap-2 ${showChat ? 'max-sm:flex-col' : ''}`}>
+        <div className={`video-grid-container mm-design-panel flex-1 min-h-0 min-w-0 bg-black p-1.5 sm:p-4 pb-[calc(6.25rem+env(safe-area-inset-bottom))] sm:pb-4 relative overflow-auto ${viewMode === 'grid' ? 'grid gap-2 sm:gap-4 grid-cols-1 min-[420px]:grid-cols-2 min-[420px]:grid-rows-2 auto-rows-[minmax(100px,1fr)] min-[420px]:auto-rows-fr' : 'flex flex-col'}`}>
           <SecurityShield />
           {isRecording && <RecordingIndicator />}
 
@@ -1331,7 +1331,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
 
         {/* CHAT PANEL */}
         {showChat && (
-          <aside className="z-[60] max-sm:z-[160] max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-[32%] max-sm:max-h-[52vh] max-sm:rounded-t-2xl max-sm:border max-sm:border-white/10 w-full sm:w-80 sm:max-w-[85vw] sm:h-full bg-[#0a0c16]/95 backdrop-blur-3xl sm:border-l border-white/10 flex flex-col animate-slide-left shadow-[0_-8px_40px_rgba(0,0,0,0.5)] max-sm:pb-[env(safe-area-inset-bottom)]">
+          <aside className="mm-design-panel z-[60] max-sm:z-[160] max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-[32%] max-sm:max-h-[52vh] max-sm:rounded-t-2xl w-full sm:w-80 sm:max-w-[85vw] sm:h-full bg-[#0a0c16]/95 backdrop-blur-3xl flex flex-col animate-slide-left max-sm:pb-[env(safe-area-inset-bottom)]">
             <div className="p-4 border-b border-white/5 flex items-center justify-between">
               <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Pod Chat</span>
               <button onClick={() => setShowChat(false)} className="text-white/20 hover:text-white">✕</button>
@@ -1368,7 +1368,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
 
       {/* Creator: paid 3D emoji + rename pod */}
       {isCreator && (
-      <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] sm:bottom-24 left-1/2 -translate-x-1/2 flex max-w-[96vw] overflow-x-auto items-center gap-1.5 p-1.5 rounded-2xl bg-black/40 border border-white/5 backdrop-blur-3xl z-[140] animate-fade-in [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      <div className="mm-design-panel mm-design-panel--xl fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] sm:bottom-24 left-1/2 -translate-x-1/2 flex max-w-[96vw] overflow-x-auto items-center gap-1.5 p-1.5 rounded-2xl bg-black/40 backdrop-blur-3xl z-[140] animate-fade-in [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
     {EMOJIS_3D.map(e => (
       <button
         key={e.char}
@@ -1399,7 +1399,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
       )}
 
   {/* BOTTOM CONTROL BAR — min 44px tap targets, safe-area for notched phones */ }
-  <footer className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] sm:bottom-6 left-1/2 -translate-x-1/2 flex max-w-[100vw] flex-wrap items-center justify-center gap-2 sm:gap-4 px-3 sm:px-4 py-3 rounded-full bg-black/60 border border-white/10 backdrop-blur-2xl shadow-2xl z-[150]">
+  <footer className="mm-design-panel mm-design-panel--pill fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] sm:bottom-6 left-1/2 -translate-x-1/2 flex max-w-[100vw] flex-wrap items-center justify-center gap-2 sm:gap-4 px-3 sm:px-4 py-3 rounded-full bg-black/60 backdrop-blur-2xl z-[150]">
     <button onClick={toggleCamera} title={cameraOff ? 'Turn camera on' : 'Turn camera off'} aria-label={cameraOff ? 'Turn camera on' : 'Turn camera off'} className={`min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-black/60 ${cameraOff ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/30' : 'bg-white/10 text-white hover:bg-white/20'}`}>
       {cameraOff ? (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 15v2a2 2 0 01-2 2h-2v-4l-3-3" /></svg>

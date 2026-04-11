@@ -395,7 +395,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
             <img src="/apple-touch-icon.png" alt="Mana Mingle" className="w-8 h-8 sm:w-10 sm:h-10 object-contain drop-shadow-[0_0_14px_rgba(167,139,250,0.45)] shrink-0" />
             <div className="flex flex-col min-w-0">
               <h1 className="text-[11px] sm:text-sm font-black uppercase tracking-[0.15em] sm:tracking-[0.35em] truncate">Mana Mingle</h1>
-              <span className="hidden sm:block text-[7px] font-black uppercase tracking-[0.2em] text-violet-400/40">by WeConnect</span>
+              <span className="hidden sm:block text-[7px] font-black uppercase tracking-[0.2em] text-violet-400/40">by SynKora</span>
             </div>
             </button>
           </div>
@@ -451,7 +451,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
 
           <div className="text-center mb-0 w-full">
             <ParticleText text="MANA MINGLE" className="mb-0" />
-            <p className="text-[9px] font-black uppercase tracking-[0.8em] text-violet-400 mb-8 animate-pulse">Powered by WeConnect</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.8em] text-violet-400 mb-8 animate-pulse">Powered by SynKora</p>
 
             <h2 className="font-display text-4xl md:text-7xl font-extrabold tracking-tight leading-none italic m-0 animate-in-zoom text-white">
               Connect <span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 via-violet-400 to-emerald-300">Instantly.</span>
@@ -463,7 +463,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
 
           {/* INTEREST DOCK - REFINED COMPACT */}
           <section ref={startRef} className="w-full max-w-2xl mx-auto mb-16 px-4 animate-fade-in scroll-mt-28" style={{ animationDelay: '200ms' }}>
-            <div className="relative group p-6 sm:p-8 rounded-[40px] bg-white/[0.03] border border-white/[0.06] backdrop-blur-3xl overflow-hidden active:scale-[0.98] transition-all">
+            <div className="mm-design-panel mm-design-panel--xl relative group p-6 sm:p-8 rounded-[40px] bg-white/[0.03] backdrop-blur-3xl overflow-hidden active:scale-[0.98] transition-all">
               <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               <div className="absolute -top-10 -right-10 w-40 h-40 bg-violet-500/20 rounded-full blur-[80px] pointer-events-none group-hover:bg-violet-500/30 transition-all" />
 
@@ -561,7 +561,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                 onClick={() => handleStartInteraction(m.id)}
                 disabled={!connected || isJoining}
                 aria-label={`${m.name}: ${m.hint}`}
-                className="group relative min-h-[148px] sm:h-40 rounded-[28px] sm:rounded-[35px] bg-white/[0.02] border border-white/5 hover:border-white/25 focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:ring-offset-2 focus:ring-offset-black transition-all animate-in-zoom p-[2px] overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.99]"
+                className="mm-design-panel mm-design-panel--xl group relative min-h-[148px] sm:h-40 rounded-[28px] sm:rounded-[35px] bg-white/[0.02] hover:border-fuchsia-500/30 focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:ring-offset-2 focus:ring-offset-black transition-all animate-in-zoom p-[2px] overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.99]"
                 style={{ animationDelay: `${i * 100}ms` }}
               >
                 <div className={`absolute inset-0 bg-gradient-to-br ${m.color} to-transparent opacity-40 group-hover:opacity-100 transition-opacity`} />
@@ -580,7 +580,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
 
           {/* AI GENERATED DISCOVERY CONTEXT */}
           <section className="w-full max-w-3xl mb-24 px-6">
-            <div className="p-8 rounded-[40px] bg-gradient-to-r from-fuchsia-500/5 via-indigo-500/5 to-transparent border border-white/5 relative overflow-hidden group">
+            <div className="mm-design-panel mm-design-panel--xl p-8 rounded-[40px] bg-gradient-to-r from-fuchsia-500/5 via-violet-500/5 to-transparent relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 font-mono text-[80px] pointer-events-none italic font-black">AI</div>
               <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/40 mb-4 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-violet-400 animate-ping" />
@@ -685,7 +685,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
           </div>
         </div>
         <div className="max-w-7xl mx-auto pt-20 mt-20 border-t border-white/[0.03] flex justify-between items-center text-white/5 text-[9px] font-black uppercase tracking-[0.6em]">
-          <span>© 2026 MANA MINGLE | POWERED BY <span className="text-white/20">WECONNECT</span></span>
+          <span>© 2026 MANA MINGLE | POWERED BY <span className="text-white/20">SYNKORA</span></span>
           <span className="hidden sm:inline">SECURE ANONYMOUS NETWORK</span>
         </div>
       </footer>
@@ -711,7 +711,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                   <div className="flex flex-col items-center">
                     <div className="w-20 h-20 rounded-full bg-emerald-500/20 flex items-center justify-center text-4xl mb-4 animate-bounce">✅</div>
                     <h4 className="text-xl font-black italic uppercase text-white">Validation Success!</h4>
-                    <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Credentials Generated by WeConnect</p>
+                    <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Credentials Generated by SynKora</p>
                   </div>
 
                   <div className="space-y-3">

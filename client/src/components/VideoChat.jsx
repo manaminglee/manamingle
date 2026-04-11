@@ -1447,7 +1447,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
 
   return (
     <div className="h-[100dvh] min-h-0 flex flex-col bg-realm-void text-white overflow-hidden font-sans select-none pt-[env(safe-area-inset-top)]">
-      <header className={`h-10 sm:h-12 px-2 sm:px-3 flex items-center gap-2 border-b border-violet-500/10 bg-realm-surface/95 z-[100] shrink-0 min-h-[2.5rem] ${isMobile ? 'backdrop-blur-sm' : 'backdrop-blur-md'}`}>
+      <header className={`mm-design-panel-header h-10 sm:h-12 px-2 sm:px-3 flex items-center gap-2 bg-realm-surface/95 z-[100] shrink-0 min-h-[2.5rem] ${isMobile ? 'backdrop-blur-sm' : 'backdrop-blur-md'}`}>
         <button type="button" onClick={handleBack} className="p-1.5 -ml-0.5 sm:-ml-1 rounded-lg hover:bg-white/5 transition-colors shrink-0" aria-label="Back">
           <svg className="w-4 h-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
         </button>
@@ -1494,9 +1494,9 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
         </div>
       )}
 
-      <main className={`flex-1 flex min-h-0 relative ${isMobile && showChat ? 'flex-col' : ''}`}>
+      <main className={`flex-1 flex min-h-0 relative p-1.5 sm:p-2 gap-1.5 sm:gap-2 ${isMobile && showChat ? 'flex-col' : ''}`}>
         <div
-          className={`flex-1 flex min-h-0 relative ${
+          className={`mm-design-panel flex-1 flex min-h-0 min-w-0 relative overflow-hidden ${
             mobilePipLayout
               ? showChat
                 ? 'h-[55%] flex-col'
@@ -1508,7 +1508,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
         >
           {/* PANEL 1: LOCAL — hidden on mobile when in-call (self is PiP on remote) */}
           {!mobilePipLayout && (
-          <div className={`relative bg-black overflow-hidden transition-all duration-500 ${mobileIdleStack ? 'w-full flex-[0_0_42%] min-h-[168px] max-h-[46vh] shrink-0 border-b border-violet-500/10' : 'flex-1 border-r border-violet-500/10'}`}>
+          <div className={`relative bg-black overflow-hidden transition-all duration-500 ${mobileIdleStack ? 'w-full flex-[0_0_42%] min-h-[168px] max-h-[46vh] shrink-0 border-b border-violet-500/15' : 'flex-1 border-r border-violet-500/15'}`}>
             {status === 'idle' && (
               <div className="absolute inset-0 flex flex-col items-center justify-center p-6 z-20 bg-black/60 backdrop-blur-md">
                 {cameraError && (
@@ -1536,7 +1536,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
           )}
 
           {/* PANEL 2: REMOTE / SEARCHING (+ mobile PiP self-view) */}
-          <div className={`relative bg-realm-surface overflow-hidden border-violet-500/10 ${mobilePipLayout ? 'flex-1 min-h-0 w-full border-t sm:border-l' : mobileIdleStack ? 'flex-1 min-h-0 w-full border-t border-violet-500/10' : 'flex-1 border-l'}`}>
+          <div className={`relative bg-realm-surface overflow-hidden ${mobilePipLayout ? 'flex-1 min-h-0 w-full border-t border-violet-500/15 sm:border-l' : mobileIdleStack ? 'flex-1 min-h-0 w-full border-t border-violet-500/15' : 'flex-1 border-l border-violet-500/15'}`}>
             {status === 'searching' && (
               <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-realm-void/95 backdrop-blur-[2px] z-50 animate-fade-in">
                 <div className="absolute top-10 flex items-center gap-3 px-4 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 text-[10px] font-black uppercase tracking-[0.4em] animate-pulse">
@@ -1639,7 +1639,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
         </div>
 
         {showChat && status === 'connected' && (
-          <div className={`transition-all duration-300 flex flex-col min-h-0 bg-realm-surface border-violet-500/10 ${isMobile ? 'h-[45%] max-h-[50vh] w-full border-t z-[150]' : 'static w-80 border-l animate-slide-left'}`}>
+          <div className={`transition-all duration-300 mm-design-panel flex flex-col min-h-0 min-w-0 bg-realm-surface ${isMobile ? 'h-[45%] max-h-[50vh] w-full z-[150]' : 'static w-80 animate-slide-left'}`}>
             <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar" id="video-chat-messages">
               {messages.map((m, i) => (
                 <div key={m.id || i} className={`flex flex-col group ${m.socketId === socket.id ? 'items-end' : 'items-start'}`}>
@@ -1658,7 +1658,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
         )}
       </main>
 
-      <footer className="min-h-14 sm:min-h-16 px-1 sm:px-4 pb-[max(0.25rem,env(safe-area-inset-bottom))] pt-1 border-t border-violet-500/10 bg-realm-surface/95 backdrop-blur-md flex items-center justify-between gap-1 sm:gap-4 z-[120] shrink-0">
+      <footer className="mm-design-panel-footer min-h-14 sm:min-h-16 px-1 sm:px-4 pb-[max(0.25rem,env(safe-area-inset-bottom))] pt-1 bg-realm-surface/95 backdrop-blur-md flex items-center justify-between gap-1 sm:gap-4 z-[120] shrink-0">
         
         {/* Left Side: Stop Session */}
         <div className="flex items-center gap-1 sm:gap-3 shrink-0">
