@@ -33,13 +33,13 @@ export const GlobalParticles = () => {
           this.vy = Math.sin(angle) * speed;
           this.life = 1;
           this.size = Math.random() * 2 + 2;
-          this.color = Math.random() > 0.5 ? '#06b6d4' : '#6366f1';
+          this.color = Math.random() > 0.5 ? '#c084fc' : '#a78bfa';
         } else {
           this.vx = (Math.random() - 0.5) * 1.5;
           this.vy = (Math.random() - 0.5) * 1.5;
           this.life = 0.8;
           this.size = Math.random() * 1.5 + 0.5;
-          this.color = 'rgba(6, 182, 212, 0.4)';
+          this.color = 'rgba(167, 139, 250, 0.42)';
         }
       }
 

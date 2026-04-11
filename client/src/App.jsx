@@ -15,7 +15,7 @@ const VideoChat = lazy(() => import('./components/VideoChat'));
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-[50vh] w-full">
-    <div className="w-12 h-12 border-4 border-cyan-500/10 border-t-cyan-500 rounded-full animate-spin shadow-[0_0_20px_#06b6d420]" />
+    <div className="w-12 h-12 border-4 border-violet-500/15 border-t-violet-400 rounded-full animate-spin shadow-[0_0_24px_rgba(167,139,250,0.25)]" />
   </div>
 );
 
@@ -145,7 +145,7 @@ export default function App() {
     if (appState === STATES.ADMIN) return <AdminDashboard onJoinRoom={handleAdminJoin} />;
     if (isBlocked) {
       return (
-        <div className="min-h-screen bg-[#070811] flex items-center justify-center p-6 text-white font-sans text-center">
+        <div className="min-h-screen bg-realm-void flex items-center justify-center p-6 text-white font-sans text-center">
           <div className="max-w-md w-full p-8 rounded-3xl bg-rose-500/10 border border-rose-500/20 backdrop-blur-xl animate-fade-in">
             <div className="w-16 h-16 mx-auto rounded-full flex items-center justify-center bg-rose-500/20 mb-6 border border-rose-500/50 text-rose-500 text-3xl">⚠️</div>
             <h1 className="text-2xl font-bold mb-3 tracking-tight text-white">Access Restricted</h1>

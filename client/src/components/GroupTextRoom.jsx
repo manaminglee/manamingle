@@ -27,7 +27,7 @@ const EMOJIS_3D = [
 ];
 
 const BlueTick = () => (
-  <span className="inline-flex items-center justify-center w-3.5 h-3.5 bg-cyan-500 rounded-full ml-1.5 shadow-[0_0_12px_rgba(6,182,212,0.6)]">
+  <span className="inline-flex items-center justify-center w-3.5 h-3.5 bg-violet-500 rounded-full ml-1.5 shadow-[0_0_12px_rgba(167,139,250,0.6)]">
     <svg className="w-2 h-2 text-black" fill="currentColor" viewBox="0 0 20 20">
       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
     </svg>
@@ -275,7 +275,7 @@ export default function GroupTextRoom({ roomId: roomIdProp, interest: interestPr
   };
 
   return (
-    <div className="h-screen h-[100dvh] flex flex-col bg-[#05060b] text-white overflow-hidden font-sans selection:bg-indigo-500/30">
+    <div className="h-screen h-[100dvh] flex flex-col bg-realm-void text-white overflow-hidden font-sans selection:bg-violet-500/30">
       
       {/* 3D EMOJI OVERLAY */}
       {active3dEmoji && (
@@ -340,7 +340,7 @@ export default function GroupTextRoom({ roomId: roomIdProp, interest: interestPr
           
           {/* SEARCHING STATE */}
           {status === 'searching' && (
-            <div className="absolute inset-0 z-40 bg-[#05060b] flex flex-col items-center justify-center gap-8 animate-fade-in">
+            <div className="absolute inset-0 z-40 bg-realm-void flex flex-col items-center justify-center gap-8 animate-fade-in">
                <div className="relative w-32 h-32">
                  <div className="absolute inset-0 rounded-full border border-indigo-500/20 animate-pulse-ring" />
                  <div className="absolute inset-4 rounded-full border border-indigo-400/30 animate-pulse-ring delay-300" />

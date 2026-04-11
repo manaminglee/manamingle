@@ -8,7 +8,7 @@ import { countryToFlag } from '../utils/countryFlag';
 import { CreatorProfilePopup } from './CreatorProfilePopup';
 
 const BlueTick = () => (
-  <span className="inline-flex items-center justify-center w-3 h-3 bg-cyan-500 rounded-full ml-1.5 shadow-[0_0_10px_#06b6d4]">
+  <span className="inline-flex items-center justify-center w-3 h-3 bg-violet-500 rounded-full ml-1.5 shadow-[0_0_10px_#a78bfa]">
     <svg className="w-2 h-2 text-black" fill="currentColor" viewBox="0 0 20 20">
       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
     </svg>
@@ -34,7 +34,7 @@ function MessageSpark({ x, y }) {
       {[...Array(6)].map((_, i) => (
         <div
           key={i}
-          className="absolute w-1 h-1 bg-cyan-400 rounded-full animate-spark"
+          className="absolute w-1 h-1 bg-violet-400 rounded-full animate-spark"
           style={{
             '--tx': `${(Math.random() - 0.5) * 60}px`,
             '--ty': `${(Math.random() - 0.5) * 60}px`,
@@ -152,14 +152,14 @@ function VanishingMessage({ m, isMe }) {
       <div className={`relative max-w-[85%] px-3 py-2 rounded-lg text-sm flex flex-col gap-1 transition-all ${isMe ? 'bg-[#1a7f37] text-white rounded-tr-none' : 'bg-white/10 text-white/90 rounded-tl-none border border-white/5'}`}>
         <div className="flex flex-col gap-0.5 mb-1">
           <div className="flex items-center gap-1">
-            <span className={`text-[8px] font-black uppercase tracking-widest ${isMe ? 'text-cyan-400' : 'text-white/40'}`}>
+            <span className={`text-[8px] font-black uppercase tracking-widest ${isMe ? 'text-violet-400' : 'text-white/40'}`}>
               {m.isCreator ? `@${m.nickname}` : (isMe ? 'You' : m.nickname || 'Stranger')}
             </span>
             {m.isCreator && <BlueTick />}
           </div>
         </div>
         {m.replyTo && (
-          <div className="mb-2 p-2 rounded-md bg-black/20 border-l-2 border-indigo-400 text-[10px] opacity-70 italic">
+          <div className="mb-2 p-2 rounded-md bg-black/20 border-l-2 border-violet-400 text-[10px] opacity-70 italic">
             <div className="font-bold not-italic mb-0.5">{m.replyTo.nickname}</div>
             {m.replyTo.text}
           </div>
@@ -180,14 +180,14 @@ function SafetyShield({ active = false, label = "SAFETY SCAN" }) {
   const isMob = typeof window !== 'undefined' && window.innerWidth < 640;
   return (
     <div className="absolute inset-0 z-20 pointer-events-none flex flex-col items-center justify-center bg-black/20 backdrop-blur-sm">
-      {!isMob && <div className="absolute inset-0 bg-gradient-to-b from-cyan-500/10 via-transparent to-cyan-500/10 animate-scan-line pointer-events-none" />}
+      {!isMob && <div className="absolute inset-0 bg-gradient-to-b from-violet-500/10 via-transparent to-violet-500/10 animate-scan-line pointer-events-none" />}
       <div className="flex flex-col items-center gap-3 animate-pulse-slow">
-        <div className="w-16 h-16 rounded-full border-2 border-cyan-500/50 flex items-center justify-center shadow-[0_0_20px_rgba(6,182,212,0.3)] bg-cyan-950/40">
-          <svg className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="w-16 h-16 rounded-full border-2 border-violet-500/50 flex items-center justify-center shadow-[0_0_20px_rgba(167,139,250,0.3)] bg-violet-950/40">
+          <svg className="w-8 h-8 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
           </svg>
         </div>
-        <span className="text-[10px] font-black tracking-[0.3em] text-cyan-400 uppercase drop-shadow-[0_0_8px_rgba(6,182,212,0.8)]">{label}</span>
+        <span className="text-[10px] font-black tracking-[0.3em] text-violet-400 uppercase drop-shadow-[0_0_8px_rgba(167,139,250,0.8)]">{label}</span>
       </div>
     </div>
   );
@@ -199,7 +199,7 @@ function SecurityShield() {
       <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 backdrop-blur-md flex items-center justify-center text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:bg-emerald-500 hover:text-black transition-all">
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
       </div>
-      <div className="absolute top-10 right-0 w-48 p-3 rounded-2xl bg-black/90 border border-white/10 backdrop-blur-3xl text-[9px] font-black uppercase tracking-widest text-emerald-400 opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-2xl">
+      <div className="absolute top-10 right-0 w-48 p-3 rounded-2xl bg-realm-surface/95 border border-violet-500/15 backdrop-blur-3xl text-[9px] font-black uppercase tracking-widest text-emerald-400 opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-2xl shadow-violet-950/20">
         <div className="flex items-center gap-2 mb-1">
           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
           <span>AES-256 P2P Active</span>
@@ -1446,15 +1446,15 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
   };
 
   return (
-    <div className="h-[100dvh] min-h-0 flex flex-col bg-[#0a0a0a] text-white overflow-hidden font-sans select-none pt-[env(safe-area-inset-top)]">
-      <header className={`h-10 sm:h-12 px-2 sm:px-3 flex items-center gap-2 border-b border-white/[0.06] bg-[#0a0a0a] z-[100] shrink-0 min-h-[2.5rem] ${isMobile ? 'backdrop-blur-sm' : 'backdrop-blur-md'}`}>
+    <div className="h-[100dvh] min-h-0 flex flex-col bg-realm-void text-white overflow-hidden font-sans select-none pt-[env(safe-area-inset-top)]">
+      <header className={`h-10 sm:h-12 px-2 sm:px-3 flex items-center gap-2 border-b border-violet-500/10 bg-realm-surface/95 z-[100] shrink-0 min-h-[2.5rem] ${isMobile ? 'backdrop-blur-sm' : 'backdrop-blur-md'}`}>
         <button type="button" onClick={handleBack} className="p-1.5 -ml-0.5 sm:-ml-1 rounded-lg hover:bg-white/5 transition-colors shrink-0" aria-label="Back">
           <svg className="w-4 h-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
         </button>
         <span className="flex-1 min-w-0 text-center text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-white/40 truncate px-1">Mana Mingle Video</span>
         <div className="flex items-center justify-end gap-1 sm:gap-2 min-w-0 max-w-[min(52%,11rem)] sm:max-w-none shrink">
           {isCreator && (
-            <button type="button" onClick={() => setShowFilterMenu(true)} className="relative group px-1.5 sm:px-2 py-1 rounded-lg text-[8px] sm:text-[9px] font-black uppercase tracking-widest bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition-all border border-indigo-500/20 flex flex-col items-center shrink-0">
+            <button type="button" onClick={() => setShowFilterMenu(true)} className="relative group px-1.5 sm:px-2 py-1 rounded-lg text-[8px] sm:text-[9px] font-black uppercase tracking-widest bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 transition-all border border-violet-500/20 flex flex-col items-center shrink-0">
               <span>Filters</span>
               {filterTimer > 0 && (
                 <span className="text-[8px] text-amber-500 animate-pulse">{filterTimer}s</span>
@@ -1508,7 +1508,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
         >
           {/* PANEL 1: LOCAL — hidden on mobile when in-call (self is PiP on remote) */}
           {!mobilePipLayout && (
-          <div className={`relative bg-black overflow-hidden transition-all duration-500 ${mobileIdleStack ? 'w-full flex-[0_0_42%] min-h-[168px] max-h-[46vh] shrink-0 border-b border-white/[0.06]' : 'flex-1 border-r border-white/[0.06]'}`}>
+          <div className={`relative bg-black overflow-hidden transition-all duration-500 ${mobileIdleStack ? 'w-full flex-[0_0_42%] min-h-[168px] max-h-[46vh] shrink-0 border-b border-violet-500/10' : 'flex-1 border-r border-violet-500/10'}`}>
             {status === 'idle' && (
               <div className="absolute inset-0 flex flex-col items-center justify-center p-6 z-20 bg-black/60 backdrop-blur-md">
                 {cameraError && (
@@ -1519,10 +1519,10 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
                 <p className="text-white font-black uppercase tracking-[0.4em] text-[10px] mb-8 animate-pulse text-center">Start Meeting Someone</p>
                 <div className="flex flex-wrap gap-2 justify-center max-w-sm mb-10">
                   {interestTags.map(tag => (
-                    <button key={tag} onClick={() => toggleInterestTag(tag)} className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all border ${selectedInterests.includes(tag) ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white/5 border-white/10 text-white/40 hover:border-white/20'}`}>#{tag}</button>
+                    <button key={tag} onClick={() => toggleInterestTag(tag)} className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all border ${selectedInterests.includes(tag) ? 'bg-violet-600 border-violet-600 text-white shadow-lg' : 'bg-white/5 border-white/10 text-white/40 hover:border-white/20'}`}>#{tag}</button>
                   ))}
                 </div>
-                <button onClick={handleStart} disabled={!connected} className="px-12 py-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-black uppercase tracking-widest text-xs transition-all shadow-2xl active:scale-95 shadow-indigo-600/30">Start Connecting</button>
+                <button onClick={handleStart} disabled={!connected} className="px-12 py-4 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white font-black uppercase tracking-widest text-xs transition-all shadow-2xl active:scale-95 shadow-violet-600/30">Start Connecting</button>
               </div>
             )}
             <video ref={localVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover transition-opacity duration-300 ${facingMode === 'user' ? '-scale-x-100' : ''} ${cameraOff ? 'opacity-30' : ''}`} style={{ filter: isCreator && activeFilter !== 'none' ? activeFilter : 'none' }} />
@@ -1536,17 +1536,17 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
           )}
 
           {/* PANEL 2: REMOTE / SEARCHING (+ mobile PiP self-view) */}
-          <div className={`relative bg-[#0d0d0d] overflow-hidden border-white/[0.06] ${mobilePipLayout ? 'flex-1 min-h-0 w-full border-t sm:border-l' : mobileIdleStack ? 'flex-1 min-h-0 w-full border-t border-white/[0.06]' : 'flex-1 border-l'}`}>
+          <div className={`relative bg-realm-surface overflow-hidden border-violet-500/10 ${mobilePipLayout ? 'flex-1 min-h-0 w-full border-t sm:border-l' : mobileIdleStack ? 'flex-1 min-h-0 w-full border-t border-violet-500/10' : 'flex-1 border-l'}`}>
             {status === 'searching' && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-[#050505] z-50 animate-fade-in">
-                <div className="absolute top-10 flex items-center gap-3 px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-black uppercase tracking-[0.4em] animate-pulse">
-                   <div className="w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.8)]" />
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 bg-realm-void/95 backdrop-blur-[2px] z-50 animate-fade-in">
+                <div className="absolute top-10 flex items-center gap-3 px-4 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 text-[10px] font-black uppercase tracking-[0.4em] animate-pulse">
+                   <div className="w-2 h-2 rounded-full bg-violet-500 shadow-[0_0_10px_rgba(167,139,250,0.8)]" />
                    Turbo Matching Mode
                 </div>
                 <div className="relative w-28 h-28 mb-8">
-                  <div className="absolute inset-0 border-4 border-indigo-500/10 rounded-full" />
-                  <div className="absolute inset-0 border-4 border-t-indigo-500 rounded-full animate-spin" />
-                  <div className="absolute inset-6 border border-dashed border-cyan-500/20 rounded-full animate-pulse-slow" />
+                  <div className="absolute inset-0 border-4 border-violet-500/10 rounded-full" />
+                  <div className="absolute inset-0 border-4 border-t-violet-500 rounded-full animate-spin" />
+                  <div className="absolute inset-6 border border-dashed border-violet-500/20 rounded-full animate-pulse-slow" />
                   <div className="absolute inset-0 flex items-center justify-center">
                     <span className="text-[10px] font-black text-white/10 uppercase tracking-widest">P2P Link...</span>
                   </div>
@@ -1554,7 +1554,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
                 <p className="text-white font-black uppercase tracking-[0.5em] text-base mb-2 animate-pulse">Accelerating Network</p>
                 <div className="flex gap-2">
                    {[...Array(4)].map((_, i) => (
-                    <div key={i} className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: `${i * 150}ms`, boxShadow: '0 0 10px rgba(99,102,241,0.5)' }} />
+                    <div key={i} className="w-2 h-2 bg-violet-500 rounded-full animate-bounce" style={{ animationDelay: `${i * 150}ms`, boxShadow: '0 0 10px rgba(167,139,250,0.5)' }} />
                   ))}
                 </div>
                 <div className="mt-8 text-[10px] text-white/20 font-bold uppercase tracking-widest text-center max-w-[200px] leading-relaxed">
@@ -1576,15 +1576,15 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
                   
                   {/* WATERMARKS & AI STATUS */}
                   <div className="absolute top-4 left-4 z-50 flex items-center gap-3 pointer-events-none">
-                    <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_#22d3ee]" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse shadow-[0_0_8px_#c4b5fd]" />
                     <div className="px-2 py-1 bg-black/40 backdrop-blur-md rounded border border-white/5 text-[8px] font-black text-white/30 uppercase tracking-widest italic">Safety Active</div>
                   </div>
                   
                   <div className={`absolute z-50 pointer-events-none px-2 py-1 bg-black/20 rounded text-[8px] font-black text-white/10 uppercase tracking-widest ${mobilePipLayout ? 'top-3 right-3' : 'bottom-4 right-4'}`}>Mana Mingle</div>
                   
                   {peer?.isCreator && (
-                    <div className="absolute inset-0 bg-cyan-500/0 group-hover:bg-cyan-500/10 transition-colors flex items-center justify-center pointer-events-none">
-                      <span className="opacity-0 group-hover:opacity-100 bg-cyan-500 text-black px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-2xl transition-all translate-y-4 group-hover:translate-y-0">Explore Creator Content</span>
+                    <div className="absolute inset-0 bg-violet-500/0 group-hover:bg-violet-500/10 transition-colors flex items-center justify-center pointer-events-none">
+                      <span className="opacity-0 group-hover:opacity-100 bg-violet-500 text-black px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-2xl transition-all translate-y-4 group-hover:translate-y-0">Explore Creator Content</span>
                     </div>
                   )}
                 </div>
@@ -1597,7 +1597,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
                 
                 <div className={`absolute bottom-4 px-3 py-1.5 rounded-xl bg-black/60 text-[10px] font-black uppercase tracking-widest border border-white/10 flex items-center gap-2 z-40 backdrop-blur-md ${mobilePipLayout ? 'left-4 max-w-[calc(100%-9rem)]' : 'left-4'}`}>
                   {countryToFlag(peer?.country)} 
-                  <span className={peer?.isCreator ? 'text-cyan-400 flex items-center gap-1.5' : 'text-white'}>
+                  <span className={peer?.isCreator ? 'text-violet-400 flex items-center gap-1.5' : 'text-white'}>
                     {peer?.nickname || 'Someone'}
                     {peer?.isCreator && <BlueTick />}
                   </span>
@@ -1612,7 +1612,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
             )}
 
             {mobilePipLayout && (
-              <div className="pointer-events-none absolute bottom-3 right-3 z-[45] w-[min(34vw,128px)] aspect-[3/4] max-h-[32vh] rounded-xl overflow-hidden border border-white/20 shadow-2xl bg-black ring-1 ring-white/10">
+              <div className="pointer-events-none absolute bottom-3 right-3 z-[45] w-[min(34vw,128px)] aspect-[3/4] max-h-[32vh] rounded-xl overflow-hidden border border-violet-500/25 shadow-2xl shadow-violet-950/40 bg-black ring-1 ring-violet-500/20">
                 <video
                   ref={localVideoRef}
                   autoPlay
@@ -1639,7 +1639,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
         </div>
 
         {showChat && status === 'connected' && (
-          <div className={`transition-all duration-300 flex flex-col min-h-0 bg-[#0d0d0d] border-white/[0.06] ${isMobile ? 'h-[45%] max-h-[50vh] w-full border-t z-[150]' : 'static w-80 border-l animate-slide-left'}`}>
+          <div className={`transition-all duration-300 flex flex-col min-h-0 bg-realm-surface border-violet-500/10 ${isMobile ? 'h-[45%] max-h-[50vh] w-full border-t z-[150]' : 'static w-80 border-l animate-slide-left'}`}>
             <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar" id="video-chat-messages">
               {messages.map((m, i) => (
                 <div key={m.id || i} className={`flex flex-col group ${m.socketId === socket.id ? 'items-end' : 'items-start'}`}>
@@ -1648,17 +1648,17 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
               ))}
               <div ref={chatEndRef} />
             </div>
-            <div className="p-3 bg-white/[0.01] border-t border-white/[0.06]">
+            <div className="p-3 bg-white/[0.02] border-t border-violet-500/10">
               <div className="flex gap-1.5 items-center">
-                <input ref={inputRef} value={input} onChange={handleInputChange} onKeyDown={(e) => e.key === 'Enter' && sendMsg()} className="flex-1 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm outline-none focus:border-indigo-500/50 transition-all font-medium" />
-                <button onClick={sendMsg} className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-[11px] font-black uppercase shadow-lg shadow-indigo-600/20 active:scale-95 transition-all">Send</button>
+                <input ref={inputRef} value={input} onChange={handleInputChange} onKeyDown={(e) => e.key === 'Enter' && sendMsg()} className="flex-1 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm outline-none focus:border-violet-500/50 transition-all font-medium" />
+                <button onClick={sendMsg} className="px-4 py-2.5 rounded-xl bg-violet-600 text-white text-[11px] font-black uppercase shadow-lg shadow-violet-600/20 active:scale-95 transition-all">Send</button>
               </div>
             </div>
           </div>
         )}
       </main>
 
-      <footer className="min-h-14 sm:min-h-16 px-1 sm:px-4 pb-[max(0.25rem,env(safe-area-inset-bottom))] pt-1 border-t border-white/[0.06] bg-[#0a0a0a] flex items-center justify-between gap-1 sm:gap-4 z-[120] shrink-0">
+      <footer className="min-h-14 sm:min-h-16 px-1 sm:px-4 pb-[max(0.25rem,env(safe-area-inset-bottom))] pt-1 border-t border-violet-500/10 bg-realm-surface/95 backdrop-blur-md flex items-center justify-between gap-1 sm:gap-4 z-[120] shrink-0">
         
         {/* Left Side: Stop Session */}
         <div className="flex items-center gap-1 sm:gap-3 shrink-0">
@@ -1674,7 +1674,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
 
         {/* Middle: Video/Audio Controls — scroll on very narrow screens */}
         <div className="flex-1 min-w-0 flex justify-center overflow-x-auto overflow-y-hidden [scrollbar-width:thin] py-0.5">
-        <div className="flex items-center gap-1 sm:gap-3 bg-white/[0.03] px-1.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-white/5">
+        <div className="flex items-center gap-1 sm:gap-3 bg-violet-950/30 px-1.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-violet-500/15">
           <div className="flex flex-col items-center gap-0.5">
             <button type="button" onClick={toggleMute} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${muted ? 'bg-red-500/20 text-red-500' : 'bg-white/5 text-white/60 hover:bg-white/10'}`} title={muted ? 'Unmute' : 'Mute'}>
               {muted ? <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg> : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>}
@@ -1696,7 +1696,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
           {status === 'connected' && (
             <>
               <div className="flex flex-col items-center gap-0.5">
-                <button type="button" onClick={() => setShowChat(!showChat)} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${showChat ? 'bg-indigo-500/30 text-indigo-400' : 'bg-white/5 text-white/60 hover:bg-white/10'}`} title="Chat">
+                <button type="button" onClick={() => setShowChat(!showChat)} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${showChat ? 'bg-violet-500/30 text-violet-400' : 'bg-white/5 text-white/60 hover:bg-white/10'}`} title="Chat">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
                 </button>
                 <span className="text-[7px] text-white/10 font-bold uppercase hidden sm:block">C</span>
@@ -1738,7 +1738,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
             </button>
           )}
           <div className="flex flex-col items-center gap-0.5">
-            <button type="button" onClick={handleSkip} className="relative px-3 sm:px-6 py-1.5 sm:py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-widest text-[9px] sm:text-[10px] transition-all active:scale-95 shadow-xl shadow-indigo-500/20 whitespace-nowrap" aria-label="Skip">
+            <button type="button" onClick={handleSkip} className="relative px-3 sm:px-6 py-1.5 sm:py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-black uppercase tracking-widest text-[9px] sm:text-[10px] transition-all active:scale-95 shadow-xl shadow-violet-500/20 whitespace-nowrap" aria-label="Skip">
               {status === 'searching' ? 'Cancel' : (
                 <>
                   <span className="sm:hidden">Next</span>
@@ -1759,7 +1759,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       />
 
       {toast && (
-        <div className="fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom))] sm:bottom-20 left-1/2 -translate-x-1/2 z-[200] max-w-[min(92vw,24rem)] px-4 py-2 rounded-lg bg-black/90 border border-white/10 text-sm text-white shadow-xl animate-fade-in text-center">
+        <div className="fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom))] sm:bottom-20 left-1/2 -translate-x-1/2 z-[200] max-w-[min(92vw,24rem)] px-4 py-2 rounded-lg bg-realm-surface/95 border border-violet-500/20 text-sm text-white shadow-xl shadow-violet-950/40 animate-fade-in text-center">
           {toast}
         </div>
       )}
@@ -1779,8 +1779,8 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       )}
 
       {isCreator && showEmojiPicker && (
-        <div className="fixed bottom-24 right-4 sm:right-0 sm:mr-4 z-[150] p-4 rounded-2xl bg-[#111] border border-white/10 shadow-2xl shrink-0 w-[300px] animate-fade-in-up">
-          <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2">
+        <div className="fixed bottom-24 right-4 sm:right-0 sm:mr-4 z-[150] p-4 rounded-2xl bg-realm-surface border border-violet-500/15 shadow-2xl shadow-violet-950/30 shrink-0 w-[300px] animate-fade-in-up">
+          <div className="flex items-center justify-between mb-3 border-b border-violet-500/10 pb-2">
             <h3 className="text-xs font-black uppercase text-amber-500 tracking-wider">Big Emojis</h3>
             <span className="text-[10px] font-bold text-white/50 bg-black/40 px-2 py-0.5 rounded">5 Coins</span>
           </div>
@@ -1798,8 +1798,8 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       {/* Coin History Modal */}
       {showCoinHistory && (
         <div className="absolute inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-[#111] border border-white/10 rounded-2xl p-6 shadow-2xl flex flex-col max-h-[80vh]">
-            <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-2">
+          <div className="w-full max-w-sm bg-realm-surface border border-violet-500/15 rounded-2xl p-6 shadow-2xl shadow-violet-950/25 flex flex-col max-h-[80vh]">
+            <div className="flex justify-between items-center mb-4 border-b border-violet-500/10 pb-2">
               <h3 className="text-sm font-black uppercase tracking-widest text-amber-500">🪙 Coin History</h3>
               <button onClick={() => setShowCoinHistory(false)} className="text-white/40 hover:text-white">✕</button>
             </div>
@@ -1827,9 +1827,9 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
       {/* Premium Video Filters Modal */}
       {isCreator && showFilterMenu && (
         <div className="absolute inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-[280px] bg-[#111] border border-white/10 rounded-2xl p-6 shadow-2xl flex flex-col gap-4">
-            <div className="flex justify-between items-center border-b border-white/5 pb-2">
-              <h3 className="text-sm font-black uppercase tracking-widest text-indigo-400 flex items-center gap-2"><span className="text-amber-500">🪙</span> Simple Filters</h3>
+          <div className="w-full max-w-[280px] bg-realm-surface border border-violet-500/15 rounded-2xl p-6 shadow-2xl shadow-violet-950/25 flex flex-col gap-4">
+            <div className="flex justify-between items-center border-b border-violet-500/10 pb-2">
+              <h3 className="text-sm font-black uppercase tracking-widest text-violet-400 flex items-center gap-2"><span className="text-amber-500">🪙</span> Simple Filters</h3>
               <button onClick={() => setShowFilterMenu(false)} className="text-white/40 hover:text-white">✕</button>
             </div>
             <p className="text-[10px] text-white/40 text-center leading-relaxed">
@@ -1840,7 +1840,7 @@ export default function VideoChat({ socket, connected, country, onlineCount, int
                 <button
                   key={f.id}
                   onClick={() => handleFilterSelect(f.id)}
-                  className={`py-3 rounded-xl border text-xs font-bold transition-all ${activeFilter === f.id ? 'bg-indigo-500 border-indigo-500 text-white shadow-lg' : 'bg-white/5 border-white/5 text-white/60 hover:bg-white/10 hover:text-white'}`}
+                  className={`py-3 rounded-xl border text-xs font-bold transition-all ${activeFilter === f.id ? 'bg-violet-500 border-violet-500 text-white shadow-lg' : 'bg-white/5 border-white/5 text-white/60 hover:bg-white/10 hover:text-white'}`}
                 >
                   {f.label}
                 </button>

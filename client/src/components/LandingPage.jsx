@@ -11,7 +11,7 @@ import { PresenceMap } from './PresenceMap';
 import { CreatorMatrix } from './CreatorMatrix';
 
 const BlueTick = () => (
-  <span className="inline-flex items-center justify-center w-3 h-3 bg-cyan-500 rounded-full ml-1.5 shadow-[0_0_10px_#06b6d4]">
+  <span className="inline-flex items-center justify-center w-3 h-3 bg-violet-500 rounded-full ml-1.5 shadow-[0_0_14px_rgba(167,139,250,0.45)]">
     <svg className="w-2 h-2 text-black" fill="currentColor" viewBox="0 0 20 20">
       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
     </svg>
@@ -334,7 +334,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
   const scrollToStart = () => startRef.current?.scrollIntoView({ behavior: 'smooth' });
 
   return (
-    <div className="min-h-screen bg-black text-white relative font-sans selection:bg-cyan-500/30 selection:text-cyan-200 overflow-x-hidden">
+    <div className="min-h-screen bg-realm-void text-white relative font-sans antialiased selection:bg-violet-500/30 selection:text-violet-100 overflow-x-hidden">
 
       {/* VIBRANT BACKGROUND */}
       <div className="fixed inset-0 z-0 pointer-events-none opacity-40">
@@ -343,7 +343,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
           alt="Abstract"
           className="w-full h-full object-cover filter contrast-125 brightness-75"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black" />
+        <div className="absolute inset-0 bg-gradient-to-t from-realm-void via-black/20 to-transparent mix-blend-multiply" />
       </div>
 
       {/* COMMUNITY POLICY (first-time video / group video) */}
@@ -366,7 +366,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
               <button
                 type="button"
                 onClick={acceptCommunityPolicyAndContinue}
-                className="flex-1 rounded-2xl bg-cyan-500 py-3 text-[11px] font-black uppercase text-black hover:bg-cyan-400"
+                className="flex-1 rounded-2xl bg-violet-500 py-3 text-[11px] font-black uppercase text-black hover:bg-violet-400"
               >
                 I understand — continue
               </button>
@@ -379,9 +379,9 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
       {scanning && (
         <div className="fixed inset-0 z-[2000] flex flex-col items-center justify-center bg-black/90 backdrop-blur-3xl">
           <div className="relative w-48 h-48 flex items-center justify-center">
-            <div className="absolute inset-0 border-t border-cyan-400 rounded-full animate-spin shadow-[0_0_20px_#06b6d440]" />
+            <div className="absolute inset-0 border-t border-violet-400 rounded-full animate-spin shadow-[0_0_22px_rgba(167,139,250,0.25)]" />
             <img src="/apple-touch-icon.png" alt="Logo" className="w-16 h-16 object-contain animate-pulse" />
-            <span className="absolute bottom-10 text-[10px] font-black uppercase tracking-widest text-cyan-400 animate-pulse">Connecting...</span>
+            <span className="absolute bottom-10 text-[10px] font-black uppercase tracking-widest text-violet-400 animate-pulse">Connecting...</span>
           </div>
         </div>
       )}
@@ -391,11 +391,11 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
         <header className="fixed top-0 left-0 right-0 z-[150] pt-[env(safe-area-inset-top)] bg-black/30 backdrop-blur-3xl border-b border-white/[0.07]">
           <div className="h-14 sm:h-16 px-3 sm:px-8 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-4 shrink-0 min-w-0">
-            <button type="button" onClick={scrollToStart} className="flex items-center gap-2 sm:gap-4 text-left rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500/40">
-            <img src="/apple-touch-icon.png" alt="Mana Mingle" className="w-8 h-8 sm:w-10 sm:h-10 object-contain drop-shadow-[0_0_10px_#06b6d4] shrink-0" />
+            <button type="button" onClick={scrollToStart} className="flex items-center gap-2 sm:gap-4 text-left rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/40">
+            <img src="/apple-touch-icon.png" alt="Mana Mingle" className="w-8 h-8 sm:w-10 sm:h-10 object-contain drop-shadow-[0_0_14px_rgba(167,139,250,0.45)] shrink-0" />
             <div className="flex flex-col min-w-0">
               <h1 className="text-[11px] sm:text-sm font-black uppercase tracking-[0.15em] sm:tracking-[0.35em] truncate">Mana Mingle</h1>
-              <span className="hidden sm:block text-[7px] font-black uppercase tracking-[0.2em] text-cyan-400/40">by WeConnect</span>
+              <span className="hidden sm:block text-[7px] font-black uppercase tracking-[0.2em] text-violet-400/40">by WeConnect</span>
             </div>
             </button>
           </div>
@@ -403,20 +403,20 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
             {connected && balance !== undefined && (
               <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} registered={registered} currentActiveSeconds={currentActiveSeconds} isCreator={!!creatorStatus || socketIsCreator} />
             )}
-            <div className="px-2 sm:px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[8px] sm:text-[10px] font-black text-white/40 uppercase tracking-widest flex items-center gap-1 shrink-0">
+            <div className="px-2 sm:px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-[8px] sm:text-[10px] font-black text-white/40 uppercase tracking-widest flex items-center gap-1 shrink-0">
               {country && <span className="opacity-100 grayscale hover:grayscale-0 transition-all cursor-help" title={`Localized to ${country}`}>{countryToFlag(country)}</span>}
               <span>{(onlineCount ?? 0)} Live</span>
             </div>
             {creatorStatus && (
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-cyan-500/15 to-indigo-500/10 border border-cyan-500/25 rounded-full text-[9px] font-black text-cyan-200/90 uppercase tracking-tight max-w-[140px] md:max-w-none">
+                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-fuchsia-500/15 to-indigo-500/10 border border-violet-500/25 rounded-full text-[9px] font-black text-violet-200/90 uppercase tracking-tight max-w-[140px] md:max-w-none">
                   <span className="truncate">@{creatorStatus.handle_name}</span>
                   {creatorStatus.status === 'approved' && <BlueTick />}
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowDashboardModal(true)}
-                  className="hidden sm:inline-flex px-2 py-1.5 bg-white/10 border border-white/15 text-white/90 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-cyan-500/20 transition-all"
+                  className="hidden sm:inline-flex px-2 py-1.5 bg-white/10 border border-white/15 text-white/90 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-violet-500/20 transition-all"
                 >Hub</button>
                 <button
                   onClick={() => {
@@ -435,7 +435,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
           {!creatorStatus && (
             <div className="flex items-center justify-center gap-1 sm:gap-2 px-3 pb-2 border-t border-white/[0.04] overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               <span className="text-[8px] font-black uppercase tracking-widest text-white/25 shrink-0 hidden sm:inline">Creators</span>
-              <button type="button" onClick={() => setShowCreatorModal(true)} className="shrink-0 px-3 py-1 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-[9px] font-black uppercase tracking-wider text-cyan-300 hover:bg-cyan-500/25 transition-colors">Apply</button>
+              <button type="button" onClick={() => setShowCreatorModal(true)} className="shrink-0 px-3 py-1 rounded-full bg-violet-500/15 border border-violet-500/30 text-[9px] font-black uppercase tracking-wider text-violet-300 hover:bg-violet-500/25 transition-colors">Apply</button>
               <button type="button" onClick={() => setShowStatusModal(true)} className="shrink-0 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-wider text-white/50 hover:text-white hover:border-white/25">Status</button>
               <button type="button" onClick={() => setShowLoginModal(true)} className="shrink-0 px-3 py-1 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-[9px] font-black uppercase tracking-wider text-indigo-200/90 hover:bg-indigo-500/25">Login</button>
             </div>
@@ -451,10 +451,10 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
 
           <div className="text-center mb-0 w-full">
             <ParticleText text="MANA MINGLE" className="mb-0" />
-            <p className="text-[9px] font-black uppercase tracking-[0.8em] text-cyan-400 mb-8 animate-pulse">Powered by WeConnect</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.8em] text-violet-400 mb-8 animate-pulse">Powered by WeConnect</p>
 
-            <h2 className="text-4xl md:text-7xl font-black tracking-tighter leading-none italic m-0 animate-in-zoom text-white">
-              Connect <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-500">Instantly.</span>
+            <h2 className="font-display text-4xl md:text-7xl font-extrabold tracking-tight leading-none italic m-0 animate-in-zoom text-white">
+              Connect <span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 via-violet-400 to-emerald-300">Instantly.</span>
             </h2>
             <p className="text-[11px] text-white/30 max-w-lg mx-auto font-bold uppercase tracking-widest leading-relaxed mt-4">
               Zero registration. Private P2P. Secure Global Hub.
@@ -464,13 +464,13 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
           {/* INTEREST DOCK - REFINED COMPACT */}
           <section ref={startRef} className="w-full max-w-2xl mx-auto mb-16 px-4 animate-fade-in scroll-mt-28" style={{ animationDelay: '200ms' }}>
             <div className="relative group p-6 sm:p-8 rounded-[40px] bg-white/[0.03] border border-white/[0.06] backdrop-blur-3xl overflow-hidden active:scale-[0.98] transition-all">
-              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="absolute -top-10 -right-10 w-40 h-40 bg-cyan-500/20 rounded-full blur-[80px] pointer-events-none group-hover:bg-cyan-500/30 transition-all" />
+              <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="absolute -top-10 -right-10 w-40 h-40 bg-violet-500/20 rounded-full blur-[80px] pointer-events-none group-hover:bg-violet-500/30 transition-all" />
 
               <div className="relative z-10 flex flex-col items-center">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_10px_#00E5FF]" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 italic">Select Interests</span>
+                  <div className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse shadow-[0_0_12px_rgba(232,121,249,0.55)]" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.4em] text-violet-400 italic">Select Interests</span>
                 </div>
 
                 <div className="flex flex-wrap justify-center gap-1.5 mb-8">
@@ -478,7 +478,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                     <button
                       key={r.id}
                       onClick={() => addInterest(r.id)}
-                      className="px-3 py-1.5 rounded-full bg-white/[0.02] border border-white/5 hover:border-cyan-500/40 hover:bg-cyan-500/10 hover:text-cyan-400 transition-all text-[9px] font-black uppercase tracking-widest text-white/40"
+                      className="px-3 py-1.5 rounded-full bg-white/[0.02] border border-white/5 hover:border-violet-500/40 hover:bg-violet-500/10 hover:text-violet-400 transition-all text-[9px] font-black uppercase tracking-widest text-white/40"
                     >
                       #{r.label}
                     </button>
@@ -492,9 +492,9 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                     onChange={(e) => setInputValue(e.target.value)}
                     onKeyDown={handleInputKeyDown}
                     placeholder="Add specific topics..."
-                    className="w-full h-12 bg-black/40 border border-white/10 focus:border-cyan-500/40 rounded-2xl px-6 text-[12px] text-white outline-none transition-all placeholder:text-white/10 uppercase font-black tracking-widest text-center"
+                    className="w-full h-12 bg-black/40 border border-white/10 focus:border-violet-500/40 rounded-2xl px-6 text-[12px] text-white outline-none transition-all placeholder:text-white/10 uppercase font-black tracking-widest text-center"
                   />
-                  <button onClick={getAiSuggestions} className="absolute right-1 top-1/2 -translate-y-1/2 p-2.5 bg-cyan-500/20 text-cyan-400 rounded-xl hover:bg-cyan-500 hover:text-black transition-all">
+                  <button onClick={getAiSuggestions} className="absolute right-1 top-1/2 -translate-y-1/2 p-2.5 bg-violet-500/20 text-violet-400 rounded-xl hover:bg-violet-500 hover:text-black transition-all">
                     <svg className={`w-3.5 h-3.5 ${isSuggesting ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                   </button>
                 </div>
@@ -502,7 +502,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                 {interests.length > 0 && (
                   <div className="flex flex-wrap justify-center gap-1.5 mt-5">
                     {interests.map(i => (
-                      <div key={i.id} className="flex items-center gap-2 bg-cyan-400 text-black px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest shadow-[0_0_15px_#06b6d440]">
+                      <div key={i.id} className="flex items-center gap-2 bg-violet-400 text-black px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest shadow-[0_0_18px_rgba(167,139,250,0.25)]">
                         {i.label}
                         <button type="button" onClick={() => removeInterest(i.id)} className="hover:scale-125 transition-transform">✕</button>
                       </div>
@@ -514,7 +514,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                   <button
                     type="button"
                     onClick={saveAnonymousInterestBundle}
-                    className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-white/50 hover:text-cyan-400 hover:border-cyan-500/30 transition-colors"
+                    className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-white/50 hover:text-violet-400 hover:border-violet-500/30 transition-colors"
                   >
                     Save topic bundle (this device)
                   </button>
@@ -550,7 +550,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
           {/* UNIQUE COMPACT MODES */}
           <section className="w-full max-w-6xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-16 sm:mb-20" aria-label="Chat modes">
             {[
-              { id: 'video', icon: '📹', name: 'Start Video', color: 'from-cyan-400/20', accent: 'cyan', hint: '1:1 video match' },
+              { id: 'video', icon: '📹', name: 'Start Video', color: 'from-fuchsia-400/20', accent: 'violet', hint: '1:1 video match' },
               { id: 'text', icon: '💬', name: 'Start Text', color: 'from-indigo-500/20', accent: 'indigo', hint: 'Anonymous text' },
               { id: 'group_video', icon: '🎥', name: 'Group Jam', color: 'from-purple-500/20', accent: 'purple', hint: 'Up to 4 on video' },
               { id: 'group_text', icon: '👥', name: 'Group Out', color: 'from-emerald-500/20', accent: 'emerald', hint: 'Group text rooms' },
@@ -561,16 +561,16 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                 onClick={() => handleStartInteraction(m.id)}
                 disabled={!connected || isJoining}
                 aria-label={`${m.name}: ${m.hint}`}
-                className="group relative min-h-[148px] sm:h-40 rounded-[28px] sm:rounded-[35px] bg-white/[0.02] border border-white/5 hover:border-white/25 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:ring-offset-2 focus:ring-offset-black transition-all animate-in-zoom p-[2px] overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.99]"
+                className="group relative min-h-[148px] sm:h-40 rounded-[28px] sm:rounded-[35px] bg-white/[0.02] border border-white/5 hover:border-white/25 focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:ring-offset-2 focus:ring-offset-black transition-all animate-in-zoom p-[2px] overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.99]"
                 style={{ animationDelay: `${i * 100}ms` }}
               >
                 <div className={`absolute inset-0 bg-gradient-to-br ${m.color} to-transparent opacity-40 group-hover:opacity-100 transition-opacity`} />
                 <div className="relative h-full bg-[#0a0a0a]/90 rounded-[33px] p-6 flex flex-col justify-between items-start text-left">
-                  <div className={`w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/40 flex items-center justify-center text-lg group-hover:scale-110 transition-transform group-hover:shadow-[0_0_20px_rgba(6,182,212,0.3)]`}>
+                  <div className={`w-10 h-10 rounded-2xl bg-violet-500/10 border border-violet-500/40 flex items-center justify-center text-lg group-hover:scale-110 transition-transform group-hover:shadow-[0_0_20px_rgba(6,182,212,0.3)]`}>
                     {m.icon}
                   </div>
                   <div>
-                    <h3 className="text-sm font-black uppercase tracking-widest italic text-white group-hover:text-cyan-400 transition-colors">{m.name}</h3>
+                    <h3 className="text-sm font-black uppercase tracking-widest italic text-white group-hover:text-violet-400 transition-colors">{m.name}</h3>
                     <p className="text-[8px] font-bold text-white/25 uppercase tracking-[0.15em] mt-1">{m.hint}</p>
                   </div>
                 </div>
@@ -580,10 +580,10 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
 
           {/* AI GENERATED DISCOVERY CONTEXT */}
           <section className="w-full max-w-3xl mb-24 px-6">
-            <div className="p-8 rounded-[40px] bg-gradient-to-r from-cyan-500/5 via-indigo-500/5 to-transparent border border-white/5 relative overflow-hidden group">
+            <div className="p-8 rounded-[40px] bg-gradient-to-r from-fuchsia-500/5 via-indigo-500/5 to-transparent border border-white/5 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 font-mono text-[80px] pointer-events-none italic font-black">AI</div>
               <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/40 mb-4 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                <span className="w-2 h-2 rounded-full bg-violet-400 animate-ping" />
                 Smart Matching Discovery
               </h4>
               <p className="text-sm font-medium text-white/70 italic leading-relaxed">
@@ -618,8 +618,8 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
 
           {/* AI INSIGHT SECTION */}
           <section className="w-full max-w-4xl mx-auto mb-16 animate-fade-in-up">
-            <div className="bg-gradient-to-r from-indigo-500/5 via-cyan-500/5 to-indigo-500/5 p-6 rounded-3xl border border-white/5 flex items-center gap-6">
-              <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 shadow-[0_0_20px_#06b6d430]">
+            <div className="bg-gradient-to-r from-violet-500/8 via-fuchsia-500/8 to-violet-500/8 p-6 rounded-3xl border border-white/5 flex items-center gap-6">
+              <div className="w-12 h-12 rounded-2xl bg-violet-500/10 flex items-center justify-center text-violet-400 shadow-[0_0_24px_rgba(167,139,250,0.2)]">
                 <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="11" width="18" height="10" rx="2" />
                   <circle cx="12" cy="5" r="2" />
@@ -629,7 +629,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                 </svg>
               </div>
               <div className="flex-1">
-                <div className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-1">AI System Insight</div>
+                <div className="text-[10px] font-black text-violet-400 uppercase tracking-widest mb-1">AI System Insight</div>
                 <p className="text-sm font-bold text-white/60 italic transition-all duration-500">{INSIGHTS[insightIndex]}</p>
               </div>
               <div className="px-3 py-1 rounded-full border border-white/10 text-[9px] font-black uppercase text-white/20">Real-time Analysis</div>
@@ -641,10 +641,10 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
       )}
 
       {/* FOOTER */}
-      <footer className="relative z-10 py-20 px-8 bg-black border-t border-white/5">
+      <footer className="relative z-10 py-20 px-8 bg-realm-void/95 border-t border-violet-500/10 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start gap-16">
           <div className="max-w-xs space-y-6">
-            <img src="/apple-touch-icon.png" alt="Logo" className="w-12 h-12 border border-white/10 p-1 rounded-xl drop-shadow-[0_0_10px_#06b6d4]" />
+            <img src="/apple-touch-icon.png" alt="Logo" className="w-12 h-12 border border-white/10 p-1 rounded-xl drop-shadow-[0_0_14px_rgba(167,139,250,0.45)]" />
             <p className="text-[10px] font-black uppercase tracking-widest text-white/20 leading-relaxed">
               The definitive platform for global interaction.
               Optimized for privacy and security across the entire platform.
@@ -653,34 +653,34 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-10 flex-1 w-full min-w-0">
             <div className="space-y-4">
-              <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400">Legal Center</h5>
+              <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-violet-400">Legal Center</h5>
               <div className="flex flex-col gap-2">
                 {['Privacy', 'Integrity', 'Safety'].map(m => (
-                  <button key={m} onClick={() => setModal(m.toLowerCase())} className="text-[10px] font-bold text-left uppercase text-white/30 hover:text-cyan-400 transition-colors">{m} Center</button>
+                  <button key={m} onClick={() => setModal(m.toLowerCase())} className="text-[10px] font-bold text-left uppercase text-white/30 hover:text-violet-400 transition-colors">{m} Center</button>
                 ))}
               </div>
             </div>
             <div className="space-y-4">
-              <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-400">Help & Resources</h5>
+              <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-fuchsia-400/90">Help & Resources</h5>
               <div className="flex flex-col gap-2">
                 {['Dev', 'Bug'].map(m => (
-                  <button key={m} onClick={() => setModal(m.toLowerCase())} className="text-[10px] font-bold text-left uppercase text-white/30 hover:text-indigo-400 transition-colors">{m === 'Dev' ? 'Technology' : 'Bug Bounty'} Hub</button>
+                  <button key={m} onClick={() => setModal(m.toLowerCase())} className="text-[10px] font-bold text-left uppercase text-white/30 hover:text-fuchsia-300 transition-colors">{m === 'Dev' ? 'Technology' : 'Bug Bounty'} Hub</button>
                 ))}
-                <button onClick={() => setModal('safety')} className="text-[10px] font-bold text-left uppercase text-white/30 hover:text-indigo-400 transition-colors">Security Overview</button>
+                <button onClick={() => setModal('safety')} className="text-[10px] font-bold text-left uppercase text-white/30 hover:text-fuchsia-300 transition-colors">Security Overview</button>
               </div>
             </div>
             <div className="space-y-4">
-              <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400/90">Creators</h5>
+              <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-violet-400/90">Creators</h5>
               <div className="flex flex-col gap-2">
-                <button type="button" onClick={() => setShowCreatorModal(true)} className="text-[10px] font-bold text-left uppercase text-white/30 hover:text-cyan-400 transition-colors">Apply</button>
-                <button type="button" onClick={() => setShowStatusModal(true)} className="text-[10px] font-bold text-left uppercase text-white/30 hover:text-cyan-400 transition-colors">Application status</button>
-                <button type="button" onClick={() => setShowLoginModal(true)} className="text-[10px] font-bold text-left uppercase text-white/30 hover:text-cyan-400 transition-colors">Creator login</button>
+                <button type="button" onClick={() => setShowCreatorModal(true)} className="text-[10px] font-bold text-left uppercase text-white/30 hover:text-violet-400 transition-colors">Apply</button>
+                <button type="button" onClick={() => setShowStatusModal(true)} className="text-[10px] font-bold text-left uppercase text-white/30 hover:text-violet-400 transition-colors">Application status</button>
+                <button type="button" onClick={() => setShowLoginModal(true)} className="text-[10px] font-bold text-left uppercase text-white/30 hover:text-violet-400 transition-colors">Creator login</button>
               </div>
             </div>
             <div className="space-y-4">
               <h5 className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-400">Support Center</h5>
               <p className="text-[10px] font-bold text-white/20 leading-relaxed uppercase tracking-widest">Global load balancing active. Secure correspondence hub.</p>
-              <a href="mailto:manaminglee@gmail.com" className="text-[10px] font-black text-cyan-400 underline uppercase hover:text-white">Email Support</a>
+              <a href="mailto:manaminglee@gmail.com" className="text-[10px] font-black text-violet-400 underline uppercase hover:text-white">Email Support</a>
             </div>
           </div>
         </div>
@@ -700,7 +700,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
             >✕</button>
 
             <div className="text-center mb-8">
-              <div className="w-16 h-16 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mx-auto mb-4 text-2xl shadow-[0_0_20px_#06b6d430]">⭐</div>
+              <div className="w-16 h-16 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mx-auto mb-4 text-2xl shadow-[0_0_24px_rgba(167,139,250,0.2)]">⭐</div>
               <h3 className="text-2xl font-black italic uppercase tracking-tighter text-white">Creator Hub</h3>
               <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-2">{approvalData ? 'Approved Identity' : 'Monetization Dashboard'}</p>
             </div>
@@ -725,7 +725,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                     <div className="bg-black/40 rounded-2xl p-4 border border-white/5 flex justify-between items-center group">
                       <div>
                         <div className="text-[8px] font-black uppercase text-white/20 mb-1">Temporary Password</div>
-                        <div className="text-xs font-black text-cyan-400 italic uppercase select-all tracking-widest">{approvalData.password}</div>
+                        <div className="text-xs font-black text-violet-400 italic uppercase select-all tracking-widest">{approvalData.password}</div>
                       </div>
                       <span className="text-[10px] opacity-10 group-hover:opacity-40 transition-opacity">🔒</span>
                     </div>
@@ -754,12 +754,12 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                   {approvalTimer > 0 ? (
                     <div className="space-y-6">
                       <div className="relative w-32 h-32 mx-auto flex items-center justify-center">
-                        <div className="absolute inset-0 border-4 border-cyan-500/20 rounded-full" />
+                        <div className="absolute inset-0 border-4 border-violet-500/20 rounded-full" />
                         <div
-                          className="absolute inset-0 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"
+                          className="absolute inset-0 border-4 border-violet-500 border-t-transparent rounded-full animate-spin"
                           style={{ animationDuration: '0.8s' }}
                         />
-                        <span className="text-3xl font-black italic text-cyan-400 tabular-nums">{approvalTimer}</span>
+                        <span className="text-3xl font-black italic text-violet-400 tabular-nums">{approvalTimer}</span>
                       </div>
                       <div className="space-y-2">
                         <h4 className="text-xl font-black italic uppercase tracking-tighter text-white">Validating Identity...</h4>
@@ -811,14 +811,14 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
               <div className="space-y-6">
                 <div className="space-y-4 text-center mb-8">
                   <p className="text-xs font-bold text-white/60 leading-normal">
-                    Verified creators get a <span className="text-cyan-400">Blue Tick</span>, unique handles, and earn <span className="text-emerald-400">₹150 per 10k clicks</span>.
+                    Verified creators get a <span className="text-violet-400">Blue Tick</span>, unique handles, and earn <span className="text-emerald-400">₹150 per 10k clicks</span>.
                   </p>
                 </div>
                 <div className="space-y-4">
                   <input
                     type="text"
                     placeholder="@handle_name"
-                    className="w-full h-14 bg-white/5 border border-white/5 focus:border-cyan-500/30 rounded-2xl px-6 text-sm outline-none text-white font-bold"
+                    className="w-full h-14 bg-white/5 border border-white/5 focus:border-violet-500/30 rounded-2xl px-6 text-sm outline-none text-white font-bold"
                     value={creatorForm.handle}
                     onChange={e => {
                       const h = e.target.value.replace(/^@/, '');
@@ -838,7 +838,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                     <button
                       onClick={() => setPlatformDropdownOpen(!platformDropdownOpen)}
                       type="button"
-                      className="w-full h-14 bg-white/5 border border-white/5 focus:border-cyan-500/30 rounded-2xl px-6 text-sm outline-none text-white/50 flex items-center justify-between transition-all hover:bg-white/[0.08]"
+                      className="w-full h-14 bg-white/5 border border-white/5 focus:border-violet-500/30 rounded-2xl px-6 text-sm outline-none text-white/50 flex items-center justify-between transition-all hover:bg-white/[0.08]"
                     >
                       <span>{creatorForm.platform || 'Select Platform'}</span>
                       <svg className={`w-4 h-4 transition-transform duration-300 ${platformDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -865,7 +865,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                                 setLinkValidated(false);
                                 setPlatformDropdownOpen(false);
                               }}
-                              className="w-full h-12 px-6 text-left text-xs font-bold text-white/60 hover:text-white hover:bg-cyan-500/10 transition-all border-b border-white/[0.03] last:border-0"
+                              className="w-full h-12 px-6 text-left text-xs font-bold text-white/60 hover:text-white hover:bg-violet-500/10 transition-all border-b border-white/[0.03] last:border-0"
                             >
                               {p}
                             </button>
@@ -881,7 +881,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                         placeholder={`e.g. https://instagram.com/${creatorForm.handle.replace(/^@/, '') || 'yourhandle'}`}
                         className={`flex-1 h-14 bg-white/5 border rounded-2xl px-4 text-sm outline-none text-white transition-all ${linkValidated ? 'border-emerald-500/50 shadow-[0_0_10px_#10b98120]' :
                           linkVerifyFailed ? 'border-rose-500/40' :
-                            'border-white/5 focus:border-cyan-500/30'
+                            'border-white/5 focus:border-violet-500/30'
                           }`}
                         value={creatorForm.link}
                         onChange={e => {
@@ -927,7 +927,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                         className={`h-14 px-4 rounded-2xl font-black text-[9px] uppercase tracking-widest transition-all border min-w-[80px] flex items-center justify-center ${linkValidated ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' :
                           linkVerifyFailed ? 'bg-rose-500/20 border-rose-500/40 text-rose-400' :
                             linkVerifying ? 'bg-white/5 border-white/10 text-white/40 cursor-wait' :
-                              'bg-white/5 border-white/10 text-white/40 hover:border-cyan-500/40 hover:text-cyan-400 disabled:opacity-50'
+                              'bg-white/5 border-white/10 text-white/40 hover:border-violet-500/40 hover:text-violet-400 disabled:opacity-50'
                           }`}
                       >
                         {linkVerifying ? (
@@ -961,22 +961,22 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                       }
                       else showAlert('Registration Failed', res.error || 'Something went wrong. Please try again.');
                     }}
-                    className="w-full h-14 bg-cyan-400 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all shadow-xl shadow-cyan-500/20"
+                    className="w-full h-14 bg-violet-400 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all shadow-xl shadow-violet-500/25"
                   >Register as Creator</button>
 
                   <div className="pt-10 flex flex-col items-center gap-6 border-t border-white/5">
                     <div className="flex items-center gap-4 text-[8px] font-black uppercase tracking-[0.4em] text-white/20 whitespace-nowrap italic">
                       <span>Apply</span>
-                      <span className="text-cyan-500 animate-pulse">→</span>
+                      <span className="text-violet-500 animate-pulse">→</span>
                       <span>Check Status</span>
-                      <span className="text-cyan-500 animate-pulse">→</span>
+                      <span className="text-violet-500 animate-pulse">→</span>
                       <span>Login</span>
                     </div>
 
                     <div className="flex gap-4 w-full">
                       <button
                         onClick={() => { setShowCreatorModal(false); setShowStatusModal(true); }}
-                        className="flex-1 py-4 rounded-xl bg-white/5 border border-white/5 text-[9px] font-black uppercase text-white/40 hover:text-cyan-400 hover:border-cyan-400/20 transition-all tracking-widest"
+                        className="flex-1 py-4 rounded-xl bg-white/5 border border-white/5 text-[9px] font-black uppercase text-white/40 hover:text-violet-400 hover:border-violet-400/20 transition-all tracking-widest"
                       >Check Status</button>
                       <button
                         onClick={() => { setShowCreatorModal(false); setShowLoginModal(true); }}
@@ -1006,10 +1006,10 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                   <div className="space-y-6">
                     {/* GROWTH VELOCITY ANALYTICS */}
                     <div className="mb-8 animate-in-zoom" style={{ animationDelay: '100ms' }}>
-                      <MiniTrendChart data={[35, 42, 38, 55, 48, 65, 82]} color="#06b6d4" />
+                      <MiniTrendChart data={[35, 42, 38, 55, 48, 65, 82]} color="#a78bfa" />
                       <div className="flex justify-between mt-3 px-2 text-[8px] font-black uppercase text-white/10 tracking-[0.3em] italic">
                         <span className="flex items-center gap-2">
-                          <span className="w-1 h-1 rounded-full bg-cyan-400" />
+                          <span className="w-1 h-1 rounded-full bg-violet-400" />
                           Performance Trend: Last 7 Days
                         </span>
                         <span className="text-emerald-400/40">+64.8% Influence Delta</span>
@@ -1099,7 +1099,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                           navigator.clipboard.writeText(`${window.location.origin}?ref=${creatorStatus.referral_code}`);
                           alert('Referral Link Copied');
                         }}
-                        className="px-8 h-14 rounded-2xl bg-cyan-400 text-black font-black uppercase tracking-widest text-[10px] hover:bg-white transition-all shadow-xl shadow-cyan-500/20"
+                        className="px-8 h-14 rounded-2xl bg-violet-400 text-black font-black uppercase tracking-widest text-[10px] hover:bg-white transition-all shadow-xl shadow-violet-500/25"
                       >Copy Link</button>
                     )}
                   </div>
@@ -1178,7 +1178,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
           <div className="relative w-full max-w-sm bg-black border border-white/10 rounded-[50px] p-10 shadow-2xl" onClick={e => e.stopPropagation()}>
             <button onClick={() => { setShowStatusModal(false); setStatusCheckResult(null); setStatusCheckCode(''); }} className="absolute top-6 right-8 text-white/20 hover:text-white transition-colors text-xl">✕</button>
             <div className="text-center mb-8">
-              <div className="w-16 h-16 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mx-auto mb-4 text-2xl shadow-[0_0_20px_#06b6d430]">🔍</div>
+              <div className="w-16 h-16 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mx-auto mb-4 text-2xl shadow-[0_0_24px_rgba(167,139,250,0.2)]">🔍</div>
               <h3 className="text-xl font-black italic uppercase tracking-tighter text-white">Check Application Status</h3>
               <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-2">Enter your access code or handle name</p>
             </div>
@@ -1190,7 +1190,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                     value={statusCheckCode}
                     onChange={e => { setStatusCheckCode(e.target.value); setStatusCheckResult(null); }}
                     placeholder="e.g. handle1234 or @yourhandle"
-                    className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl px-6 text-sm outline-none text-white focus:border-cyan-500/30 transition-all font-bold tracking-widest"
+                    className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl px-6 text-sm outline-none text-white focus:border-violet-500/30 transition-all font-bold tracking-widest"
                   />
                   <button
                     disabled={checkingStatus || !statusCheckCode.trim()}
@@ -1207,7 +1207,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                       setCheckingStatus(false);
                       setStatusCheckResult(data || 'not_found');
                     }}
-                    className="w-full h-14 bg-cyan-400 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all shadow-xl shadow-cyan-500/20 disabled:opacity-50"
+                    className="w-full h-14 bg-violet-400 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all shadow-xl shadow-violet-500/25 disabled:opacity-50"
                   >
                     {checkingStatus ? 'Checking...' : 'Check Status →'}
                   </button>
@@ -1293,10 +1293,10 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
               {/* TOP HEADER */}
               <div className="flex justify-between items-center mb-16 px-4">
                 <div className="flex items-center gap-4">
-                  <div className="w-1.5 h-10 bg-cyan-400 rounded-full animate-pulse" />
+                  <div className="w-1.5 h-10 bg-violet-400 rounded-full animate-pulse" />
                   <div>
                     <h2 className="text-2xl font-black italic uppercase tracking-tighter text-white">Creator Dashboard</h2>
-                    <p className="text-[10px] font-black text-cyan-400/40 uppercase tracking-[0.4em]">Auth Level: Verified Creator</p>
+                    <p className="text-[10px] font-black text-violet-400/40 uppercase tracking-[0.4em]">Auth Level: Verified Creator</p>
                   </div>
                 </div>
                 <div className="flex gap-4">
@@ -1313,8 +1313,8 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                   <div className="p-10 rounded-[50px] bg-white/[0.02] border border-white/5 relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-6 opacity-5 font-black text-6xl italic group-hover:opacity-10 transition-all">ID</div>
                     <div className="flex flex-col items-center text-center">
-                      <div className="w-40 h-40 rounded-full border-2 border-cyan-400/40 p-2 mb-6 group-hover:scale-105 transition-transform relative">
-                        <div className="absolute inset-0 rounded-full bg-cyan-400/10 animate-pulse" />
+                      <div className="w-40 h-40 rounded-full border-2 border-violet-400/40 p-2 mb-6 group-hover:scale-105 transition-transform relative">
+                        <div className="absolute inset-0 rounded-full bg-violet-400/10 animate-pulse" />
                         <img src={creatorStatus.avatar_url || '/apple-touch-icon.png'} className="w-full h-full object-cover rounded-full relative z-10" />
                       </div>
                       <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">@{creatorStatus.handle_name} <BlueTick /></h3>
@@ -1329,7 +1329,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                           setProfileForm({ bio: creatorStatus.bio || '', avatar: creatorStatus.avatar_url || '' });
                           setShowProfileModal(true);
                         }}
-                        className="mt-8 px-8 py-3 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-cyan-500 hover:text-black transition-all"
+                        className="mt-8 px-8 py-3 bg-violet-500/10 border border-violet-500/20 text-violet-400 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-violet-500 hover:text-black transition-all"
                       >Update Metadata →</button>
                     </div>
                   </div>
@@ -1378,12 +1378,12 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
 
                   {/* STATS GRID */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="p-10 rounded-[50px] bg-white/[0.02] border border-white/5 group hover:border-cyan-500/30 transition-all">
+                    <div className="p-10 rounded-[50px] bg-white/[0.02] border border-white/5 group hover:border-violet-500/30 transition-all">
                       <div className="flex justify-between items-start mb-4">
-                        <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">Total Audience</span>
+                        <span className="text-[10px] font-black text-violet-400 uppercase tracking-widest">Total Audience</span>
                         <span className="text-2xl group-hover:scale-110 transition-transform">👥</span>
                       </div>
-                      <div className="text-5xl font-black italic text-white tabular-nums group-hover:text-cyan-400 transition-colors">{creatorStatus.followers_count || 0}</div>
+                      <div className="text-5xl font-black italic text-white tabular-nums group-hover:text-violet-400 transition-colors">{creatorStatus.followers_count || 0}</div>
                       <p className="text-[9px] font-bold text-white/20 uppercase tracking-[0.2em] mt-2 italic">Followers reached through profile</p>
                     </div>
                     <div className="p-10 rounded-[50px] bg-white/[0.02] border border-white/5 group hover:border-indigo-500/30 transition-all">
@@ -1400,7 +1400,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                   <div className="p-8 rounded-[40px] bg-black/40 border border-white/5 grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div>
                       <div className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Access PIN</div>
-                      <div className="text-lg font-black text-cyan-400 select-all hover:scale-105 transition-all w-fit cursor-help" title="Private Passphrase">{creatorStatus.password}</div>
+                      <div className="text-lg font-black text-violet-400 select-all hover:scale-105 transition-all w-fit cursor-help" title="Private Passphrase">{creatorStatus.password}</div>
                     </div>
                     <div>
                       <div className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Matrix Code</div>
@@ -1433,7 +1433,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
             <div className="space-y-8">
               <div className="flex flex-col items-center">
                 <div className="relative group cursor-pointer" onClick={() => document.getElementById('avatar-input').click()}>
-                  <div className="w-32 h-32 rounded-full border-2 border-dashed border-white/10 flex items-center justify-center overflow-hidden group-hover:border-cyan-500/50 transition-all">
+                  <div className="w-32 h-32 rounded-full border-2 border-dashed border-white/10 flex items-center justify-center overflow-hidden group-hover:border-violet-500/50 transition-all">
                     {profileForm.avatar ? (
                       <img src={profileForm.avatar} alt="Preview" className="w-full h-full object-cover" />
                     ) : (
@@ -1450,10 +1450,10 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-cyan-400/60 uppercase tracking-widest ml-4">About You</label>
+                  <label className="text-[10px] font-black text-violet-400/60 uppercase tracking-widest ml-4">About You</label>
                   <textarea
                     placeholder="Tell your fans something special..."
-                    className="w-full h-32 bg-white/5 border border-white/5 focus:border-cyan-500/30 rounded-3xl p-6 text-sm outline-none text-white font-bold resize-none transition-all"
+                    className="w-full h-32 bg-white/5 border border-white/5 focus:border-violet-500/30 rounded-3xl p-6 text-sm outline-none text-white font-bold resize-none transition-all"
                     value={profileForm.bio}
                     onChange={e => setProfileForm(prev => ({ ...prev, bio: e.target.value.slice(0, 150) }))}
                   />
@@ -1463,7 +1463,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
 
               <button
                 onClick={saveProfile}
-                className="w-full h-16 bg-cyan-500 text-black font-black uppercase tracking-widest text-[11px] rounded-2xl hover:bg-white hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-cyan-500/20"
+                className="w-full h-16 bg-violet-500 text-black font-black uppercase tracking-widest text-[11px] rounded-2xl hover:bg-white hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-violet-500/25"
               >Save Identity →</button>
             </div>
           </div>
@@ -1477,7 +1477,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
             <button onClick={() => setModal(null)} className="absolute top-6 right-8 text-white/20 hover:text-white transition-colors text-xl">✕</button>
             <h3 className="text-2xl font-black text-white italic uppercase mb-6 tracking-tighter">{MODALS[modal]?.title}</h3>
             <p className="text-[11px] text-white/40 leading-relaxed font-bold uppercase tracking-widest whitespace-pre-line">{MODALS[modal]?.body}</p>
-            <button onClick={() => setModal(null)} className="mt-10 w-full h-14 bg-cyan-500 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all shadow-xl shadow-cyan-500/20">Got it</button>
+            <button onClick={() => setModal(null)} className="mt-10 w-full h-14 bg-violet-500 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all shadow-xl shadow-violet-500/25">Got it</button>
           </div>
         </div>
       )}
@@ -1494,7 +1494,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
             <div className={`flex gap-3 ${dialog.confirm ? 'flex-row' : 'flex-col'}`}>
               <button
                 onClick={dialog.onConfirm}
-                className="flex-1 h-12 bg-cyan-400 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all"
+                className="flex-1 h-12 bg-violet-400 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-white transition-all"
               >OK</button>
               {dialog.confirm && dialog.onCancel && (
                 <button

@@ -94,13 +94,13 @@ export function CoinBadge({ balance = 0, streak = 1, canClaim, nextClaim = 0, cl
         onClick={() => setShowPopover(!showPopover)}
         className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all cursor-pointer group ${
           isCreator
-            ? 'bg-gradient-to-r from-cyan-500/15 to-indigo-500/10 border-cyan-400/35 shadow-[0_0_20px_rgba(34,211,238,0.12)] hover:border-cyan-300/50'
-            : 'bg-white/5 border-white/10 hover:border-cyan-500/40 hover:bg-cyan-500/10'
+            ? 'bg-gradient-to-r from-violet-500/15 to-indigo-500/10 border-violet-400/35 shadow-[0_0_20px_rgba(167,139,250,0.15)] hover:border-violet-300/50'
+            : 'bg-white/5 border-white/10 hover:border-violet-500/40 hover:bg-violet-500/10'
         }`}
         title={isCreator ? 'Creator account — bonus visibility in rooms' : undefined}
       >
         {isCreator && (
-          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-cyan-400 ring-2 ring-black shadow-[0_0_8px_#22d3ee]" aria-hidden />
+          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-violet-400 ring-2 ring-black shadow-[0_0_8px_#c4b5fd]" aria-hidden />
         )}
         <span className="text-sm group-hover:rotate-12 transition-transform">🪙</span>
         <span className="font-black text-xs text-white tabular-nums">{balance}</span>
@@ -109,7 +109,7 @@ export function CoinBadge({ balance = 0, streak = 1, canClaim, nextClaim = 0, cl
         
         {/* Tiny live pulse indicator for activity timer */}
         <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-white/5 rounded-full overflow-hidden">
-          <div className={`h-full transition-all duration-1000 ${registered ? 'bg-cyan-500' : 'bg-emerald-500'}`} 
+          <div className={`h-full transition-all duration-1000 ${registered ? 'bg-violet-500' : 'bg-emerald-500'}`} 
                style={{ width: `${(localActive / REWARD_DUR) * 100}%` }} />
         </div>
       </button>
@@ -127,12 +127,12 @@ export function CoinBadge({ balance = 0, streak = 1, canClaim, nextClaim = 0, cl
                       {registered ? `Active Reward: 30 Coins` : `Verification Progress (3m)`}
                     </span>
                  </div>
-                 <span className={`text-[9px] font-black italic tabular-nums ${registered ? 'text-cyan-400' : 'text-emerald-400'}`}>
+                 <span className={`text-[9px] font-black italic tabular-nums ${registered ? 'text-violet-400' : 'text-emerald-400'}`}>
                    {Math.floor(localActive / 60)}:{(localActive % 60).toString().padStart(2, '0')}
                  </span>
               </div>
               <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
-                <div className={`h-full rounded-full transition-all duration-1000 ${registered ? 'bg-cyan-500' : 'bg-emerald-500'}`} 
+                <div className={`h-full rounded-full transition-all duration-1000 ${registered ? 'bg-violet-500' : 'bg-emerald-500'}`} 
                      style={{ width: `${(localActive / REWARD_DUR) * 100}%` }} />
               </div>
               <p className="text-[7px] font-black text-white/10 uppercase tracking-[0.2em] text-center italic">Calculated across sessions while active</p>

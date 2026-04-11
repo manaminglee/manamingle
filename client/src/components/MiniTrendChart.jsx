@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const MiniTrendChart = ({ data = [12, 18, 15, 25, 20, 35, 45], color = "#06b6d4" }) => {
+export const MiniTrendChart = ({ data = [12, 18, 15, 25, 20, 35, 45], color = "#a78bfa" }) => {
   const max = Math.max(...data);
   const min = Math.min(...data);
   const range = max - min || 1;
@@ -17,7 +17,7 @@ export const MiniTrendChart = ({ data = [12, 18, 15, 25, 20, 35, 45], color = "#
   return (
     <div className="w-full h-[80px] bg-white/[0.02] border border-white/5 rounded-2xl p-4 relative overflow-hidden group">
       <div className="flex justify-between items-center mb-2 px-1">
-          <span className="text-[8px] font-black uppercase text-white/20 tracking-widest italic group-hover:text-cyan-400 transition-colors">Growth Terminal</span>
+          <span className="text-[8px] font-black uppercase text-white/20 tracking-widest italic group-hover:text-violet-400 transition-colors">Growth Terminal</span>
           <span className="text-[8px] font-black text-emerald-400 uppercase italic animate-pulse">Live Tracking</span>
       </div>
       <svg width="100%" height="40" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="overflow-visible">

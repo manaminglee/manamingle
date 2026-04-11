@@ -61,7 +61,7 @@ const SEARCHING_STATUSES = [
 const MAX_MEDIA_SIZE_MB = 5;
 
 const BlueTick = () => (
-  <span className="inline-flex items-center justify-center w-3 h-3 bg-cyan-500 rounded-full ml-1.5 shadow-[0_0_10px_#06b6d4]">
+  <span className="inline-flex items-center justify-center w-3 h-3 bg-violet-500 rounded-full ml-1.5 shadow-[0_0_10px_#a78bfa]">
     <svg className="w-2 h-2 text-black" fill="currentColor" viewBox="0 0 20 20">
       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
     </svg>
@@ -80,7 +80,7 @@ function MessageSpark({ x, y }) {
       {[...Array(6)].map((_, i) => (
         <div
           key={i}
-          className="absolute w-1 h-1 bg-cyan-400 rounded-full animate-spark"
+          className="absolute w-1 h-1 bg-violet-400 rounded-full animate-spark"
           style={{
             '--tx': `${(Math.random() - 0.5) * 60}px`,
             '--ty': `${(Math.random() - 0.5) * 60}px`,
@@ -143,7 +143,7 @@ function VanishingMessage({ m, isMe, onReply }) {
             )}
             <div className="flex flex-col gap-0.5 mb-1">
               <div className="flex items-center gap-1">
-                <span className={`text-[8px] font-black uppercase tracking-widest ${isMe ? 'text-cyan-400' : 'text-white/40'}`}>
+                <span className={`text-[8px] font-black uppercase tracking-widest ${isMe ? 'text-violet-400' : 'text-white/40'}`}>
                   {m.isCreator ? `@${m.nickname}` : (isMe ? 'You' : m.nickname || 'Stranger')}
                 </span>
                 {m.isCreator && <BlueTick />}
@@ -584,11 +584,11 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#05060b] text-[#f8fafc] font-sans selection:bg-cyan-500/30 selection:text-cyan-200 overflow-hidden relative">
+    <div className="min-h-screen flex flex-col bg-realm-void text-[#f8fafc] font-sans selection:bg-violet-500/30 selection:text-violet-100 overflow-hidden relative">
       {sparks.map(s => <MessageSpark key={s.id} x={s.x} y={s.y} />)}
       {/* SYSTEM BACKGROUND DECOR */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-cyan-500/5 rounded-full blur-[120px]" />
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-violet-500/5 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-500/5 rounded-full blur-[120px]" />
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.03]" />
       </div>
@@ -613,7 +613,7 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <img src="/apple-touch-icon.png" alt="Logo" className="w-8 h-8 object-contain drop-shadow-[0_0_10px_#06b6d4]" />
+          <img src="/apple-touch-icon.png" alt="Logo" className="w-8 h-8 object-contain drop-shadow-[0_0_10px_#a78bfa]" />
           <div className="hidden sm:block">
             <h1 className="text-[10px] font-black uppercase tracking-[0.5em] text-white">Mana Mingle</h1>
             <p className="text-[8px] font-bold text-white/20 uppercase tracking-widest mt-1">
@@ -637,7 +637,7 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
           {status === 'connected' && (
             <button
               onClick={() => setIsTranslatorActive(!isTranslatorActive)}
-              className={`p-2.5 rounded-xl border transition-all ${isTranslatorActive ? 'bg-cyan-500/10 border-cyan-500/50 text-cyan-400' : 'bg-white/5 border-white/5 text-white/30 hover:text-white hover:border-white/20'}`}
+              className={`p-2.5 rounded-xl border transition-all ${isTranslatorActive ? 'bg-violet-500/10 border-violet-500/50 text-violet-400' : 'bg-white/5 border-white/5 text-white/30 hover:text-white hover:border-white/20'}`}
               title="AI Smart Translator"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -656,11 +656,11 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
           {active3dEmoji && (
             <div className="absolute inset-0 pointer-events-none z-[100] flex items-center justify-center overflow-hidden">
                <div className="animate-in-zoom flex flex-col items-center gap-4">
-                  <picture className="drop-shadow-[0_0_30px_rgba(6,182,212,0.4)]">
+                  <picture className="drop-shadow-[0_0_30px_rgba(167,139,250,0.4)]">
                     <source srcSet={active3dEmoji.emoji.url} type="image/webp" />
                     <img src={active3dEmoji.emoji.url} className="w-40 h-40 object-contain" alt="3d" />
                   </picture>
-                  <span className="bg-black/60 backdrop-blur-xl px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/10 text-cyan-400 shadow-2xl">
+                  <span className="bg-black/60 backdrop-blur-xl px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/10 text-violet-400 shadow-2xl">
                     Stranger Sent {active3dEmoji.emoji.char}
                   </span>
                </div>
@@ -680,7 +680,7 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
                     {peer.isCreator && <BlueTick />}
                   </h3>
                   <div className="flex items-center gap-2 mt-1">
-                     <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_5px_#22d3ee]" />
+                     <div className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse shadow-[0_0_5px_#c4b5fd]" />
                      <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">
                        Connected • {String(Math.floor(connectedSecs / 60)).padStart(2, '0')}:{String(connectedSecs % 60).padStart(2, '0')}
                      </span>
@@ -718,11 +718,11 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
           {(status === 'idle' || status === 'searching') && (
             <div className="flex-1 flex flex-col items-center justify-center p-12 text-center gap-8">
               <div className="relative">
-                <div className="w-32 h-32 rounded-[40px] bg-white/[0.02] border border-cyan-500/10 flex items-center justify-center text-5xl relative z-10 animate-pulse-slow shadow-[inset_0_0_40px_rgba(6,182,212,0.05)]">
+                <div className="w-32 h-32 rounded-[40px] bg-white/[0.02] border border-violet-500/10 flex items-center justify-center text-5xl relative z-10 animate-pulse-slow shadow-[inset_0_0_40px_rgba(167,139,250,0.05)]">
                   {status === 'idle' ? '💬' : '🔍'}
                 </div>
-                <div className="absolute inset-[-20px] border border-cyan-500/5 rounded-[60px] animate-spin-slower" />
-                <div className="absolute inset-[-40px] border border-cyan-500/[0.03] rounded-[80px] animate-reverse-spin-slow opacity-50" />
+                <div className="absolute inset-[-20px] border border-violet-500/5 rounded-[60px] animate-spin-slower" />
+                <div className="absolute inset-[-40px] border border-violet-500/[0.03] rounded-[80px] animate-reverse-spin-slow opacity-50" />
               </div>
               <div className="space-y-4 max-w-sm">
                 <h2 className="text-xl font-black italic uppercase tracking-tighter text-white">
@@ -736,9 +736,9 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
               </div>
               {status === 'searching' && (
                 <div className="flex gap-2">
-                   <div className="w-2 h-2 rounded-full bg-cyan-400 animate-bounce" />
-                   <div className="w-2 h-2 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.2s]" />
-                   <div className="w-2 h-2 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.4s]" />
+                   <div className="w-2 h-2 rounded-full bg-violet-400 animate-bounce" />
+                   <div className="w-2 h-2 rounded-full bg-violet-400 animate-bounce [animation-delay:0.2s]" />
+                   <div className="w-2 h-2 rounded-full bg-violet-400 animate-bounce [animation-delay:0.4s]" />
                 </div>
               )}
             </div>
@@ -752,7 +752,7 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
                 <h2 className="text-lg font-black italic uppercase text-rose-400 tracking-tighter">Chat Ended</h2>
                 <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest leading-relaxed">
                    The other person has left.<br />
-                   <span className="text-cyan-400 animate-pulse">Finding a new friend in 2s...</span>
+                   <span className="text-violet-400 animate-pulse">Finding a new friend in 2s...</span>
                 </p>
               </div>
             </div>
@@ -816,14 +816,14 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
               {(status === 'idle') ? (
                 <button
                   onClick={handleStart}
-                  className="flex-1 h-16 rounded-3xl bg-cyan-500 text-black font-black uppercase tracking-[0.3em] italic text-xs hover:bg-white transition-all shadow-[0_0_30px_rgba(6,182,212,0.3)] hover:scale-[1.02] active:scale-[0.98]"
+                  className="flex-1 h-16 rounded-3xl bg-violet-500 text-black font-black uppercase tracking-[0.3em] italic text-xs hover:bg-white transition-all shadow-[0_0_30px_rgba(167,139,250,0.3)] hover:scale-[1.02] active:scale-[0.98]"
                 >
                   Start Chat
                 </button>
               ) : (
                 <button
                   onClick={handleSkip}
-                  className="w-32 h-16 rounded-3xl bg-white/[0.03] border border-white/5 hover:border-cyan-500/40 text-white/40 hover:text-cyan-400 font-black uppercase tracking-widest text-[10px] transition-all italic hover:bg-cyan-500/5 shadow-inner"
+                  className="w-32 h-16 rounded-3xl bg-white/[0.03] border border-white/5 hover:border-violet-500/40 text-white/40 hover:text-violet-400 font-black uppercase tracking-widest text-[10px] transition-all italic hover:bg-violet-500/5 shadow-inner"
                 >
                   {status === 'searching' ? 'Abort' : 'Skip User'}
                 </button>
@@ -831,7 +831,7 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
 
               {status === 'connected' && (
                 <div className="flex-1 relative group">
-                  <div className="absolute inset-0 bg-cyan-500/5 blur-xl group-focus-within:bg-cyan-500/10 transition-all opacity-0 group-focus-within:opacity-100" />
+                  <div className="absolute inset-0 bg-violet-500/5 blur-xl group-focus-within:bg-violet-500/10 transition-all opacity-0 group-focus-within:opacity-100" />
                   <input
                     ref={inputRef}
                     type="text"
@@ -840,13 +840,13 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
                     onKeyDown={(e) => e.key === 'Enter' && sendMsg()}
                     placeholder={isAiGenerating ? 'AI Assistant is thinking...' : 'Type a message...'}
                     disabled={isAiGenerating}
-                    className="w-full h-16 bg-white/[0.03] border border-white/10 focus:border-cyan-500/40 rounded-3xl px-8 text-sm outline-none transition-all placeholder:text-white/10 uppercase font-black tracking-widest backdrop-blur-3xl italic"
+                    className="w-full h-16 bg-white/[0.03] border border-white/10 focus:border-violet-500/40 rounded-3xl px-8 text-sm outline-none transition-all placeholder:text-white/10 uppercase font-black tracking-widest backdrop-blur-3xl italic"
                   />
                   <div className="absolute right-3 top-3 flex items-center gap-2">
                      <button
                         onClick={sendMsg}
                         disabled={!input.trim() || !roomIdRef.current}
-                        className="w-10 h-10 rounded-2xl bg-cyan-500 text-black flex items-center justify-center hover:bg-white transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] disabled:opacity-20"
+                        className="w-10 h-10 rounded-2xl bg-violet-500 text-black flex items-center justify-center hover:bg-white transition-all shadow-[0_0_15px_rgba(167,139,250,0.3)] disabled:opacity-20"
                      >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7-7 7" /></svg>
                      </button>
@@ -866,7 +866,7 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
                         if (balance >= 5) send3dEmoji(EMOJIS_3D.find(e => e.char === emoji) || {char: emoji, url: ''});
                         else socket.emit('send-message', {roomId: roomIdRef.current, text: emoji});
                        }}
-                       className="w-10 h-10 rounded-xl bg-white/[0.02] border border-white/5 hover:border-cyan-500/20 text-lg flex items-center justify-center grayscale hover:grayscale-0 transition-all"
+                       className="w-10 h-10 rounded-xl bg-white/[0.02] border border-white/5 hover:border-violet-500/20 text-lg flex items-center justify-center grayscale hover:grayscale-0 transition-all"
                      >
                        {emoji}
                      </button>
@@ -896,10 +896,10 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
                              ))}
                           </div>
                           
-                          <div className="text-[9px] font-black uppercase tracking-[0.3em] text-cyan-400/40 mb-4">Premium Emojis (5🪙)</div>
+                          <div className="text-[9px] font-black uppercase tracking-[0.3em] text-violet-400/40 mb-4">Premium Emojis (5🪙)</div>
                           <div className="grid grid-cols-4 gap-2">
                              {EMOJIS_3D.map(e => (
-                               <button key={e.char} onClick={() => send3dEmoji(e)} className="w-12 h-12 rounded-xl bg-white/[0.03] border border-white/5 hover:border-cyan-500/40 flex items-center justify-center text-xl transition-all shadow-inner">{e.char}</button>
+                               <button key={e.char} onClick={() => send3dEmoji(e)} className="w-12 h-12 rounded-xl bg-white/[0.03] border border-white/5 hover:border-violet-500/40 flex items-center justify-center text-xl transition-all shadow-inner">{e.char}</button>
                              ))}
                           </div>
                        </div>
@@ -910,7 +910,7 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
                 <button 
                   onClick={generateAiSpark}
                   disabled={isAiGenerating}
-                  className={`px-5 py-2.5 rounded-2xl border transition-all text-[9px] font-black uppercase tracking-widest flex items-center gap-2 ${isAiGenerating ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 animate-pulse' : 'bg-white/5 border-white/5 text-white/30 hover:border-cyan-500/40 hover:text-cyan-400'}`}
+                  className={`px-5 py-2.5 rounded-2xl border transition-all text-[9px] font-black uppercase tracking-widest flex items-center gap-2 ${isAiGenerating ? 'bg-violet-500/10 border-violet-500/30 text-violet-400 animate-pulse' : 'bg-white/5 border-white/5 text-white/30 hover:border-violet-500/40 hover:text-violet-400'}`}
                 >
                   <svg className={`w-3.5 h-3.5 ${isAiGenerating ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                   {isAiGenerating ? 'AI thinking...' : 'AI Icebreaker'}
@@ -943,7 +943,7 @@ export default function TextChat({ socket, connected, country, onlineCount, inte
                 <button 
                   key={label}
                   onClick={() => setShowRating(false)} 
-                  className={`flex-1 py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${idx === 2 ? 'bg-cyan-500 text-black hover:bg-white' : 'bg-white/5 border border-white/5 hover:border-white/20'}`}
+                  className={`flex-1 py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${idx === 2 ? 'bg-violet-500 text-black hover:bg-white' : 'bg-white/5 border border-white/5 hover:border-white/20'}`}
                 >
                   {label}
                 </button>

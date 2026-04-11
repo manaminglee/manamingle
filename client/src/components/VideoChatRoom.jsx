@@ -353,7 +353,7 @@ export function VideoChatRoom({ roomId: roomIdProp, interest, nickname, isCreato
                 {isCreator ? (
                   <div className="flex items-center gap-1.5">
                      <span className="text-sm" title="Verified Creator">⭐</span>
-                     <span className="text-[10px] font-black uppercase tracking-widest text-cyan-400">
+                     <span className="text-[10px] font-black uppercase tracking-widest text-violet-400">
                         {countryToFlag(myCountry) ? `${countryToFlag(myCountry)} ` : ''}{nickname}
                      </span>
                   </div>
@@ -472,7 +472,7 @@ function RemoteVideo({ stream, nickname, country, socketId, isCreator }) {
         {isCreator ? (
           <div className="flex items-center gap-1.5">
              <span className="text-sm" title="Verified Creator">⭐</span>
-             <span className="text-[10px] font-black uppercase tracking-widest text-cyan-400">
+             <span className="text-[10px] font-black uppercase tracking-widest text-violet-400">
                 {flag && <span className="mr-1">{flag}</span>}
                 {nickname || 'Stranger'}
              </span>

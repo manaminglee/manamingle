@@ -65,11 +65,11 @@ export function AgeVerificationGate({ onVerified }) {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#070811] flex items-center justify-center p-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] relative overflow-hidden">
+    <div className="min-h-[100dvh] bg-realm-void flex items-center justify-center p-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] relative overflow-hidden">
       <div className="hero-glow hero-glow-1" />
       <div className="hero-glow hero-glow-2" />
       <div className="gate-card relative z-10 max-w-md w-full">
-        <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-indigo-500/30 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center text-3xl">
+        <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-violet-600/35 to-fuchsia-500/25 border border-violet-400/35 flex items-center justify-center text-3xl shadow-[0_0_28px_rgba(167,139,250,0.2)]">
           🔞
         </div>
         <h2 className="text-2xl font-bold text-white mb-2 text-center">Age Verification</h2>

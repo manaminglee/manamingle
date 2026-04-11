@@ -45,7 +45,7 @@ export function CreatorProfilePopup({ handle, onClose }) {
 
   if (loading) return (
     <div className="p-10 text-center bg-black/80 backdrop-blur-3xl rounded-[40px] border border-white/10 animate-fade-in">
-       <div className="w-12 h-12 border-t-2 border-cyan-400 rounded-full animate-spin mx-auto mb-4" />
+       <div className="w-12 h-12 border-t-2 border-violet-400 rounded-full animate-spin mx-auto mb-4" />
        <p className="text-[10px] font-black uppercase tracking-widest text-white/20">Syncing Identity...</p>
     </div>
   );
@@ -60,25 +60,25 @@ export function CreatorProfilePopup({ handle, onClose }) {
 
   return (
     <div className="p-8 w-full max-w-sm bg-black/90 backdrop-blur-3xl rounded-[45px] border border-white/10 shadow-2xl animate-in-zoom relative overflow-hidden group select-none">
-      <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-50" />
+      <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-transparent opacity-50" />
       <button onClick={onClose} className="absolute top-6 right-8 z-50 text-white/20 hover:text-white transition-all text-xl">✕</button>
       
       <div className="relative z-10 flex flex-col items-center">
         {/* Avatar */}
         <div className="relative mb-6">
-           <div className={`w-24 h-24 rounded-[35px] overflow-hidden border-2 border-white/10 ${creator.avatar_url ? '' : 'bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center'}`}>
+           <div className={`w-24 h-24 rounded-[35px] overflow-hidden border-2 border-white/10 ${creator.avatar_url ? '' : 'bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center'}`}>
              {creator.avatar_url ? (
                <img src={creator.avatar_url} alt={creator.handle_name} className="w-full h-full object-cover" />
              ) : (
                <span className="text-4xl font-black italic text-white/40">{creator.handle_name[0].toUpperCase()}</span>
              )}
            </div>
-           <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-2xl bg-cyan-500 border-4 border-black flex items-center justify-center shadow-lg">
+           <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-2xl bg-violet-500 border-4 border-black flex items-center justify-center shadow-lg">
              <span className="text-[10px]">⭐</span>
            </div>
         </div>
 
-        <h3 className="text-2xl font-black italic uppercase tracking-tighter text-white mb-1 group-hover:text-cyan-400 transition-colors">@{creator.handle_name}</h3>
+        <h3 className="text-2xl font-black italic uppercase tracking-tighter text-white mb-1 group-hover:text-violet-400 transition-colors">@{creator.handle_name}</h3>
         <p className="text-[9px] font-black uppercase tracking-[0.3em] text-white/20 mb-6 italic">{creator.platform}</p>
 
         <div className="grid grid-cols-2 gap-4 w-full mb-8">
@@ -92,13 +92,13 @@ export function CreatorProfilePopup({ handle, onClose }) {
            </div>
         </div>
 
-        {creator.bio && <p className="text-[11px] font-medium text-white/50 text-center mb-8 px-4 leading-relaxed border-l-2 border-cyan-500/20 italic">{creator.bio}</p>}
+        {creator.bio && <p className="text-[11px] font-medium text-white/50 text-center mb-8 px-4 leading-relaxed border-l-2 border-violet-500/20 italic">{creator.bio}</p>}
 
         <div className="flex flex-col gap-3 w-full">
            <button 
              onClick={handleFollow}
              className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all shadow-xl active:scale-95 ${
-               isFollowing ? 'bg-white/10 text-white/20 border border-white/5' : 'bg-cyan-500 text-black hover:bg-white'
+               isFollowing ? 'bg-white/10 text-white/20 border border-white/5' : 'bg-violet-500 text-black hover:bg-white'
              }`}
            >
              {isFollowing ? '✓ Following Signal' : '🔥 Follow Creator'}

@@ -12,7 +12,7 @@ import { playConnectSound, playMessageSound, playDisconnectSound, playWaveSound 
 import { mmDebug } from '../utils/mmDebug';
 
 const BlueTick = () => (
-  <span className="inline-flex items-center justify-center w-3 h-3 bg-cyan-500 rounded-full ml-1.5 shadow-[0_0_10px_#06b6d4]">
+  <span className="inline-flex items-center justify-center w-3 h-3 bg-violet-500 rounded-full ml-1.5 shadow-[0_0_10px_#a78bfa]">
     <svg className="w-2 h-2 text-black" fill="currentColor" viewBox="0 0 20 20">
       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
     </svg>
@@ -39,7 +39,7 @@ function MessageSpark({ x, y }) {
       {[...Array(6)].map((_, i) => (
         <div
           key={i}
-          className="absolute w-1 h-1 bg-cyan-400 rounded-full animate-spark"
+          className="absolute w-1 h-1 bg-violet-400 rounded-full animate-spark"
           style={{
             '--tx': `${(Math.random() - 0.5) * 60}px`,
             '--ty': `${(Math.random() - 0.5) * 60}px`,
@@ -120,7 +120,7 @@ function VideoTile({ stream, label, flag, isMe, isEmpty, isSearching, isCreator 
   }
 
   return (
-    <div className={`video-tile min-h-0 min-w-0 transition-all duration-500 overflow-hidden ${isMe ? 'mirror' : ''} ${isActiveSpeaker ? 'ring-4 ring-cyan-500/40 ring-inset shadow-[0_0_30px_rgba(6,182,212,0.2)] scale-[1.02] z-10' : 'brightness-90 hover:brightness-100'}`}>
+    <div className={`video-tile min-h-0 min-w-0 transition-all duration-500 overflow-hidden ${isMe ? 'mirror' : ''} ${isActiveSpeaker ? 'ring-4 ring-violet-500/40 ring-inset shadow-[0_0_30px_rgba(167,139,250,0.2)] scale-[1.02] z-10' : 'brightness-90 hover:brightness-100'}`}>
       {stream ? (
         <video ref={ref} autoPlay playsInline muted={isMe} className="w-full h-full object-cover" />
       ) : (
@@ -138,7 +138,7 @@ function VideoTile({ stream, label, flag, isMe, isEmpty, isSearching, isCreator 
         </div>
       )}
 
-      <div className={`tile-label flex items-center justify-between gap-4 ${isCreator ? 'border border-cyan-500/30 bg-cyan-950/40 text-cyan-400 font-black tracking-widest' : ''}`}>
+      <div className={`tile-label flex items-center justify-between gap-4 ${isCreator ? 'border border-violet-500/30 bg-violet-950/40 text-violet-400 font-black tracking-widest' : ''}`}>
         <div className="flex items-center gap-1.5">
           {flag && <span className="mr-1">{flag}</span>}
           <span className="truncate max-w-[80px]">{isCreator ? `@${label}` : label}</span>
@@ -155,7 +155,7 @@ function VideoTile({ stream, label, flag, isMe, isEmpty, isSearching, isCreator 
       </div>
 
       {isActiveSpeaker && (
-        <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-500 text-black text-[7px] font-black uppercase tracking-widest animate-pulse shadow-lg">
+        <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-500 text-black text-[7px] font-black uppercase tracking-widest animate-pulse shadow-lg">
           <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" /><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" /></svg>
           Speaking
         </div>
@@ -1197,7 +1197,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
   ) : null;
 
   return (
-    <div className="h-[100dvh] min-h-0 flex flex-col bg-[#05060b] text-white overflow-hidden font-sans select-none selection:bg-indigo-500/30 pt-[env(safe-area-inset-top)]">
+    <div className="h-[100dvh] min-h-0 flex flex-col bg-realm-void text-white overflow-hidden font-sans select-none selection:bg-violet-500/25 pt-[env(safe-area-inset-top)]">
 
       {/* 3D EMOJI OVERLAY */}
       {active3dEmoji && (
@@ -1431,7 +1431,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
     {isCreator && (
       <button
         onClick={isRecording ? stopRecording : startRecording}
-        className={`min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-full transition-all ${isRecording ? 'bg-red-600 animate-pulse' : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'}`}
+        className={`min-w-[44px] min-h-[44px] w-11 h-11 flex items-center justify-center rounded-full transition-all ${isRecording ? 'bg-red-600 animate-pulse' : 'bg-violet-500/20 text-violet-400 border border-violet-500/40'}`}
       >
         {isRecording ? '⏹️' : 'REC'}
       </button>

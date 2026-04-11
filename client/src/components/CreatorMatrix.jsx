@@ -30,8 +30,8 @@ function ReferralQrBlock({ referralCode }) {
       )}
       <div className="flex-1 min-w-0 text-center sm:text-left">
         <div className="text-[9px] font-black uppercase tracking-widest text-white/35 mb-2">Your referral link</div>
-        <p className="text-[10px] text-cyan-300/90 break-all font-mono mb-3">{refUrl}</p>
-        <button type="button" onClick={copy} className="px-4 py-2 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-[10px] font-black uppercase text-cyan-300 hover:bg-cyan-500/30">
+        <p className="text-[10px] text-violet-300/90 break-all font-mono mb-3">{refUrl}</p>
+        <button type="button" onClick={copy} className="px-4 py-2 rounded-xl bg-violet-500/20 border border-violet-500/40 text-[10px] font-black uppercase text-violet-300 hover:bg-violet-500/30">
           {copied ? 'Copied' : 'Copy link'}
         </button>
       </div>
@@ -102,19 +102,19 @@ function CreatorMatrixInner({ creatorStatus, onOpenDashboard, onOpenApply, onOpe
   return (
     <section className="w-full max-w-5xl mx-auto mb-20 sm:mb-24 px-4 sm:px-6 animate-fade-in-up" aria-labelledby="creator-hub-heading">
       <div className="relative rounded-[2rem] sm:rounded-[3rem] overflow-hidden border border-white/[0.08] bg-gradient-to-b from-[#0f1419]/95 via-[#0a0d12] to-black/90 shadow-[0_40px_120px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(6,182,212,0.12),transparent)] pointer-events-none" />
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-400/40 to-transparent" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(167,139,250,0.12),transparent)] pointer-events-none" />
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-400/40 to-transparent" />
 
         <div className="relative z-10 px-6 py-10 sm:px-12 sm:py-14 md:py-16">
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-10 lg:gap-12">
             <div className="flex-1 text-center lg:text-left max-w-xl mx-auto lg:mx-0">
-              <p className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/25 text-[10px] font-black text-cyan-300 uppercase tracking-[0.25em] mb-5">
-                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_12px_#22d3ee]" aria-hidden />
+              <p className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/25 text-[10px] font-black text-violet-300 uppercase tracking-[0.25em] mb-5">
+                <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse shadow-[0_0_12px_#c4b5fd]" aria-hidden />
                 Creator program
               </p>
               <h3 id="creator-hub-heading" className="text-3xl sm:text-4xl md:text-5xl font-black uppercase italic tracking-tight text-white leading-[1.05] mb-4">
                 Turn your audience into{' '}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-cyan-400 to-indigo-400 drop-shadow-[0_0_24px_rgba(34,211,238,0.35)]">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-300 via-violet-400 to-indigo-400 drop-shadow-[0_0_24px_rgba(167,139,250,0.35)]">
                   income
                 </span>
               </h3>
@@ -126,7 +126,7 @@ function CreatorMatrixInner({ creatorStatus, onOpenDashboard, onOpenApply, onOpe
                 <button
                   type="button"
                   onClick={() => (hasAccount ? onOpenDashboard() : onOpenApply())}
-                  className="min-h-[48px] px-8 py-3.5 rounded-2xl bg-white text-black font-black uppercase tracking-[0.15em] text-[11px] shadow-[0_12px_40px_rgba(255,255,255,0.12)] hover:bg-cyan-300 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                  className="min-h-[48px] px-8 py-3.5 rounded-2xl bg-white text-black font-black uppercase tracking-[0.15em] text-[11px] shadow-[0_12px_40px_rgba(255,255,255,0.12)] hover:bg-violet-300 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                 >
                   <span aria-hidden>⭐</span>
                   {hasAccount ? 'Open creator dashboard' : 'Apply as creator'}
@@ -136,7 +136,7 @@ function CreatorMatrixInner({ creatorStatus, onOpenDashboard, onOpenApply, onOpe
                     <button
                       type="button"
                       onClick={onOpenStatus}
-                      className="min-h-[48px] px-6 py-3.5 rounded-2xl bg-white/[0.06] border border-white/10 text-white font-black uppercase tracking-[0.12em] text-[11px] hover:bg-white/10 hover:border-cyan-500/30 transition-all"
+                      className="min-h-[48px] px-6 py-3.5 rounded-2xl bg-white/[0.06] border border-white/10 text-white font-black uppercase tracking-[0.12em] text-[11px] hover:bg-white/10 hover:border-violet-500/30 transition-all"
                     >
                       Check status
                     </button>
@@ -156,7 +156,7 @@ function CreatorMatrixInner({ creatorStatus, onOpenDashboard, onOpenApply, onOpe
               {perks.map((p) => (
                 <li
                   key={p.title}
-                  className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 text-left hover:border-cyan-500/20 hover:bg-cyan-500/[0.04] transition-colors"
+                  className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 text-left hover:border-violet-500/20 hover:bg-violet-500/[0.04] transition-colors"
                 >
                   <span className="text-lg mb-2 block" aria-hidden>{p.icon}</span>
                   <div className="text-[11px] font-black uppercase tracking-wide text-white/90 mb-1">{p.title}</div>
@@ -176,7 +176,7 @@ function CreatorMatrixInner({ creatorStatus, onOpenDashboard, onOpenApply, onOpe
                 <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-black text-amber-200/90">
                   ₹{creatorStatus.earnings_rs || 0} earned
                 </span>
-                <button type="button" onClick={onEditProfile} className="text-[10px] font-black uppercase tracking-widest text-cyan-400/90 hover:text-white underline-offset-4 hover:underline">
+                <button type="button" onClick={onEditProfile} className="text-[10px] font-black uppercase tracking-widest text-violet-400/90 hover:text-white underline-offset-4 hover:underline">
                   Edit profile
                 </button>
                 <button type="button" onClick={onLogout} className="text-[10px] font-black uppercase tracking-widest text-rose-400/80 hover:text-rose-300">

@@ -21,7 +21,7 @@ export const ParticleText = ({ text = "MANA MINGLE", className = "" }) => {
 
       // Draw text to get pixel data
       ctx.fillStyle = 'white';
-      ctx.font = `900 ${isMobile ? '45px' : '70px'} sans-serif`;
+      ctx.font = `800 ${isMobile ? '45px' : '70px'} Syne, Outfit, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(text, canvas.width / 2, canvas.height / 2);
@@ -49,7 +49,7 @@ export const ParticleText = ({ text = "MANA MINGLE", className = "" }) => {
         this.baseX = this.x;
         this.baseY = this.y;
         this.density = (Math.random() * 40) + 5;
-        this.color = '#06b6d4';
+        this.color = '#c4b5fd';
       }
 
       draw() {
@@ -84,7 +84,7 @@ export const ParticleText = ({ text = "MANA MINGLE", className = "" }) => {
             let dy = this.y - this.destY;
             this.y -= dy / 15;
           }
-          this.color = '#06b6d4';
+          this.color = '#c4b5fd';
         }
         
         // Subtle idle animation - DISABLED for mobile thermal safety
@@ -109,8 +109,8 @@ export const ParticleText = ({ text = "MANA MINGLE", className = "" }) => {
       const radius = 35 + pulse + (proximityScale * 15);
       
       const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
-      gradient.addColorStop(0, `rgba(6, 182, 212, ${0.4 + proximityScale * 0.4})`);
-      gradient.addColorStop(0.5, `rgba(99, 102, 241, ${0.1 + proximityScale * 0.2})`);
+      gradient.addColorStop(0, `rgba(192, 132, 252, ${0.4 + proximityScale * 0.4})`);
+      gradient.addColorStop(0.5, `rgba(167, 139, 250, ${0.1 + proximityScale * 0.2})`);
       gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
       
       ctx.fillStyle = gradient;
@@ -119,7 +119,7 @@ export const ParticleText = ({ text = "MANA MINGLE", className = "" }) => {
       ctx.fill();
 
       // Outer ring
-      ctx.strokeStyle = `rgba(6, 182, 212, ${0.1 + proximityScale * 0.3})`;
+      ctx.strokeStyle = `rgba(192, 132, 252, ${0.1 + proximityScale * 0.3})`;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.arc(centerX, centerY, radius + 10, 0, Math.PI * 2);

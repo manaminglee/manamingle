@@ -374,7 +374,7 @@ export function AdminDashboard({ onJoinRoom }) {
 
   if (!isLogged) {
     return (
-      <div className="min-h-screen bg-[#070811] flex items-center justify-center p-6 text-white font-sans">
+      <div className="min-h-screen bg-realm-void flex items-center justify-center p-6 text-white font-sans">
         <div className="max-w-md w-full p-10 rounded-[40px] bg-black border border-white/10 backdrop-blur-3xl shadow-[0_0_100px_rgba(99,102,241,0.2)] animate-in-zoom">
           <div className="flex flex-col items-center mb-8">
             <img src="/apple-touch-icon.png" alt="MM" className="w-20 h-20 mb-6 drop-shadow-[0_0_20px_rgba(6,182,212,0.4)]" />

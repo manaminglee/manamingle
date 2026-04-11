@@ -114,14 +114,14 @@ export function PreloadSplash({ onReady, ready = false, onPreload }) {
 
   return (
     <div
-      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#070811] text-white transition-opacity duration-300 ease-out ${fading ? 'opacity-0' : 'opacity-100'}`}
+      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-realm-void text-white transition-opacity duration-300 ease-out ${fading ? 'opacity-0' : 'opacity-100'}`}
       style={{ animation: !fading && !ready ? 'preload-fade-in 0.4s ease-out' : undefined }}
     >
       {/* Background glow */}
       <div
         className="absolute inset-0 opacity-30"
         style={{
-          background: 'radial-gradient(ellipse 80% 50% at 50% 40%, rgba(99,102,241,0.15), transparent)',
+          background: 'radial-gradient(ellipse 80% 50% at 50% 40%, rgba(167,139,250,0.2), transparent)',
         }}
       />
       <div className="absolute inset-0 overflow-hidden">
@@ -134,14 +134,14 @@ export function PreloadSplash({ onReady, ready = false, onPreload }) {
           <span className="text-4xl font-black text-white">M</span>
         </div>
         <div className="text-center">
-          <h1 className="text-xl font-bold tracking-tight text-white">Mana Mingle</h1>
-          <p className="text-xs mt-1 text-white/40">Anonymous Social Discovery</p>
+          <h1 className="font-display text-xl font-bold tracking-tight text-white">Mana Mingle</h1>
+          <p className="text-xs mt-1 text-violet-200/50">Nocturne Bloom · anonymous discovery</p>
         </div>
 
         {/* Loading bar */}
         <div className="w-48 h-1 rounded-full bg-white/10 overflow-hidden">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-500 ease-out"
+            className="h-full rounded-full bg-gradient-to-r from-violet-600 via-fuchsia-500 to-emerald-400 transition-all duration-500 ease-out"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -160,7 +160,7 @@ export function PreloadSplash({ onReady, ready = false, onPreload }) {
             <button
               type="button"
               onClick={handleSkip}
-              className="text-xs text-white/40 hover:text-indigo-400 transition-colors mt-2"
+              className="text-xs text-white/40 hover:text-violet-300 transition-colors mt-2"
             >
               Continue anyway →
             </button>
