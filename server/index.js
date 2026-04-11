@@ -2009,17 +2009,16 @@ io.on('connection', (socket) => {
     const key = interestKey(interest, mode);
     let room = getRoomByInterestKey(key, true); // Get it even if full
 
-    // If the room exists but is full, put them in queue instead of creating a new one
+    // If the pod for this interest is full, spill into a fresh room with this user as host
+    // (interestToRoom updates to the new room so the next joiners land there).
+    let preferFreshPod = false;
     if (room && room.users.size >= room.maxSize) {
-      if (!groupQueues.has(key)) groupQueues.set(key, []);
-      const q = groupQueues.get(key);
-      q.push({ socketId: socket.id, userData: { id: userData.id, nickname: userData.nickname, country: userData.country, rooms: userData.rooms, isCreator: userData.isCreator } });
-      socket.emit('waiting-in-group-queue', { queuePosition: q.length, interest: room.interest });
-      return;
+      preferFreshPod = true;
+      room = null;
     }
 
     if (room && !canJoinRoom(room)) room = null;
-    if (!room) {
+    if (!room && !preferFreshPod) {
       room = getAnyRoomByMode(mode);
       if (room && !canJoinRoom(room)) room = null;
     }

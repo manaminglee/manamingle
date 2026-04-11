@@ -9,6 +9,7 @@ import { CoinBadge } from './CoinBadge';
 import { ReportSafetyModal } from './ReportSafetyModal';
 import { ensureNotifyPermission, notifyIfBackground } from '../utils/browserNotify';
 import { playConnectSound, playMessageSound, playDisconnectSound, playWaveSound } from '../utils/sounds';
+import { mmDebug } from '../utils/mmDebug';
 
 const BlueTick = () => (
   <span className="inline-flex items-center justify-center w-3 h-3 bg-cyan-500 rounded-full ml-1.5 shadow-[0_0_10px_#06b6d4]">
@@ -624,6 +625,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
 
     pc.oniceconnectionstatechange = () => {
       const state = pc.iceConnectionState;
+      mmDebug('grp-ice', remoteId, state);
       if (state === 'failed' || state === 'disconnected') {
         setReconnectingPeers(prev => new Set(prev).add(remoteId));
         setTimeout(() => {
@@ -1174,7 +1176,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
       });
       if (block && target) socket.emit('block-user', { targetSocketId: target });
     }
-    setToast('🚩 Report submitted. Thank you.');
+    mmDebug('group-report', reason, block);
   };
 
   const reportParticipantPicker = peers.filter((p) => p.socketId !== socket?.id).length > 0 ? (
@@ -1229,11 +1231,11 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
       )}
 
       {/* HEADER: PREMIUM GLASS */}
-      <header className="flex-shrink-0 h-16 sm:h-20 px-4 sm:px-6 flex items-center justify-between border-b border-white/[0.06] bg-black/40 backdrop-blur-2xl z-50">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-black text-lg shadow-lg shadow-indigo-500/20">M</div>
+      <header className="flex-shrink-0 min-h-[4rem] sm:h-20 px-3 sm:px-6 py-2 sm:py-0 flex flex-wrap items-center justify-between gap-x-2 gap-y-2 border-b border-white/[0.06] bg-black/40 backdrop-blur-2xl z-50">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1 basis-[min(100%,12rem)] sm:basis-auto">
+          <div className="w-9 h-9 sm:w-12 sm:h-12 shrink-0 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-black text-base sm:text-lg shadow-lg shadow-indigo-500/20">M</div>
           <div className="min-w-0">
-            <h1 className="text-[11px] sm:text-sm font-black tracking-tighter text-white/90 truncate max-w-[42vw] sm:max-w-none">POD: #{displayInterest}</h1>
+            <h1 className="text-[10px] sm:text-sm font-black tracking-tighter text-white/90 truncate">POD: #{displayInterest}</h1>
             <div className="hidden sm:flex items-center gap-2 mt-0.5">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-[10px] uppercase font-bold tracking-widest text-emerald-500/80">E2EE Secured</span>
@@ -1241,27 +1243,37 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
           </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-1.5 sm:gap-4 flex-wrap justify-end w-full sm:w-auto">
           <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
             <button
+              type="button"
               onClick={() => setViewMode('grid')}
-              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${viewMode === 'grid' ? 'bg-indigo-500 text-white shadow-lg' : 'text-white/40 hover:text-white/60'}`}
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all ${viewMode === 'grid' ? 'bg-indigo-500 text-white shadow-lg' : 'text-white/40 hover:text-white/60'}`}
             >Grid</button>
             <button
+              type="button"
               onClick={() => setViewMode('speaker')}
-              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${viewMode === 'speaker' ? 'bg-indigo-500 text-white shadow-lg' : 'text-white/40 hover:text-white/60'}`}
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all ${viewMode === 'speaker' ? 'bg-indigo-500 text-white shadow-lg' : 'text-white/40 hover:text-white/60'}`}
             >Speaker</button>
           </div>
 
-          <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} registered={registered} currentActiveSeconds={currentActiveSeconds} isCreator={isCreator} />
+          {isCreator && (
+            <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} registered={registered} currentActiveSeconds={currentActiveSeconds} isCreator={isCreator} />
+          )}
           <button type="button" onClick={() => setShowReportModal(true)} className="px-3 sm:px-4 py-2 bg-white/5 border border-white/15 hover:bg-white/10 text-white/80 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all">Report</button>
           <button onClick={handleLeaveRoom} className="px-3 sm:px-4 py-2 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all">Leave</button>
         </div>
       </header>
 
+      {reconnectingPeers.size > 0 && (
+        <div className="shrink-0 px-3 py-2 text-center text-[10px] font-bold uppercase tracking-widest bg-amber-500/10 border-b border-amber-500/20 text-amber-100" role="status">
+          Some peer links are reconnecting — your session stays anonymous.
+        </div>
+      )}
+
       {/* MAIN VIEWPORT */}
       <main className={`flex-1 flex min-h-0 relative ${showChat ? 'max-sm:flex-col' : ''}`}>
-        <div className={`video-grid-container flex-1 min-h-0 bg-black p-1.5 sm:p-4 relative overflow-auto ${viewMode === 'grid' ? 'grid gap-1.5 sm:gap-4 grid-cols-2 grid-rows-2 auto-rows-fr' : 'flex flex-col'}`}>
+        <div className={`video-grid-container flex-1 min-h-0 bg-black p-1.5 sm:p-4 pb-[calc(6.25rem+env(safe-area-inset-bottom))] sm:pb-4 relative overflow-auto ${viewMode === 'grid' ? 'grid gap-2 sm:gap-4 grid-cols-1 min-[420px]:grid-cols-2 min-[420px]:grid-rows-2 auto-rows-[minmax(100px,1fr)] min-[420px]:auto-rows-fr' : 'flex flex-col'}`}>
           <SecurityShield />
           {isRecording && <RecordingIndicator />}
 
@@ -1319,7 +1331,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
 
         {/* CHAT PANEL */}
         {showChat && (
-          <aside className="max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-[36%] max-sm:z-[70] max-sm:max-h-[48vh] max-sm:rounded-t-2xl max-sm:border max-sm:border-white/10 w-full sm:w-80 sm:max-w-[85vw] sm:h-full bg-[#0a0c16]/95 backdrop-blur-3xl sm:border-l border-white/10 flex flex-col z-[60] animate-slide-left shadow-[0_-8px_40px_rgba(0,0,0,0.5)]">
+          <aside className="z-[60] max-sm:z-[160] max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-[32%] max-sm:max-h-[52vh] max-sm:rounded-t-2xl max-sm:border max-sm:border-white/10 w-full sm:w-80 sm:max-w-[85vw] sm:h-full bg-[#0a0c16]/95 backdrop-blur-3xl sm:border-l border-white/10 flex flex-col animate-slide-left shadow-[0_-8px_40px_rgba(0,0,0,0.5)] max-sm:pb-[env(safe-area-inset-bottom)]">
             <div className="p-4 border-b border-white/5 flex items-center justify-between">
               <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Pod Chat</span>
               <button onClick={() => setShowChat(false)} className="text-white/20 hover:text-white">✕</button>
@@ -1354,11 +1366,13 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
         )}
       </main>
 
-      {/* EMOJI & SPECIAL ACTIONS BAR */ }
+      {/* Creator: paid 3D emoji + rename pod */}
+      {isCreator && (
       <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] sm:bottom-24 left-1/2 -translate-x-1/2 flex max-w-[96vw] overflow-x-auto items-center gap-1.5 p-1.5 rounded-2xl bg-black/40 border border-white/5 backdrop-blur-3xl z-[140] animate-fade-in [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
     {EMOJIS_3D.map(e => (
       <button
         key={e.char}
+        type="button"
         onClick={() => {
           if (balance < 5) return alert("Requires 5 Mana (Coins)");
           socket.emit('send-3d-emoji', { emoji: e, roomId: roomIdProp || roomIdRef.current });
@@ -1371,6 +1385,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
     ))}
     <div className="w-[1px] h-6 bg-white/10 mx-1" />
     <button
+      type="button"
       onClick={() => {
         setRenameInput(displayInterest);
         setShowRenameModal(true);
@@ -1381,6 +1396,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
       ✎
     </button>
   </div>
+      )}
 
   {/* BOTTOM CONTROL BAR — min 44px tap targets, safe-area for notched phones */ }
   <footer className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] sm:bottom-6 left-1/2 -translate-x-1/2 flex max-w-[100vw] flex-wrap items-center justify-center gap-2 sm:gap-4 px-3 sm:px-4 py-3 rounded-full bg-black/60 border border-white/10 backdrop-blur-2xl shadow-2xl z-[150]">
@@ -1473,6 +1489,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
         onClose={() => setShowReportModal(false)}
         onSubmit={submitGroupReport}
         prepend={reportParticipantPicker}
+        title="Report (anonymous)"
       />
 
       {toast && (

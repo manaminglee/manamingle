@@ -52,6 +52,8 @@ const MODALS = {
 };
 
 const COMMUNITY_POLICY_KEY = 'mm_community_policy_video';
+/** Local-only interest bundles for anonymous users (never sent as an account profile) */
+const MM_INTEREST_PRESETS_KEY = 'mm_anon_interest_presets_v1';
 
 const INSIGHTS = [
   "Trending now: Retro music enthusiasts in EU regions.",
@@ -102,10 +104,6 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showDashboardModal, setShowDashboardModal] = useState(false);
-  const [showGroupBrowser, setShowGroupBrowser] = useState(false);
-  const [browserMode, setBrowserMode] = useState('group_video');
-  const [browserRooms, setBrowserRooms] = useState([]);
-  const [isBrowserFetching, setIsBrowserFetching] = useState(false);
   const [customRoomName, setCustomRoomName] = useState('');
   const [rotatingPlaceholder] = useState(() => {
     const picks = ['anime', 'movies', 'politics', 'music', 'gaming', 'tech', 'dating', 'fashion', 'sport', 'cars'];
@@ -122,6 +120,16 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
   const [pendingVideoMode, setPendingVideoMode] = useState(null);
   const { creatorStatus, registerCreator, verifyReferral, requestWithdrawal, login, checkStatus, reRequestApproval, updateProfile } = useCreators();
   const startRef = useRef(null);
+  const [interestPresets, setInterestPresets] = useState([]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(MM_INTEREST_PRESETS_KEY);
+      if (raw) setInterestPresets(JSON.parse(raw));
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   // Helper to show an alert-dialog
   const showAlert = (title, body) => new Promise(resolve => {
@@ -201,23 +209,10 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
     };
     socket.on('creator-status-changed', handler);
 
-    const onList = (data) => {
-      setBrowserRooms(data.rooms || []);
-      setIsBrowserFetching(false);
-    };
-    socket.on('group-rooms-list', onList);
-
     return () => {
       socket.off('creator-status-changed', handler);
-      socket.off('group-rooms-list', onList);
     };
   }, [socket, uniqueAccessCode, waitingForApproval]);
-
-  const refreshBrowser = (modeArg) => {
-    if (!socket) return;
-    setIsBrowserFetching(true);
-    socket.emit('list-group-rooms', { mode: modeArg || browserMode });
-  };
 
   const addInterest = (interestArg) => {
     if (!interestArg) return;
@@ -227,6 +222,32 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
   };
 
   const removeInterest = (id) => setInterests(interests.filter(idArg => idArg.id !== id));
+
+  const saveAnonymousInterestBundle = () => {
+    if (interests.length === 0) {
+      showAlert('Add topics first', 'Pick at least one interest, then save a quick bundle. Still 100% anonymous.');
+      return;
+    }
+    const entry = {
+      id: `anon_${Date.now()}`,
+      label: `Bundle ${interestPresets.length + 1}`,
+      items: interests.map((i) => ({ id: i.id, label: i.label })),
+    };
+    const next = [...interestPresets, entry].slice(-5);
+    setInterestPresets(next);
+    try {
+      localStorage.setItem(MM_INTEREST_PRESETS_KEY, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+    showAlert('Saved on this device', 'No account needed. Clear site data to remove bundles.');
+  };
+
+  const loadAnonymousInterestBundle = (presetId) => {
+    const p = interestPresets.find((x) => x.id === presetId);
+    if (!p) return;
+    setInterests(p.items.map((x) => INTERESTS.find((i) => i.id === x.id) || { id: x.id, label: x.label || x.id }));
+  };
 
   const getAiSuggestions = async () => {
     if (isSuggesting) return;
@@ -264,9 +285,11 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
       }
     }
     if (mode === 'group_video' || mode === 'group_text') {
-      setBrowserMode(mode);
-      setShowGroupBrowser(true);
-      refreshBrowser(mode);
+      setScanning(true);
+      setTimeout(() => {
+        onJoin(interests.length === 0 ? 'general' : interests.map(i => i.label || i).join(', '), 'Anonymous', mode);
+        setScanning(false);
+      }, 600);
       return;
     }
     setScanning(true);
@@ -481,11 +504,44 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                     {interests.map(i => (
                       <div key={i.id} className="flex items-center gap-2 bg-cyan-400 text-black px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest shadow-[0_0_15px_#06b6d440]">
                         {i.label}
-                        <button onClick={() => removeInterest(i.id)} className="hover:scale-125 transition-transform">✕</button>
+                        <button type="button" onClick={() => removeInterest(i.id)} className="hover:scale-125 transition-transform">✕</button>
                       </div>
                     ))}
                   </div>
                 )}
+
+                <div className="mt-6 flex flex-col sm:flex-row flex-wrap items-center justify-center gap-2 w-full px-1">
+                  <button
+                    type="button"
+                    onClick={saveAnonymousInterestBundle}
+                    className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-white/50 hover:text-cyan-400 hover:border-cyan-500/30 transition-colors"
+                  >
+                    Save topic bundle (this device)
+                  </button>
+                  {interestPresets.length > 0 && (
+                    <label className="flex items-center gap-2 text-[9px] text-white/40 font-bold uppercase tracking-widest">
+                      <span>Load</span>
+                      <select
+                        aria-label="Load saved topic bundle"
+                        className="rounded-lg bg-black/50 border border-white/10 px-2 py-1.5 text-white text-[10px] max-w-[11rem]"
+                        defaultValue=""
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v) loadAnonymousInterestBundle(v);
+                          e.target.value = '';
+                        }}
+                      >
+                        <option value="">Saved bundles…</option>
+                        {interestPresets.map((p) => (
+                          <option key={p.id} value={p.id}>{p.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                </div>
+                <p className="text-[8px] text-white/20 mt-2 text-center max-w-md leading-relaxed">
+                  Bundles stay in your browser only — anonymous, no profile on our servers.
+                </p>
               </div>
             </div>
           </section>
@@ -1409,96 +1465,6 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                 onClick={saveProfile}
                 className="w-full h-16 bg-cyan-500 text-black font-black uppercase tracking-widest text-[11px] rounded-2xl hover:bg-white hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-cyan-500/20"
               >Save Identity →</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* GROUP BROWSER MODAL */}
-      {showGroupBrowser && (
-        <div className="fixed inset-0 z-[4000] flex items-center justify-center p-4 sm:p-8 bg-black/95 backdrop-blur-3xl animate-in-zoom" onClick={() => setShowGroupBrowser(false)}>
-          <div className="relative w-full max-w-4xl bg-[#0a0a0a] border border-white/10 rounded-[50px] overflow-hidden flex flex-col max-h-[85vh] shadow-[0_0_120px_rgba(129,140,248,0.15)]" onClick={e => e.stopPropagation()}>
-            <div className="p-8 sm:p-12 pb-6 border-b border-white/[0.05]">
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                  <h3 className="text-3xl font-black italic uppercase tracking-tighter text-white">Join the <span className="text-cyan-400">Realm.</span></h3>
-                  <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.4em] mt-2">Active {browserMode === 'group_video' ? 'Video' : 'Text'} Hubs</p>
-                </div>
-                <button onClick={() => setShowGroupBrowser(false)} className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white hover:text-black transition-all">✕</button>
-              </div>
-
-              {/* CREATE ACTION */}
-              <div className="flex flex-col gap-4">
-                <button
-                  onClick={() => {
-                    onJoin('general', 'Anonymous', browserMode);
-                    setShowGroupBrowser(false);
-                  }}
-                  className="w-full h-16 bg-indigo-600 text-white text-xs font-black uppercase tracking-[0.4em] rounded-[2rem] hover:bg-white hover:text-black transition-all active:scale-95 shadow-2xl flex items-center justify-center gap-4 group"
-                >
-                  <span className="group-hover:translate-x-2 transition-transform">Start Instant Realm →</span>
-                </button>
-                <div className="flex items-center gap-3 px-4">
-                  <div className="flex-1 h-[1px] bg-white/5" />
-                  <span className="text-[10px] font-black uppercase text-white/20 tracking-widest italic">Live Global Sessions</span>
-                  <div className="flex-1 h-[1px] bg-white/5" />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-8 sm:p-12 space-y-4 custom-scrollbar">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-[9px] font-black text-white/20 uppercase tracking-[0.4em]">Available Sessions</h4>
-                <button
-                  onClick={() => refreshBrowser()}
-                  disabled={isBrowserFetching}
-                  className={`text-[9px] font-black uppercase text-cyan-400/60 hover:text-cyan-400 transition-colors flex items-center gap-2 ${isBrowserFetching ? 'animate-pulse' : ''}`}
-                >
-                  <span className={isBrowserFetching ? 'animate-spin' : ''}>⏳</span> Refresh Broadcasts
-                </button>
-              </div>
-
-              {browserRooms.length === 0 && !isBrowserFetching && (
-                <div className="py-20 text-center opacity-30 italic font-medium text-sm">
-                  No active realms found. Be the first to manifest one.
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {browserRooms.map(room => (
-                  <div key={room.id} className="p-6 rounded-3xl bg-white/[0.02] border border-white/5 flex flex-col justify-between group hover:border-cyan-500/30 transition-all">
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="px-3 py-1 bg-white/5 rounded-lg text-[8px] font-black text-white/40 uppercase tracking-widest">ID: {room.id.slice(-6)}</span>
-                        <span className={`text-[8px] font-black uppercase tracking-widest ${room.isFull ? 'text-amber-500' : 'text-emerald-500'}`}>
-                          {room.isFull ? 'FULL / QUEUING' : 'OPEN'}
-                        </span>
-                      </div>
-                      <h4 className="text-xl font-black italic text-white/90 truncate uppercase tracking-tighter">#{room.interest}</h4>
-                      <div className="mt-4 flex items-center gap-3">
-                        <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
-                          <div className={`h-full transition-all duration-700 ${room.isFull ? 'bg-amber-500' : 'bg-cyan-500'}`} style={{ width: `${(room.participantCount / room.maxSize) * 100}%` }} />
-                        </div>
-                        <span className="text-[10px] font-black text-white/30 tabular-nums">{room.participantCount}/{room.maxSize}</span>
-                      </div>
-                      {room.queueLength > 0 && (
-                        <p className="text-[8px] font-black text-amber-500/40 uppercase tracking-widest mt-2">⚡ {room.queueLength} Strangers in Queue</p>
-                      )}
-                    </div>
-
-                    <button
-                      onClick={() => { onJoin(room.interest, 'Anonymous', room.mode, room.id); setShowGroupBrowser(false); }}
-                      className={`mt-8 w-full py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${room.isFull ? 'bg-white/5 border border-white/10 text-white/40 hover:bg-amber-500 hover:text-black' : 'bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 hover:bg-cyan-500 hover:text-black'}`}
-                    >
-                      {room.isFull ? 'Join Queue →' : 'Initialize Join →'}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="px-12 py-6 bg-white/[0.02] border-t border-white/[0.05] italic text-[9px] text-white/10 uppercase tracking-widest text-center">
-              Realm connectivity is facilitated via P2P mesh architecture. Stay vigilant.
             </div>
           </div>
         </div>

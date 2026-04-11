@@ -279,9 +279,11 @@ export default function App() {
       {!preloadDone && (
         <PreloadSplash ready={connected} onReady={handlePreloadReady} />
       )}
-      <Suspense fallback={<LoadingFallback />}>
-        {renderContent()}
-      </Suspense>
+      <div className="relative flex min-h-0 w-full max-w-[100vw] flex-1 flex-col overflow-x-hidden">
+        <Suspense fallback={<LoadingFallback />}>
+          {renderContent()}
+        </Suspense>
+      </div>
 
       <GlobalParticles />
       {contentFlagged && (
