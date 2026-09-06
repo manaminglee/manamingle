@@ -29,7 +29,15 @@ export default defineConfig({
         manualChunks(id) {
           if (!id.includes('node_modules')) return;
           if (id.includes('three')) return 'vendor-three';
-          if (id.includes('react-dom') || id.includes('node_modules/react/')) return 'vendor-react';
+          // Keep React + scheduler + Framer Motion together — avoids vendor ↔ vendor-react circular chunks.
+          if (
+            id.includes('react-dom') ||
+            id.includes('node_modules/react/') ||
+            id.includes('scheduler') ||
+            id.includes('framer-motion') ||
+            id.includes('motion-dom') ||
+            id.includes('motion-utils')
+          ) return 'vendor-react';
           if (id.includes('react-turnstile')) return 'vendor-turnstile';
           if (id.includes('livekit')) return 'vendor-livekit';
           if (id.includes('@mediapipe')) return 'vendor-mediapipe';

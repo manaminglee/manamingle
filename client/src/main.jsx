@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { BootScreen } from './components/BootScreen';
 import { isChunkLoadError } from './utils/lazyRetry';
 import './index.css';
 
@@ -53,11 +54,7 @@ class ErrorBoundary extends React.Component {
       }
 
       if (this.state.reloading) {
-        return (
-          <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#07060f', color: '#c084fc', fontFamily: 'system-ui,sans-serif', padding: 24, textAlign: 'center' }}>
-            <p>App updated — reloading…</p>
-          </div>
-        );
+        return <BootScreen hint="Updating" />;
       }
 
       return (
@@ -105,11 +102,7 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
   }).catch(() => {});
 }
 
-const bootFallback = (
-  <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#07060f', color: '#c084fc', fontFamily: 'system-ui,sans-serif', fontSize: 14 }}>
-    Loading Helloooo…
-  </div>
-);
+const bootFallback = <BootScreen hint="Loading" />;
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -124,3 +117,9 @@ createRoot(document.getElementById('root')).render(
     </ErrorBoundary>
   </React.StrictMode>
 );
+
+try {
+  window.__HELLOOOO_MOUNTED__?.();
+} catch {
+  /* ignore */
+}

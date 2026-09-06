@@ -1,5 +1,5 @@
 /* Helloooo PWA — static cache, offline shell, web push */
-const CACHE = 'helloooo-static-v17';
+const CACHE = 'helloooo-static-v18';
 const OFFLINE = '/index.html';
 
 const offlineResponse = () => new Response('Offline', {
@@ -71,7 +71,7 @@ function canCacheAsset(pathname, contentType) {
   return false;
 }
 
-async function cacheFirstAsset(req) {
+async function networkFirstAsset(req) {
   try {
     const res = await fetch(req);
     const type = res.headers.get('content-type') || '';
@@ -110,5 +110,5 @@ self.addEventListener('fetch', (e) => {
 
   if (!url.pathname.match(/\.(js|css|woff2?|png|jpg|jpeg|svg|ico|webp|json|webmanifest)$/i)) return;
 
-  e.respondWith(cacheFirstAsset(req));
+  e.respondWith(networkFirstAsset(req));
 });

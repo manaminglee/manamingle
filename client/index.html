@@ -112,6 +112,7 @@
     ]
   }
   </script>
+  <link rel="stylesheet" href="/boot-loader.css" />
 </head>
 
 <body>
@@ -123,18 +124,63 @@
     </div>
   </noscript>
   <div id="root">
-    <div id="boot-fallback" style="min-height:100dvh;display:flex;align-items:center;justify-content:center;background:#07060f;color:#c084fc;font-family:system-ui,sans-serif;font-size:14px;">
-      Loading Helloooo…
+    <div id="boot-fallback" class="boot-screen" role="status" aria-live="polite" aria-label="Helloooo loading">
+      <div class="boot-screen__ring" aria-hidden="true">
+        <div class="boot-screen__orbit"></div>
+        <div class="boot-screen__orbit boot-screen__orbit--inner"></div>
+        <div class="boot-screen__core">
+          <img class="boot-screen__logo" src="/helloooo-logo.png" alt="" width="40" height="40" decoding="async" />
+        </div>
+      </div>
+      <p class="boot-screen__brand">
+        <span class="boot-screen__brand-hell">Hell</span><span class="boot-screen__brand-o">oooo</span>
+      </p>
+      <p class="boot-screen__hint">
+        Loading
+        <span class="boot-screen__dots" aria-hidden="true"><span></span><span></span><span></span></span>
+      </p>
     </div>
   </div>
   <script>
-    window.addEventListener('error', function (e) {
-      var t = e.target;
-      if (t && t.tagName === 'SCRIPT' && t.src && t.src.indexOf('/assets/') !== -1) {
+    (function () {
+      var mounted = false;
+      window.__HELLOOOO_MOUNTED__ = function () { mounted = true; };
+
+      function bootFail(reason) {
+        if (mounted) return;
         var el = document.getElementById('boot-fallback') || document.getElementById('root');
-        if (el) el.innerHTML = '<div style="min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#07060f;color:#fff;font-family:system-ui,sans-serif;padding:24px;text-align:center;gap:12px;"><p style="color:#f87171;font-weight:600;">App failed to load.</p><p style="color:#94a3b8;font-size:13px;max-width:320px;">Cached files may be outdated. Hard refresh (Ctrl+Shift+R) or clear site data for helloooo.site.</p><button onclick="location.reload(true)" style="margin-top:8px;padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#c084fc,#2563eb);color:#fff;font-weight:600;cursor:pointer;">Reload</button></div>';
+        if (!el) return;
+        el.innerHTML =
+          '<div style="min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#07060f;color:#fff;font-family:system-ui,sans-serif;padding:24px;text-align:center;gap:12px;">' +
+          '<p style="color:#f87171;font-weight:600;margin:0;">App failed to load</p>' +
+          '<p style="color:#94a3b8;font-size:13px;max-width:340px;margin:0;line-height:1.5;">' +
+          (reason === 'timeout'
+            ? 'Helloooo is taking too long. Your browser may have cached an old version — try a hard refresh.'
+            : 'Cached files may be outdated after an update. Hard refresh (Ctrl+Shift+R) or clear site data for helloooo.site.') +
+          '</p>' +
+          '<button type="button" onclick="location.reload()" style="margin-top:8px;padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#c084fc,#2563eb);color:#fff;font-weight:600;cursor:pointer;">Reload</button>' +
+          '</div>';
       }
-    }, true);
+
+      window.addEventListener('error', function (e) {
+        var t = e.target;
+        if (t && t.tagName === 'SCRIPT' && t.src && t.src.indexOf('/assets/') !== -1) {
+          bootFail('script');
+          return;
+        }
+        if (!mounted && e.message && !e.message.includes('ResizeObserver')) {
+          bootFail('runtime');
+        }
+      }, true);
+
+      window.addEventListener('unhandledrejection', function () {
+        if (!mounted) bootFail('module');
+      });
+
+      setTimeout(function () {
+        if (!mounted && document.getElementById('boot-fallback')) bootFail('timeout');
+      }, 15000);
+    })();
   </script>
   <script type="module" src="/src/main.jsx"></script>
 </body>
