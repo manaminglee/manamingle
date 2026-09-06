@@ -66,6 +66,8 @@ export default function HpPartnerSheet({
 }) {
   const [lives, setLives] = useState([]);
   const [busy, setBusy] = useState('');
+  const [queueBusy, setQueueBusy] = useState(false);
+  const [queuePos, setQueuePos] = useState(null);
   const [invite, setInvite] = useState(null);       // incoming
   const [outgoing, setOutgoing] = useState(null);   // waiting on their answer
   const [declined, setDeclined] = useState(null);
@@ -139,6 +141,24 @@ export default function HpPartnerSheet({
     const t = setTimeout(() => setDeclined(null), 5000);
     return () => clearTimeout(t);
   }, [declined]);
+
+  const joinQueue = () => {
+    if (!socket || !liveId) return;
+    setQueueBusy(true);
+    socket.emit('live:battle-queue-join', { liveId }, (res) => {
+      setQueueBusy(false);
+      if (res?.matched) {
+        setQueuePos(null);
+        onClose?.();
+      } else if (res?.ok) {
+        setQueuePos(res.position || 1);
+      }
+    });
+  };
+
+  const leaveQueue = () => {
+    socket?.emit('live:battle-queue-leave', { liveId }, () => setQueuePos(null));
+  };
 
   const inviteHost = (target) => {
     setBusy(target.id);
@@ -260,7 +280,24 @@ export default function HpPartnerSheet({
                 <MmIcon name="close" size={14} />
               </button>
             </header>
-            <p className="live-hp-sheet__hint">Invite a live creator to a 7-minute gift battle.</p>
+            <p className="live-hp-sheet__hint">Invite a live creator or find a random opponent for a 7-minute gift battle.</p>
+            <div className="live-hp-sheet__queue">
+              {queuePos ? (
+                <>
+                  <span>In matchmaking queue · position {queuePos}</span>
+                  <button type="button" className="live-btn" onClick={leaveQueue}>Leave queue</button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="live-btn live-btn--primary"
+                  disabled={queueBusy || !!battle?.status}
+                  onClick={joinQueue}
+                >
+                  {queueBusy ? 'Finding…' : 'Find random opponent'}
+                </button>
+              )}
+            </div>
             {battle?.status === 'active' && (
               <div className="live-hp-sheet__active">
                 Battle live · {battle.handleA} vs {battle.handleB}

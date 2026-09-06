@@ -437,7 +437,15 @@ function registerDmChat(app, io, deps = {}) {
         } catch (e) { console.warn('[dmChat] signed upload url failed:', e.message); }
       }
 
-      // Fallback: no storage configured — client compresses and sends a data URL.
+      // Production: require Supabase storage — no inline data URLs in DB rows.
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(503).json({
+          ok: false,
+          error: 'DM image storage is not configured. Set up the dm-media bucket.',
+        });
+      }
+
+      // Dev fallback: client compresses and sends a data URL inline.
       res.json({
         ok: true,
         mode: 'data-url',

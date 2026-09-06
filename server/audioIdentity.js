@@ -25,6 +25,9 @@ const WEAK_PINS = new Set([
 function registerAudioIdentity(app, io, deps) {
   const { saveLocalDb, localDb, audit, supabase, getCreatorForRequest } = deps;
 
+  /** Optional: fold IP guest coins into audio wallet on sign-in. */
+  let migrateGuestWallet = null;
+
   /* "Remember this device" — audio rooms and lives share this identity, and
      both handle real money, so the PIN is proven once and then a rotating,
      hashed device credential keeps the person signed in. */
@@ -494,6 +497,9 @@ function registerAudioIdentity(app, io, deps) {
     registerPinFingerprint(key, pinStr);
     await persist(key, { registerIp: ip });
     await journalLedger(key, 25, 'registration_bonus', rec.coins, { ip });
+    if (typeof migrateGuestWallet === 'function') {
+      try { await migrateGuestWallet(ip, key); } catch { /* best-effort */ }
+    }
     const token = createSession(key, ip);
     audit?.('audio_identity_register', { username: name, ip });
     return { ok: true, token, identity: publicView(rec) };
@@ -517,6 +523,9 @@ function registerAudioIdentity(app, io, deps) {
     const ok = verifyPin(pinStr, rec);
     if (!ok) return { ok: false, error: 'Wrong PIN.' };
     await persist(key, { loginIp: ip });
+    if (typeof migrateGuestWallet === 'function') {
+      try { await migrateGuestWallet(ip, key); } catch { /* best-effort */ }
+    }
     const token = createSession(key, ip);
     audit?.('audio_identity_login', { username: rec.username, ip });
     return { ok: true, token, identity: publicView(rec) };
@@ -543,6 +552,37 @@ function registerAudioIdentity(app, io, deps) {
       await persist(usernameKey);
       await journalLedger(usernameKey, delta, reason, rec.coins, meta);
       return { ok: true, balance: rec.coins, identity: publicView(rec), meta };
+    });
+  }
+
+  /**
+   * Credit a coin pack, applying the first-purchase bonus if this wallet has
+   * never recharged before.
+   *
+   * `coinsRecharged` is already the lifetime recharge total, so it is the
+   * first-purchase signal — no extra flag to keep in sync. Reading it and
+   * writing the credit inside ONE lock is what makes the bonus unfarmable: two
+   * checkouts completing at the same instant cannot both see a zero.
+   */
+  async function creditCoinPack(usernameKey, amount, reason, meta = {}, bonusOf = null) {
+    return withLock(`audio:${usernameKey}`, async () => {
+      await ensureHydrated();
+      const rec = identities.get(usernameKey);
+      if (!rec) return { ok: false, error: 'Identity not found' };
+      const base = Math.floor(Number(amount));
+      if (!Number.isFinite(base) || base <= 0) return { ok: false, error: 'Invalid amount' };
+
+      const firstBuy = (rec.coinsRecharged || 0) === 0;
+      const bonus = firstBuy && typeof bonusOf === 'function' ? Math.max(0, Math.floor(bonusOf(base))) : 0;
+      const delta = base + bonus;
+
+      rec.coins += delta;
+      rec.coinsRecharged += delta;
+      rec.xp += delta;
+      rec.peakXp = Math.max(rec.peakXp, rec.xp);
+      await persist(usernameKey);
+      await journalLedger(usernameKey, delta, reason, rec.coins, { ...meta, bonus, firstBuy });
+      return { ok: true, balance: rec.coins, identity: publicView(rec), credited: delta, bonus, firstBuy, meta };
     });
   }
 
@@ -798,9 +838,11 @@ function registerAudioIdentity(app, io, deps) {
     credit,
     debit,
     giftXp,
+    creditCoinPack,
     recordPayment,
     getByUsername,
     getSession,
+    sessionFromToken: getSession,
     attachToSocket,
     resolveWalletKey,
     publicView,
@@ -810,6 +852,7 @@ function registerAudioIdentity(app, io, deps) {
     ensureFromCreator,
     createSession,
     deviceTrust,
+    setMigrateGuestWallet(fn) { migrateGuestWallet = fn; },
   };
 }
 

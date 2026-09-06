@@ -1,5 +1,6 @@
-/* Helloooo - Service Worker (static assets only) */
-const CACHE = 'helloooo-static-v16';
+/* Helloooo PWA — static cache, offline shell, web push */
+const CACHE = 'helloooo-static-v17';
+const OFFLINE = '/index.html';
 
 const offlineResponse = () => new Response('Offline', {
   status: 503,
@@ -7,15 +8,56 @@ const offlineResponse = () => new Response('Offline', {
   headers: { 'Content-Type': 'text/plain; charset=utf-8' },
 });
 
-self.addEventListener('install', () => {
+self.addEventListener('install', (e) => {
+  e.waitUntil(
+    caches.open(CACHE).then((cache) => cache.add(OFFLINE).catch(() => {}))
+  );
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+    caches.keys().then((keys) => Promise.all(
+      keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))
+    )).then(() => self.clients.claim())
   );
-  self.clients.claim();
+});
+
+self.addEventListener('message', (e) => {
+  if (e.data?.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
+self.addEventListener('push', (e) => {
+  let data = { title: 'Helloooo', body: 'Something new is happening', url: '/live' };
+  try {
+    if (e.data) data = { ...data, ...e.data.json() };
+  } catch { /* plain text */ }
+  e.waitUntil(
+    self.registration.showNotification(data.title || 'Helloooo', {
+      body: data.body || '',
+      icon: '/helloooo-logo.png',
+      badge: '/favicon.png',
+      tag: data.tag || 'helloooo',
+      data: { url: data.url || '/live' },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = e.notification.data?.url || '/live';
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const c of list) {
+        if ('focus' in c) {
+          c.navigate(url);
+          return c.focus();
+        }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(url);
+      return null;
+    })
+  );
 });
 
 function canCacheAsset(pathname, contentType) {
@@ -61,12 +103,12 @@ self.addEventListener('fetch', (e) => {
   if (req.mode === 'navigate' || url.pathname === '/' || url.pathname.endsWith('.html')) {
     e.respondWith(
       fetch(req)
-        .catch(async () => (await caches.match('/index.html')) || offlineResponse())
+        .catch(async () => (await caches.match(OFFLINE)) || offlineResponse())
     );
     return;
   }
 
-  if (!url.pathname.match(/\.(js|css|woff2?|png|jpg|jpeg|svg|ico|webp)$/i)) return;
+  if (!url.pathname.match(/\.(js|css|woff2?|png|jpg|jpeg|svg|ico|webp|json|webmanifest)$/i)) return;
 
   e.respondWith(cacheFirstAsset(req));
 });

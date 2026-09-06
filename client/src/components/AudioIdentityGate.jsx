@@ -10,6 +10,7 @@ import {
 } from '../utils/audioNameStyle';
 import { openRazorpayCoinCheckout } from '../utils/paymentCheckout';
 import { VirtualMarketRateChip } from './VirtualMarketPanel';
+import { NutsSymbol } from './NutsSymbol';
 
 function UsernameMirrorPreview({ username, nameColor }) {
   const display = username.trim() || 'YourName';
@@ -324,7 +325,10 @@ export function AudioName({ member, className = '' }) {
   );
 }
 
-export function AudioCoinShop({ open, onClose, identity, onBalanceUpdate }) {
+/** Indian digit grouping — the market this ladder is priced for. */
+const inr = (n) => Number(n || 0).toLocaleString('en-IN');
+
+export function AudioCoinShop({ open, onClose, identity, onBalanceUpdate, shortfall = 0 }) {
   const [packages, setPackages] = useState([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
@@ -396,27 +400,69 @@ export function AudioCoinShop({ open, onClose, identity, onBalanceUpdate }) {
   };
 
   if (!open) return null;
+
+  // With a shortfall in hand the shop is not a price list, it is one decision:
+  // the cheapest pack that unblocks the send, with the rest still available
+  // underneath for anyone who wants a better rate.
+  const need = Math.max(0, Number(shortfall) || 0);
+  const suggested = need ? packages.find((p) => p.coins >= need) || packages[packages.length - 1] : null;
+  const best = packages.reduce((a, p) => (!a || (p.perRupee || 0) > (a.perRupee || 0) ? p : a), null);
+
   return (
     <div className="mm-modal-overlay z-[600]" onClick={onClose}>
-      <div className="mm-modal-surface max-w-sm" onClick={(e) => e.stopPropagation()}>
-        <h3 className="mm-audio-coin-shop__title">Recharge Nuts</h3>
-        <p className="mm-audio-coin-shop__bal">Balance: <strong>{identity?.coins ?? 0}</strong> Nuts · Lv {identity?.level ?? 0}</p>
+      <div className="mm-modal-surface max-w-sm nuts-shop" onClick={(e) => e.stopPropagation()}>
+        <h3 className="mm-audio-coin-shop__title">Nuts Market</h3>
+        <p className="mm-audio-coin-shop__bal">
+          Balance: <strong>{inr(identity?.coins ?? 0)}</strong> Nuts · Lv {identity?.level ?? 0}
+        </p>
+
+        {need > 0 && (
+          <p className="nuts-shop__need">
+            {inr(need)} Nuts short{suggested ? ` — ${suggested.name} covers it` : ''}
+          </p>
+        )}
+
         <VirtualMarketRateChip className="mm-audio-coin-shop__rate" />
-        <p className="text-[9px] text-white/35 mt-1 mb-1">Prices below are package INR. Platform rate is for creator economy accounting only.</p>
-        <div className="space-y-2 mt-3">
-          {packages.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              className="mm-audio-coin-pack"
-              disabled={busy}
-              onClick={() => buy(p)}
-            >
-              <span>{p.icon} {p.name}</span>
-              <span>{p.coins} Nuts · ₹{p.priceInr}</span>
-            </button>
-          ))}
+        <p className="nuts-shop__note">
+          Every pack starts at 100 Nuts per ₹. The bonus on top is what makes the bigger packs
+          worth it — the value per rupee is printed on each one.
+        </p>
+
+        <div className="nuts-shop__list">
+          {packages.map((p) => {
+            const isPick = suggested && p.id === suggested.id;
+            const isBest = !need && best && p.id === best.id;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                className={`nuts-pack${isPick ? ' nuts-pack--pick' : ''}${isBest ? ' nuts-pack--best' : ''}`}
+                disabled={busy}
+                onClick={() => buy(p)}
+              >
+                <span className="nuts-pack__main">
+                  <span className="nuts-pack__coins">
+                    <NutsSymbol size={16} />
+                    {inr(p.coins)}
+                  </span>
+                  <span className="nuts-pack__name">{p.name}</span>
+                </span>
+
+                <span className="nuts-pack__meta">
+                  {p.bonusPct > 0 && <span className="nuts-pack__bonus">+{p.bonusPct}% bonus</span>}
+                  <span className="nuts-pack__rate">{p.perRupee} / ₹</span>
+                </span>
+
+                <span className="nuts-pack__price">₹{inr(p.priceInr)}</span>
+
+                {(isPick || p.badge) && (
+                  <span className="nuts-pack__tag">{isPick ? 'Covers it' : p.badge}</span>
+                )}
+              </button>
+            );
+          })}
         </div>
+
         {msg && <p className="mm-audio-coin-shop__msg mt-3">{msg}</p>}
         <button type="button" className="mm-btn mm-btn--ghost w-full mt-4" onClick={onClose}>Close</button>
       </div>

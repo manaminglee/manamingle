@@ -105,6 +105,7 @@ function registerLiveStreams(app, io, deps) {
     audit,
     socialFollow,         // optional: server/socialFollow.js (mutual-follow gate)
     notifyFollowers,      // optional: (creator) => void, pings followers on go-live
+    pushNotify,           // optional: server/pushNotifications.js
     getMarket,            // optional: () => virtual market engine
   } = deps;
 
@@ -159,6 +160,7 @@ function registerLiveStreams(app, io, deps) {
     if (!localDb.live_streams) localDb.live_streams = [];
     if (!localDb.live_gift_tx) localDb.live_gift_tx = [];
     if (!localDb.live_reports) localDb.live_reports = [];
+    if (!localDb.scheduled_lives) localDb.scheduled_lives = [];
   }
 
   // -------------------------------------------------------------------------
@@ -499,6 +501,24 @@ function registerLiveStreams(app, io, deps) {
     // the same event twice; otherwise we fan out here from the social graph.
     if (typeof notifyFollowers === 'function') {
       try { await notifyFollowers(creator, payload); } catch (e) { console.error('[live] notifyFollowers dep', e.message); }
+    }
+
+    if (pushNotify?.sendToKeys && socialFollow?.listFollowers) {
+      try {
+        const targetKey = socialFollow.makeKey
+          ? socialFollow.makeKey('creator', creator.id)
+          : `creator:${creator.id}`;
+        const keys = socialFollow.listFollowers(targetKey) || [];
+        await pushNotify.sendToKeys(keys, {
+          title: `${room.displayName || creator.handle_name} is LIVE`,
+          body: room.title || 'Tap to watch now',
+          url: `/live/${room.id}`,
+          tag: `live-${room.id}`,
+        });
+      } catch (e) { console.error('[live] push notify', e.message); }
+    }
+
+    if (typeof notifyFollowers === 'function') {
       return;
     }
 
@@ -616,6 +636,9 @@ function registerLiveStreams(app, io, deps) {
       username: profile.username,
       nameColor: profile.nameColor,
       avatarUrl: profile.avatarUrl,
+      // Level drives the entry treatment. Sent once, on join, so the client
+      // never has to look a viewer up to decide how to announce them.
+      level: profile.displayLevel || 0,
       badges: await badgesFor(room, profile, top[0]?.key),
     });
 
@@ -750,7 +773,7 @@ function registerLiveStreams(app, io, deps) {
 
     const recentGift = {
       username: profile.username, giftId: gift.id, giftName: gift.name,
-      icon: gift.icon, coins: gift.cost, at: tx.at,
+      art: gift.art || gift.id, coins: gift.cost, at: tx.at,
     };
     await Promise.all([
       store.incrRoom(room.id, 'nutsEarned', share),
@@ -771,8 +794,16 @@ function registerLiveStreams(app, io, deps) {
       comboId: combo.id,
       comboCount: combo.count,
       gift: {
-        id: gift.id, name: gift.name, icon: gift.icon,
-        cost: gift.cost, tier: gift.tier, category: gift.category,
+        id: gift.id,
+        name: gift.name,
+        // `art` and `motion` are what the client draws with; there is no icon
+        // field any more because there are no emoji any more.
+        art: gift.art || gift.id,
+        motion: gift.motion || null,
+        cost: gift.cost,
+        tier: gift.tier,
+        category: gift.category,
+        lucky: !!gift.lucky,
       },
       from: profile.username,
       fromKey: walletKey,
@@ -866,6 +897,143 @@ function registerLiveStreams(app, io, deps) {
     await store.delBlob(`battle:${battleId}`);
     return { ok: true, battle };
   }
+
+  // -------------------------------------------------------------------------
+  // Battle matchmaking queue (find a random opponent)
+  // -------------------------------------------------------------------------
+  const BATTLE_QUEUE_KEY = 'battle:queue';
+
+  async function battleQueueList() {
+    return (await store.getBlob(BATTLE_QUEUE_KEY)) || [];
+  }
+
+  async function battleQueueSave(list) {
+    await store.setBlob(BATTLE_QUEUE_KEY, list, 30 * 60 * 1000);
+  }
+
+  async function battleQueueJoin(room, socket) {
+    if (!room || room.status !== 'live') return { ok: false, error: 'Start your live first' };
+    if (room.battleId) return { ok: false, error: 'Already in a battle' };
+    let q = await battleQueueList();
+    q = q.filter((e) => e.liveId !== room.id);
+    q.push({
+      liveId: room.id,
+      creatorId: room.creatorId,
+      handle: room.handle,
+      displayName: room.displayName || room.handle,
+      avatarUrl: room.avatarUrl || null,
+      hostSocketId: socket.id,
+      joinedAt: nowMs(),
+    });
+    await battleQueueSave(q);
+
+    for (let i = 0; i < q.length; i += 1) {
+      for (let j = i + 1; j < q.length; j += 1) {
+        const a = q[i];
+        const b = q[j];
+        if (a.creatorId === b.creatorId) continue;
+        const liveA = await store.getRoom(a.liveId);
+        const liveB = await store.getRoom(b.liveId);
+        if (!liveA || !liveB || liveA.battleId || liveB.battleId) continue;
+        const result = await startBattle(a.liveId, b.liveId);
+        if (result.ok) {
+          q = (await battleQueueList()).filter((e) => e.liveId !== a.liveId && e.liveId !== b.liveId);
+          await battleQueueSave(q);
+          io.to(`live:${a.liveId}`).emit('live:battle-queue-matched', { battle: result.battle });
+          io.to(`live:${b.liveId}`).emit('live:battle-queue-matched', { battle: result.battle });
+          return { ok: true, matched: true, battle: result.battle };
+        }
+      }
+    }
+    return { ok: true, matched: false, position: q.findIndex((e) => e.liveId === room.id) + 1 };
+  }
+
+  async function battleQueueLeave(liveId) {
+    const q = (await battleQueueList()).filter((e) => e.liveId !== liveId);
+    await battleQueueSave(q);
+    return { ok: true };
+  }
+
+  // -------------------------------------------------------------------------
+  // Scheduled lives + follower reminders
+  // -------------------------------------------------------------------------
+  async function scheduleLive({ creator, title, startsAtMs }) {
+    ensureShape();
+    const startsAt = Math.max(nowMs() + 60_000, Number(startsAtMs) || 0);
+    const id = generateId?.() || rid(6);
+    const row = {
+      id,
+      creator_id: creator.id,
+      handle: creator.handle_name,
+      title: String(title || `${creator.handle_name} Live`).slice(0, 80),
+      starts_at: startsAt,
+      reminder_sent: false,
+      status: 'scheduled',
+    };
+    localDb.scheduled_lives.push(row);
+    saveLocalDb?.();
+    if (supabase) {
+      await supabase.from('mm_scheduled_lives').upsert({
+        id: row.id,
+        creator_id: row.creator_id,
+        handle: row.handle,
+        title: row.title,
+        starts_at: new Date(startsAt).toISOString(),
+        reminder_sent: false,
+        status: 'scheduled',
+      });
+    }
+    io.emit('live:scheduled-updated', { events: listScheduledLives() });
+    return { ok: true, event: row };
+  }
+
+  function listScheduledLives() {
+    ensureShape();
+    const now = nowMs();
+    return (localDb.scheduled_lives || [])
+      .filter((e) => e.status === 'scheduled' && e.starts_at > now)
+      .sort((a, b) => a.starts_at - b.starts_at)
+      .map((e) => ({
+        id: e.id,
+        creatorId: e.creator_id,
+        handle: e.handle,
+        title: e.title,
+        startsAt: e.starts_at,
+      }));
+  }
+
+  async function processScheduledReminders() {
+    ensureShape();
+    const now = nowMs();
+    const soon = now + 15 * 60 * 1000;
+    for (const ev of localDb.scheduled_lives || []) {
+      if (ev.status !== 'scheduled' || ev.reminder_sent) continue;
+      if (ev.starts_at <= now || ev.starts_at > soon) continue;
+      ev.reminder_sent = true;
+      saveLocalDb?.();
+      if (socialFollow?.listFollowers) {
+        const targetKey = socialFollow.makeKey('creator', ev.creator_id);
+        const keys = socialFollow.listFollowers(targetKey) || [];
+        io.emit('live:event-reminder', {
+          eventId: ev.id,
+          handle: ev.handle,
+          title: ev.title,
+          startsAt: ev.starts_at,
+        });
+        if (pushNotify?.sendToKeys) {
+          await pushNotify.sendToKeys(keys, {
+            title: `@${ev.handle} goes live soon`,
+            body: ev.title,
+            url: `/live?reminder=${ev.id}`,
+            tag: `live-reminder-${ev.id}`,
+          });
+        }
+      }
+    }
+  }
+
+  const scheduleTicker = setInterval(() => { void processScheduledReminders(); }, 60_000);
+  if (scheduleTicker.unref) scheduleTicker.unref();
 
   // -------------------------------------------------------------------------
   // Heartbeat + orphan sweeper
@@ -1023,6 +1191,89 @@ function registerLiveStreams(app, io, deps) {
 
   app.post('/api/lives/battle/:id/end', async (req, res) => {
     res.json(await endBattle(req.params.id, 'manual'));
+  });
+
+  app.get('/api/lives/scheduled/list', (_req, res) => {
+    res.json({ ok: true, events: listScheduledLives() });
+  });
+
+  app.post('/api/lives/schedule', async (req, res) => {
+    try {
+      const { creator, via } = await getCreatorForRequest(req);
+      if (!creator || via !== 'session') {
+        return res.status(401).json({ ok: false, error: 'Creator login required' });
+      }
+      const startsAt = Date.parse(String(req.body?.startsAt || ''));
+      if (!Number.isFinite(startsAt)) {
+        return res.status(400).json({ ok: false, error: 'startsAt (ISO date) required' });
+      }
+      res.json(await scheduleLive({
+        creator,
+        title: req.body?.title,
+        startsAtMs: startsAt,
+      }));
+    } catch (e) {
+      res.status(500).json({ ok: false, error: e.message || 'Schedule failed' });
+    }
+  });
+
+  app.get('/api/lives/:id/replay', async (req, res) => {
+    try {
+      const liveId = req.params.id;
+      let summary = null;
+      let comments = [];
+      let gifts = [];
+
+      if (supabase) {
+        const [{ data: stream }, { data: cmts }, { data: rcpt }] = await Promise.all([
+          supabase.from('mm_live_streams').select('*').eq('id', liveId).maybeSingle(),
+          supabase.from('mm_live_comments').select('*').eq('live_id', liveId).order('created_at', { ascending: true }).limit(500),
+          supabase.from('mm_live_gift_receipts').select('*').eq('live_id', liveId).maybeSingle(),
+        ]);
+        if (stream) {
+          summary = {
+            liveId: stream.id,
+            handle: stream.handle,
+            title: stream.title,
+            startedAt: stream.started_at,
+            endedAt: stream.ended_at,
+            peakViewers: stream.peak_viewers,
+            likes: stream.likes,
+            giftCount: stream.gift_count,
+            replaySummary: stream.replay_summary || null,
+            replayUrl: stream.replay_url || null,
+          };
+        }
+        comments = (cmts || []).map((c) => ({
+          id: c.id,
+          username: c.username,
+          text: c.text,
+          at: c.created_at,
+        }));
+        if (rcpt) gifts = [{ grossCoins: rcpt.gross_coins, netCoins: rcpt.net_coins, giftCount: rcpt.gift_count }];
+      }
+
+      if (!summary) {
+        const row = (localDb.live_streams || []).find((r) => r.id === liveId);
+        if (row) {
+          summary = {
+            liveId: row.id,
+            handle: row.handle,
+            title: row.title,
+            startedAt: row.started_at,
+            endedAt: row.ended_at,
+            peakViewers: row.peak_viewers,
+            likes: row.likes,
+            giftCount: row.gift_count,
+          };
+        }
+      }
+
+      if (!summary) return res.status(404).json({ ok: false, error: 'Replay not found' });
+      res.json({ ok: true, summary, comments, gifts });
+    } catch (e) {
+      res.status(500).json({ ok: false, error: e.message || 'Replay failed' });
+    }
   });
 
   // -------------------------------------------------------------------------
@@ -1479,6 +1730,25 @@ function registerLiveStreams(app, io, deps) {
       cb?.({ ok: true });
     });
 
+    on('live:battle-queue-join', async (_payload, cb) => {
+      const mine = await myHostedRoom();
+      if (!mine) { cb?.({ ok: false, error: 'Start your live first' }); return; }
+      cb?.(await battleQueueJoin(mine, socket));
+    });
+
+    on('live:battle-queue-leave', async (_payload, cb) => {
+      const mine = await myHostedRoom();
+      if (!mine) { cb?.({ ok: true }); return; }
+      cb?.(await battleQueueLeave(mine.id));
+    });
+
+    on('live:battle-queue-status', async (_payload, cb) => {
+      const mine = await myHostedRoom();
+      const q = await battleQueueList();
+      const pos = mine ? q.findIndex((e) => e.liveId === mine.id) + 1 : 0;
+      cb?.({ ok: true, inQueue: pos > 0, position: pos || null, size: q.length });
+    });
+
     // Both hosts must ask to rematch within REMATCH_WINDOW_MS to restart.
     on('live:battle-rematch', async (payload, cb) => {
       const mine = await myHostedRoom();
@@ -1764,6 +2034,7 @@ function registerLiveStreams(app, io, deps) {
   function shutdown() {
     clearInterval(heartbeat);
     clearInterval(sweeper);
+    clearInterval(scheduleTicker);
     for (const liveId of [...local.keys()]) clearLocal(liveId);
     return store.close?.();
   }
@@ -1784,6 +2055,8 @@ function registerLiveStreams(app, io, deps) {
     notifyGoLive,
     giftCutBreakdown,
     creatorSharePct,
+    scheduleLive,
+    listScheduledLives,
     store,
     shutdown,
   };

@@ -43,6 +43,9 @@ const { registerMarketEngine } = require('./marketEngine');
 const { registerCreatorKyc } = require('./creatorKyc');
 const { registerAgency } = require('./agency');
 const { registerAgencyTenancy } = require('./agencyTenancy');
+const { registerPushNotifications } = require('./pushNotifications');
+const { createAudioStore } = require('./audioStore');
+const { GIFTS } = require('./giftCatalog');
 const { registerModeration } = require('./moderation');
 const { createMatchQueue } = require('./matchQueue');
 const { createInfra } = require('./infra');
@@ -3308,6 +3311,20 @@ economy = registerEconomy(app, io, {
   audioIdentity,
 });
 
+audioIdentity.setMigrateGuestWallet?.((ip, key) => economy.wallet.migrateGuestToAudio(ip, key));
+
+const pushNotify = registerPushNotifications(app, {
+  supabase,
+  localDb,
+  saveLocalDb,
+  sanitize,
+  rateLimit: (key, opts) => infra.rateLimit(key, opts),
+  getCreatorForRequest,
+  audioIdentity,
+});
+
+const audioStore = createAudioStore({ getRedis: () => infra.getRedis?.() || null });
+
 // Forward declaration: the game needs the channel registry, and channels need
 // to tear down games when they empty. `raceGame` is assigned just below.
 let raceGame = null;
@@ -3321,6 +3338,7 @@ const audioChannels = registerAudioChannels(app, io, {
   isAdminRequest,
   audit: moderation.audit,
   economy,
+  audioStore,
   screenText: moderation.screenText,
   onChannelEmpty: (channelId) => {
     raceGame?.destroyForChannel(channelId);
@@ -3388,6 +3406,7 @@ const liveStreams = registerLiveStreams(app, io, {
       }
     }
   },
+  pushNotify,
   creditCreatorCoins: async (creatorId, amount, details, creatorRow) => {
     const creator = creatorRow || (localDb.creators || []).find((c) => c.id === creatorId);
     if (!creator) return null;
@@ -4429,6 +4448,61 @@ io.on('connection', (socket) => {
     if (credited) {
       io.to(targetSocketId).emit('creator-balance-updated', credited);
     }
+  });
+
+  on('group:gift', async (data) => {
+    const { roomId, targetSocketId, giftId, nonce } = data || {};
+    const room = rooms.get(roomId);
+    if (!room || !room.users.has(socket.id) || !targetSocketId) return;
+    const sender = users.get(socket.id);
+    const target = users.get(targetSocketId);
+    if (!target?.isCreator || !target.creatorData?.id) {
+      return socket.emit('gift:error', { message: 'Gift target is not a verified creator.' });
+    }
+    if (targetSocketId === socket.id) {
+      return socket.emit('gift:error', { message: 'You cannot gift yourself.' });
+    }
+    if (sender?.creatorData?.id && sender.creatorData.id === target.creatorData.id) {
+      return socket.emit('gift:error', { message: 'You cannot gift your own creator account.' });
+    }
+    const gift = GIFTS.find((g) => g.id === String(giftId || ''));
+    if (!gift) return socket.emit('gift:error', { message: 'Unknown gift.' });
+
+    const senderCtx = economy?.wallet?.ctxFromSocket?.(socket.id, ip);
+    if (!senderCtx || !economy?.wallet) {
+      return socket.emit('gift:error', { message: 'Economy unavailable.' });
+    }
+    const spend = await economy.wallet.debit(senderCtx, gift.cost, `group_gift_${gift.id}`, {
+      roomId,
+      targetSocketId,
+      nonce: nonce || null,
+    });
+    if (!spend.ok) {
+      return socket.emit('gift:error', { message: spend.error || 'Insufficient coins' });
+    }
+
+    const share = Math.floor(gift.cost * (gift.creatorShare || 0.7));
+    const creator = target.creatorData;
+    await creatorSecurity.creditCreatorCoins(supabase, localDb, saveLocalDb, creator, share, {
+      type: 'group_gift',
+      details: `${gift.name} from ${sender?.nickname || 'Someone'}`,
+      metadata: { giftId: gift.id, from_ip: ip, room_id: roomId },
+    });
+
+    io.to(roomId).emit('group:gift', {
+      giftId: gift.id,
+      name: gift.name,
+      icon: gift.icon,
+      tier: gift.tier,
+      anim: gift.anim || gift.tier,
+      cost: gift.cost,
+      fromSocketId: socket.id,
+      fromNickname: sender?.nickname || 'Someone',
+      toSocketId: targetSocketId,
+      toNickname: target.nickname || 'Creator',
+      at: Date.now(),
+    });
+    socket.emit('gift:sent', { ok: true, balance: spend.balance ?? spend.identity?.coins });
   });
 
   on('video-style', (data) => {

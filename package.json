@@ -12,12 +12,13 @@
     "dev": "node server/index.js",
     "dev:client": "cd client && npm run dev",
     "build": "cd client && npm run build",
-    "test": "node server/__livetest.js && node server/__agencytest.js && node server/__agencyhttp.js && node server/__sectest.js && playwright test",
+    "test": "node server/__livetest.js && node server/__agencytest.js && node server/__agencyhttp.js && node server/__sectest.js && node server/__paytest.js && playwright test",
     "test:e2e": "playwright test",
     "test:smoke": "playwright test e2e/smoke.spec.js",
     "test:live": "node server/__livetest.js",
     "test:agency": "node server/__agencytest.js && node server/__agencyhttp.js",
     "test:sec": "node server/__sectest.js",
+    "test:pay": "node server/__paytest.js",
     "test:e2e:live": "playwright test e2e/live-api.spec.js e2e/live-mobile.spec.js"
   },
   "dependencies": {
@@ -34,7 +35,8 @@
     "nodemailer": "^9.0.1",
     "redis": "^4.7.1",
     "socket.io": "^4.8.3",
-    "socket.io-client": "^4.8.3"
+    "socket.io-client": "^4.8.3",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

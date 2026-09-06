@@ -125,12 +125,12 @@ async function stripeVerifySession(sessionId) {
   return { product: data.metadata?.product, ip: data.metadata?.ip };
 }
 
-const { COIN_PACKAGES } = require('./giftCatalog');
+const { COIN_PACKAGES, findCoinPackage, firstBuyBonus } = require('./giftCatalog');
 
 async function cashfreeCreateOrder({ packageId, ip, audioUsername, returnUrl }) {
   const appId = process.env.CASHFREE_APP_ID;
   const secret = process.env.CASHFREE_SECRET_KEY;
-  const pack = COIN_PACKAGES.find((p) => p.id === packageId);
+  const pack = findCoinPackage(packageId);
   if (!appId || !secret || !pack) throw new Error('Cashfree or package not configured');
   const base = process.env.CASHFREE_ENV === 'production'
     ? 'https://api.cashfree.com/pg'
@@ -197,18 +197,20 @@ function registerPayments(app, deps) {
   const frontend = (process.env.FRONTEND_ORIGIN || 'http://localhost:5173').replace(/\/$/, '');
 
   async function fulfillCoinPackage(packageId, audioUsername, paymentMeta = {}) {
-    const pack = COIN_PACKAGES.find((p) => p.id === packageId);
+    const pack = findCoinPackage(packageId);
     if (!pack || !audioIdentity) return { ok: false, error: 'Invalid package' };
     const key = String(audioUsername || '').toLowerCase();
     if (!key) return { ok: false, error: 'Audio identity required' };
-    const res = await audioIdentity.credit(key, pack.coins, `coin_pack_${pack.id}`, { packageId: pack.id, recharge: true });
+    const res = await audioIdentity.creditCoinPack(
+      key, pack.coins, `coin_pack_${pack.id}`, { packageId: pack.id, recharge: true }, firstBuyBonus,
+    );
     if (!res.ok) return res;
     if (paymentMeta.paymentRef) {
       await audioIdentity.recordPayment({
         paymentRef: paymentMeta.paymentRef,
         usernameKey: key,
         packageId: pack.id,
-        coins: pack.coins,
+        coins: res.credited ?? pack.coins,
         amountInr: pack.priceInr,
         provider: paymentMeta.provider || 'test',
         orderId: paymentMeta.orderId || null,
@@ -221,7 +223,7 @@ function registerPayments(app, deps) {
         id: paymentMeta.paymentRef || undefined,
         audioUsername: key,
         packageId: pack.id,
-        coins: pack.coins,
+        coins: res.credited ?? pack.coins,
         currency: 'INR',
         amountPaid: pack.priceInr,
         provider: paymentMeta.provider || 'test',
@@ -235,11 +237,17 @@ function registerPayments(app, deps) {
       if (String(user.audioIdentity?.username || '').toLowerCase() === key) {
         user.audioIdentity = res.identity;
         io.to(sid).emit('audio-identity:ready', res.identity);
-        io.to(sid).emit('coins-updated', { coins: res.balance, reason: `Recharged ${pack.name}`, audio: true });
-        io.to(sid).emit('gift:pack-bought', { packageId: pack.id, coins: pack.coins, balance: res.balance });
+        io.to(sid).emit('coins-updated', {
+          coins: res.balance,
+          reason: res.bonus ? `${pack.name} + first-buy bonus` : `Recharged ${pack.name}`,
+          audio: true,
+        });
+        io.to(sid).emit('gift:pack-bought', {
+          packageId: pack.id, coins: res.credited ?? pack.coins, bonus: res.bonus || 0, balance: res.balance,
+        });
       }
     }
-    return { ok: true, coins: pack.coins, balance: res.balance, identity: res.identity };
+    return { ok: true, coins: res.credited ?? pack.coins, bonus: res.bonus || 0, balance: res.balance, identity: res.identity };
   }
 
   async function fulfillPayment(product, ip) {
@@ -336,7 +344,7 @@ function registerPayments(app, deps) {
   app.post('/api/payment/coins/create-order', async (req, res) => {
     const packageId = String(req.body?.packageId || '');
     const audioUsername = String(req.body?.audioUsername || '').trim();
-    const pack = COIN_PACKAGES.find((p) => p.id === packageId);
+    const pack = findCoinPackage(packageId);
     if (!pack) return res.status(400).json({ error: 'Invalid coin package' });
     if (!audioUsername) return res.status(400).json({ error: 'Sign in to your voice identity first' });
     const ip = clientIp(req);

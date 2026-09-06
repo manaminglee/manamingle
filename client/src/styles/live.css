@@ -2321,6 +2321,66 @@
 
 .mmnav-pad { padding-bottom: calc(72px + max(env(safe-area-inset-bottom, 0px), 10px)); }
 
+.pwa-update {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(18, 12, 28, 0.94);
+  border: 1px solid rgba(255, 45, 111, 0.35);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  animation: pwa-prompt-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.pwa-update__text { flex: 1; font-size: 13px; font-weight: 600; color: #fff; margin: 0; }
+.pwa-update__btn {
+  border: none;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #ff2d6f, #ff6b9d);
+  color: #fff;
+}
+.pwa-update__dismiss {
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.5);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.prelive-schedule {
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 11px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.85);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.live-hp-sheet__queue {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.06);
+  font-size: 12px;
+  color: rgba(255,255,255,0.75);
+}
+
 /* PWA install banner */
 .mm-pwa-prompt {
   position: fixed;
@@ -2681,4 +2741,727 @@
   display: flex; align-items: center; justify-content: space-between;
   padding: 8px 12px; border-radius: 12px; background: rgba(255,255,255,0.06); margin-bottom: 8px;
   font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.8);
+}
+
+/* ==========================================================================
+   GIFT TRAY v3 — shelves, a swipeable paged grid, and animated marks.
+   ========================================================================== */
+
+/* The tray's header line is the top-gift teaser, not a bold title. */
+.live-sheet--gifts .live-sheet__head { padding-bottom: 8px; }
+.live-sheet--gifts .live-sheet__title {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.6);
+  overflow-wrap: anywhere;
+}
+
+/* --- shelves --- */
+.gt-tabs {
+  display: flex;
+  gap: 4px;
+  flex: 0 0 auto;
+  padding: 0 12px 10px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.gt-tabs::-webkit-scrollbar { display: none; }
+.gt-tabs--battle { padding-bottom: 6px; }
+
+.gt-tab {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border: none;
+  background: none;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: color 160ms ease, transform 160ms ease;
+}
+.gt-tab--on {
+  color: #fff;
+  font-weight: 900;
+  transform: scale(1.02);
+}
+
+/* --- paged grid ---
+   One page per swipe. scroll-snap does the paging natively, so there is no
+   drag handler on the main thread and the gesture never fights the sheet. */
+.gt-pager {
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.gt-pager::-webkit-scrollbar { display: none; }
+
+.gt-page {
+  flex: 0 0 100%;
+  min-width: 100%;
+  scroll-snap-align: start;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  padding: 2px 12px 10px;
+  /* Explicit: the page is exactly one pager-width, padding included. Without
+     this the last column is cut off wherever a global border-box reset is not
+     in play. */
+  box-sizing: border-box;
+  /* Off-screen pages skip layout and paint entirely. */
+  content-visibility: auto;
+  contain-intrinsic-size: 240px;
+}
+@media (max-width: 340px) { .gt-page { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+.gt-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px 2px 8px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: none;
+  transition: transform 130ms cubic-bezier(0.34, 1.56, 0.64, 1),
+              border-color 160ms ease, background 160ms ease;
+}
+.gt-card:active { transform: scale(0.93); }
+.gt-card--on {
+  border-color: rgba(196, 132, 252, 0.7);
+  background: rgba(168, 85, 247, 0.15);
+}
+.gt-card--poor { opacity: 0.5; }
+.gt-card--locked { opacity: 0.42; }
+
+.gt-card__art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 58px;
+}
+.gt-card__name {
+  width: 100%;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.gt-card__cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #fbbf24;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* --- badges --- */
+.gt-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 2;
+}
+.gt-badge--lucky { width: 17px; height: 17px; }
+.gt-badge--lv {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 15px;
+  padding: 0 5px;
+  border-radius: 5px;
+  background: #1d4ed8;
+  color: #fff;
+  font-size: 8.5px;
+  font-weight: 900;
+  letter-spacing: 0.2px;
+}
+.gt-badge--lv-on { background: linear-gradient(135deg, #f59e0b, #d97706); color: #2a1600; }
+
+/* --- pager dots --- */
+.gt-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: 2px 0 10px;
+}
+.gt-dot {
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  transition: background 180ms ease, transform 180ms ease;
+}
+.gt-dot--on { background: var(--live-accent, #ff2d6f); transform: scale(1.25); }
+
+/* --- send bar --- */
+.gt-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  padding: 10px 14px 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+.gt-balance {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+.gt-balance__num {
+  font-size: 13.5px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gt-balance__add {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f59e0b, #ec4899);
+  color: #fff;
+  flex: 0 0 auto;
+}
+.gt-send {
+  flex: 0 0 auto;
+  height: 40px;
+  padding: 0 26px;
+  border: none;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--live-accent, #ff2d6f), var(--live-accent-2, #a855f7));
+  box-shadow: 0 5px 18px rgba(168, 85, 247, 0.42);
+  transition: transform 130ms ease;
+}
+.gt-send:active { transform: scale(0.95); }
+.gt-send:disabled { opacity: 0.4; box-shadow: none; }
+
+.gt-empty {
+  padding: 30px;
+  text-align: center;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* ==========================================================================
+   GIFT MOTION — idle animation per gift, set by the catalog's `motion`.
+   Transform and opacity only, so every one of these stays on the compositor
+   and none of them can starve the video decode underneath.
+   ========================================================================== */
+
+.mm-gift--bob,
+.mm-gift--float,
+.mm-gift--spin,
+.mm-gift--pulse,
+.mm-gift--shimmer,
+.mm-gift--orbit,
+.mm-gift--swing { will-change: transform; }
+
+.mm-gift--bob     { animation: gm-bob 2.2s ease-in-out infinite; }
+.mm-gift--float   { animation: gm-float 3.4s ease-in-out infinite; }
+.mm-gift--spin    { animation: gm-spin 5.5s linear infinite; }
+.mm-gift--pulse   { animation: gm-pulse 1.8s ease-in-out infinite; }
+.mm-gift--shimmer { animation: gm-shimmer 2.6s ease-in-out infinite; }
+.mm-gift--orbit   { animation: gm-orbit 7s linear infinite; }
+.mm-gift--swing   { animation: gm-swing 2.4s ease-in-out infinite; transform-origin: 50% 12%; }
+
+@keyframes gm-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+@keyframes gm-float {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-4px) rotate(3deg); }
+}
+@keyframes gm-spin {
+  0% { transform: perspective(120px) rotateY(0deg); }
+  100% { transform: perspective(120px) rotateY(360deg); }
+}
+@keyframes gm-pulse {
+  0%, 100% { transform: scale(1); }
+  45% { transform: scale(1.09); }
+}
+@keyframes gm-shimmer {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.82; }
+}
+@keyframes gm-orbit {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes gm-swing {
+  0%, 100% { transform: rotate(-9deg); }
+  50% { transform: rotate(9deg); }
+}
+
+/* A selected card lifts its mark, so the choice is obvious without colour. */
+.gt-card--on .mm-gift { transform: scale(1.12); }
+
+@media (prefers-reduced-motion: reduce) {
+  .mm-gift--bob, .mm-gift--float, .mm-gift--spin,
+  .mm-gift--pulse, .mm-gift--shimmer, .mm-gift--orbit, .mm-gift--swing {
+    animation: none;
+  }
+}
+
+/* Each comment is its own containment root: a new message repaints one row,
+   not the whole stream. Matters most on Android, where the comment layer sits
+   on top of a decoding video. */
+.live-comment { contain: content; }
+
+/* ==========================================================================
+   LOOK PICKER — the creator's filter, chosen before air.
+   ========================================================================== */
+
+.prelive-looks {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+.prelive-looks__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0 2px;
+  min-width: 0;
+}
+.prelive-looks__title {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  flex: 0 0 auto;
+}
+.prelive-looks__hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.42);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.prelive-looks__strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  padding: 2px 2px 4px;
+  scroll-snap-type: x proximity;
+}
+.prelive-looks__strip::-webkit-scrollbar { display: none; }
+
+.prelive-look {
+  position: relative;
+  flex: 0 0 auto;
+  scroll-snap-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: rgba(255, 255, 255, 0.55);
+  transition: color 160ms ease, transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.prelive-look:active { transform: scale(0.92); }
+.prelive-look--on { color: #fff; }
+
+.prelive-look__swatch {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  transition: border-color 180ms ease, transform 160ms ease;
+}
+.prelive-look--on .prelive-look__swatch {
+  border-color: var(--live-accent, #ff2d6f);
+  transform: scale(1.06);
+}
+
+/* Each swatch previews its own grade — a warm look reads warm at a glance. */
+.prelive-look__swatch--off     { background: linear-gradient(140deg, #6b7280, #374151); }
+.prelive-look__swatch--natural { background: linear-gradient(140deg, #ffd9c0, #c98f6e); }
+.prelive-look__swatch--smooth  { background: linear-gradient(140deg, #ffe4d4, #d9a288); }
+.prelive-look__swatch--glow    { background: linear-gradient(140deg, #fff3c9, #ffb37a); }
+.prelive-look__swatch--warm    { background: linear-gradient(140deg, #ffd08a, #d97706); }
+.prelive-look__swatch--rose    { background: linear-gradient(140deg, #ffc2d8, #e0568f); }
+.prelive-look__swatch--cool    { background: linear-gradient(140deg, #cfe6ff, #4a86c8); }
+.prelive-look__swatch--film    { background: linear-gradient(140deg, #d8cdbb, #6b6152); }
+.prelive-look__swatch--mono    { background: linear-gradient(140deg, #e8e8e8, #4a4a4a); }
+
+.prelive-look__label {
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* A dot marks the looks that cost an extra full-frame blur pass, so a creator
+   on a slow phone knows which ones are the heavy ones. */
+.prelive-look__cost {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fbbf24;
+  box-shadow: 0 0 0 2px rgba(12, 11, 22, 0.9);
+}
+
+@media (max-height: 700px) {
+  .prelive-look__swatch { width: 36px; height: 36px; }
+  .prelive-looks__hint { display: none; }
+}
+
+/* ============================================================
+   LEVEL FRAMES + VIP ENTRY
+   ------------------------------------------------------------
+   The frame is an overlay ring on top of a clipped avatar, so it
+   composites on the GPU and never reflows the row it sits in.
+   ============================================================ */
+
+.lvf {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  line-height: 0;
+}
+
+.lvf__inner {
+  position: absolute;
+  /* the ring's inner edge in the 56-unit box: (28 - 20.7) / 56 */
+  inset: 13%;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.lvf__inner > * {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.lvf--none .lvf__inner,
+.lvf--none > * {
+  position: static;
+  inset: auto;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.lvf__ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  filter: drop-shadow(0 0 5px var(--lvf-glow, transparent));
+}
+
+/* Only the top two tiers animate, and only the stud group: a crown that
+   rotates stops reading as a crown. Every frame spinning at once is a
+   battery bill, not a status symbol. */
+.lvf--royal .lvf__spin,
+.lvf--mythic .lvf__spin {
+  animation: lvf-turn 7s linear infinite;
+  transform-origin: 28px 28px;
+}
+
+.lvf--mythic .lvf__spin { animation-duration: 5s; }
+
+@keyframes lvf-turn {
+  to { transform: rotate(360deg); }
+}
+
+/* --- entry banner ------------------------------------------- */
+
+.vip {
+  position: absolute;
+  top: calc(var(--live-top-offset, 84px) + 44px);
+  right: 0;
+  z-index: 42;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(86vw, 340px);
+  padding: 5px 10px 5px 14px;
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: 999px 0 0 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-right: 0;
+  background:
+    linear-gradient(90deg, rgba(12, 8, 24, 0) 0%, rgba(20, 12, 40, 0.72) 22%, rgba(38, 20, 68, 0.88) 100%);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.42);
+  color: #fff;
+  animation: vip-in 340ms cubic-bezier(0.18, 0.9, 0.28, 1.06) both,
+             vip-out 300ms ease-in 2.9s both;
+  will-change: transform, opacity;
+}
+
+.vip--gold   { background: linear-gradient(90deg, rgba(12,8,24,0) 0%, rgba(60,40,8,0.7) 22%, rgba(120,80,10,0.9) 100%); border-color: rgba(251,191,36,0.42); }
+.vip--royal  { background: linear-gradient(90deg, rgba(12,8,24,0) 0%, rgba(46,18,80,0.72) 22%, rgba(96,34,168,0.9) 100%); border-color: rgba(168,85,247,0.46); }
+.vip--mythic { background: linear-gradient(90deg, rgba(12,8,24,0) 0%, rgba(72,10,42,0.74) 22%, rgba(170,20,80,0.92) 100%); border-color: rgba(255,45,111,0.5); }
+
+/* A single light pass, not a permanent glimmer. */
+.vip__sweep {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(115deg, transparent 34%, rgba(255,255,255,0.3) 50%, transparent 66%);
+  transform: translateX(-120%);
+  animation: vip-sweep 1200ms ease-out 320ms 1;
+}
+
+.vip__vehicle {
+  display: block;
+  flex: none;
+  line-height: 0;
+  animation: vip-drive 620ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.5));
+}
+
+.vip__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.vip__name {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vip__verb {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.74);
+  white-space: nowrap;
+}
+
+.vip__avatar { margin-left: auto; }
+
+.vip__lv {
+  flex: none;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  background: rgba(0, 0, 0, 0.38);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+@keyframes vip-in {
+  from { transform: translateX(112%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+@keyframes vip-out {
+  from { transform: translateX(0);    opacity: 1; }
+  to   { transform: translateX(112%); opacity: 0; }
+}
+
+@keyframes vip-sweep {
+  to { transform: translateX(120%); }
+}
+
+@keyframes vip-drive {
+  from { transform: translateX(-26px) scale(0.86); opacity: 0; }
+  to   { transform: translateX(0) scale(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vip,
+  .vip__vehicle { animation: vip-fade 300ms ease both, vip-out 220ms ease-in 2.95s both; }
+  .vip__sweep { display: none; }
+  .lvf--royal .lvf__spin,
+  .lvf--mythic .lvf__spin { animation: none; }
+}
+
+@keyframes vip-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ============================================================
+   NUTS MARKET
+   ------------------------------------------------------------
+   A price list is a comparison task. Each row therefore states
+   the same deal three ways — total Nuts, bonus %, Nuts per ₹ —
+   so no buyer has to divide to find the good pack.
+   ============================================================ */
+
+.nuts-shop__need {
+  margin: 6px 0 2px;
+  padding: 7px 11px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffd9a8;
+  background: rgba(251, 146, 60, 0.14);
+  border: 1px solid rgba(251, 146, 60, 0.34);
+}
+
+.nuts-shop__note {
+  margin: 8px 0 2px;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.44);
+}
+
+.nuts-shop__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  max-height: 46vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.nuts-pack {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px 10px;
+  width: 100%;
+  padding: 11px 13px;
+  border-radius: 15px;
+  text-align: left;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.nuts-pack:active { transform: scale(0.985); }
+.nuts-pack:disabled { opacity: 0.5; }
+
+.nuts-pack--best {
+  border-color: rgba(168, 85, 247, 0.5);
+  background: linear-gradient(120deg, rgba(168, 85, 247, 0.16), rgba(255, 255, 255, 0.04));
+}
+
+.nuts-pack--pick {
+  border-color: rgba(251, 191, 36, 0.62);
+  background: linear-gradient(120deg, rgba(251, 191, 36, 0.18), rgba(255, 255, 255, 0.04));
+  box-shadow: 0 6px 20px rgba(251, 191, 36, 0.16);
+}
+
+.nuts-pack__main {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.nuts-pack__coins {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.nuts-pack__name {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.nuts-pack__price {
+  grid-row: 1;
+  grid-column: 2;
+  font-size: 15px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.nuts-pack__meta {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 5px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.nuts-pack__bonus {
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.nuts-pack__rate {
+  color: rgba(255, 255, 255, 0.42);
+  letter-spacing: 0.02em;
+}
+
+.nuts-pack__tag {
+  position: absolute;
+  top: -7px;
+  right: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #1a1030;
+  background: linear-gradient(120deg, #ffe9a8, #fbbf24);
+}
+
+.nuts-pack--best .nuts-pack__tag {
+  color: #fff;
+  background: linear-gradient(120deg, #c084fc, #7c3aed);
 }

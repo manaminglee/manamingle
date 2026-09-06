@@ -8,7 +8,9 @@ import { drawFaceProcessedFrame, loadFaceLandmarker } from '../utils/faceBlurEng
  * @param {MediaStream|null} rawStream
  * @param {{ enabled?: boolean, mirror?: boolean, mode?: 'beauty'|'blur'|'off' }} opts
  */
-export function useFaceBlurStream(rawStream, { enabled = false, mirror = false, mode = 'beauty' } = {}) {
+export function useFaceBlurStream(rawStream, {
+  enabled = false, mirror = false, mode = 'beauty', preset = null,
+} = {}) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const blurCanvasRef = useRef(null);
@@ -18,6 +20,10 @@ export function useFaceBlurStream(rawStream, { enabled = false, mirror = false, 
   const tsRef = useRef(0);
   const modeRef = useRef(mode);
   modeRef.current = mode;
+  /* Held in a ref so switching look does NOT restart the pipeline — the
+     capture stream keeps flowing and LiveKit never sees a track change. */
+  const presetRef = useRef(preset);
+  presetRef.current = preset;
 
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -118,6 +124,7 @@ export function useFaceBlurStream(rawStream, { enabled = false, mirror = false, 
           mirror,
           tsRef.current,
           modeRef.current,
+          presetRef.current,
         );
       }
       rafRef.current = requestAnimationFrame(loop);
@@ -156,4 +163,19 @@ export function useFaceBlurStream(rawStream, { enabled = false, mirror = false, 
 /** Convenience: beauty mode ON by default for creator live. */
 export function useBeautyStream(rawStream, { enabled = true, mirror = false } = {}) {
   return useFaceBlurStream(rawStream, { enabled, mirror, mode: enabled ? 'beauty' : 'off' });
+}
+
+/**
+ * A creator's chosen look, ready to publish.
+ * `preset` comes from utils/liveFilters; passing the 'off' preset bypasses the
+ * canvas entirely and hands back the raw camera, so "Off" costs nothing.
+ */
+export function useStyledStream(rawStream, { preset = null, mirror = false } = {}) {
+  const active = !!preset && preset.id !== 'off';
+  return useFaceBlurStream(rawStream, {
+    enabled: active,
+    mirror,
+    mode: active ? 'beauty' : 'off',
+    preset: active ? preset : null,
+  });
 }

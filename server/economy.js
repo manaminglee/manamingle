@@ -11,7 +11,8 @@
  * earnings accrue in a separate `earned` bucket ready for a future payout flow.
  */
 
-const { GIFTS, CATEGORIES, COIN_PACKAGES } = require('./giftCatalog');
+const { GIFTS, CATEGORIES, COIN_PACKAGES, findCoinPackage } = require('./giftCatalog');
+const { createWalletResolver } = require('./walletResolver');
 
 /** Verification tiers unlock perks; `paid` marks the premium tier. */
 const TIERS = {
@@ -226,6 +227,18 @@ function registerEconomy(app, io, deps) {
     }
   }
 
+  const wallet = createWalletResolver({
+    users,
+    audioIdentity,
+    economy: {
+      getBalance,
+      debit,
+      credit,
+      setBalance,
+      runLocked,
+    },
+  });
+
   /**
    * Send a gift. Atomically debits the sender, credits the recipient's share,
    * and books the creator's earnings. Returns the animation payload.
@@ -250,12 +263,11 @@ function registerEconomy(app, io, deps) {
     giftStreaks.set(streakKey, { count: streak, lastAt: now });
 
     const sender = users.get(fromSocketId);
-    const useAudioWallet = !!(
-      channelId
-      && audioIdentity
-      && sender?.audioIdentity?.username
-      && recipient?.audioIdentity?.username
-    );
+    const senderCtx = wallet.ctxFromSocket(fromSocketId, fromIp);
+    const recipientKey = recipient?.audioIdentity?.username
+      ? String(recipient.audioIdentity.username).toLowerCase()
+      : null;
+    const useAudioWallet = wallet.usesAudio(senderCtx);
 
     let spend;
     let recipientShare = 0;
@@ -263,18 +275,21 @@ function registerEconomy(app, io, deps) {
     const share = Math.floor(gift.cost * gift.creatorShare * recipientTier.giftBoost);
 
     if (useAudioWallet) {
-      const fromKey = String(sender.audioIdentity.username).toLowerCase();
-      const toKey = String(recipient.audioIdentity.username).toLowerCase();
-      spend = await audioIdentity.debit(fromKey, gift.cost, `gift_sent_${gift.id}`, { toSocketId, channelId });
+      spend = await wallet.debit(senderCtx, gift.cost, `gift_sent_${gift.id}`, { toSocketId, channelId });
       if (!spend.ok) return spend;
-      const creditRes = await audioIdentity.credit(toKey, share, `gift_received_${gift.id}`, { fromSocketId, channelId });
-      if (creditRes.ok) {
+      if (recipientKey) {
+        const creditRes = await audioIdentity.credit(recipientKey, share, `gift_received_${gift.id}`, { fromSocketId, channelId });
+        if (creditRes.ok) {
+          recipientShare = share;
+          const xpView = await audioIdentity.giftXp(recipientKey, gift.cost, share);
+          if (xpView) pushAudioIdentity(recipientKey, xpView);
+          if (creditRes.identity) pushAudioIdentity(recipientKey, creditRes.identity);
+        }
+      } else {
         recipientShare = share;
-        const xpView = await audioIdentity.giftXp(toKey, gift.cost, share);
-        if (xpView) pushAudioIdentity(toKey, xpView);
+        await credit(recipient.ip, share, `gift_received_${gift.id}`, { fromSocketId, channelId });
       }
-      pushAudioIdentity(fromKey, spend.identity);
-      if (creditRes.identity) pushAudioIdentity(toKey, creditRes.identity);
+      if (spend.identity) pushAudioIdentity(senderCtx.usernameKey, spend.identity);
     } else {
       spend = await debit(fromIp, gift.cost, `gift_sent_${gift.id}`, { toSocketId, channelId });
       if (!spend.ok) return spend;
@@ -284,11 +299,11 @@ function registerEconomy(app, io, deps) {
 
     if (channelId && recipientShare > 0) {
       try {
-        const bonusTarget = useAudioWallet
-          ? String(recipient.audioIdentity.username).toLowerCase()
+        const bonusTarget = useAudioWallet && recipientKey
+          ? recipientKey
           : recipient.ip;
         let bonus;
-        if (useAudioWallet) {
+        if (useAudioWallet && recipientKey) {
           bonus = await audioIdentity.credit(bonusTarget, GIFT_RECEIVE_BONUS, 'audio_gift_receive_bonus', { channelId, giftId: gift.id });
           if (bonus.ok && bonus.identity) pushAudioIdentity(bonusTarget, bonus.identity);
         } else {
@@ -398,8 +413,13 @@ function registerEconomy(app, io, deps) {
     if (!ids.length) return { ok: false, error: 'No recipients' };
 
     const total = gift.cost * ids.length;
-    const spend = await debit(fromIp, total, `gift_all_${gift.id}`, { count: ids.length, channelId });
+    const senderCtx = wallet.ctxFromSocket(fromSocketId, fromIp);
+    const useAudioWallet = wallet.usesAudio(senderCtx);
+    const spend = useAudioWallet
+      ? await wallet.debit(senderCtx, total, `gift_all_${gift.id}`, { count: ids.length, channelId })
+      : await debit(fromIp, total, `gift_all_${gift.id}`, { count: ids.length, channelId });
     if (!spend.ok) return spend;
+    if (useAudioWallet && spend.identity) pushAudioIdentity(senderCtx.usernameKey, spend.identity);
 
     const results = [];
     for (const toSocketId of ids) {
@@ -407,7 +427,14 @@ function registerEconomy(app, io, deps) {
       if (!recipient || toSocketId === fromSocketId) continue;
       const recipientTier = tierFor(recipient.ip);
       const share = Math.floor(gift.cost * gift.creatorShare * recipientTier.giftBoost);
-      await credit(recipient.ip, share, `gift_received_${gift.id}`, { fromSocketId, channelId });
+      const recipientKey = recipient?.audioIdentity?.username
+        ? String(recipient.audioIdentity.username).toLowerCase()
+        : null;
+      if (useAudioWallet && recipientKey) {
+        await audioIdentity.credit(recipientKey, share, `gift_received_${gift.id}`, { fromSocketId, channelId });
+      } else {
+        await credit(recipient.ip, share, `gift_received_${gift.id}`, { fromSocketId, channelId });
+      }
       const rStats = statsFor(recipient.ip);
       rStats.earned += share;
       rStats.giftsReceived += 1;
@@ -501,18 +528,24 @@ function registerEconomy(app, io, deps) {
 
     socket.on('coins:buy-package', async (data) => {
       try {
-        const pack = COIN_PACKAGES.find((p) => p.id === String(data?.packageId || ''));
+        const pack = findCoinPackage(String(data?.packageId || ''));
         if (!pack) return socket.emit('gift:error', { message: 'Unknown coin package.' });
+        const u = users.get(socket.id);
+        if (u?.audioIdentity?.username) {
+          return socket.emit('gift:error', {
+            message: 'Open Buy coins for secure checkout (Cashfree/Razorpay).',
+          });
+        }
         const allow =
           process.env.PAYMENTS_TEST_MODE === '1' ||
           process.env.NODE_ENV !== 'production' ||
           String(process.env.ALLOW_VIRTUAL_COIN_BUY || '') === '1';
         if (!allow) {
           return socket.emit('gift:error', {
-            message: 'Coin checkout opens soon — earn coins in rooms for now.',
+            message: 'Sign in with a voice identity, then use Buy coins for secure checkout.',
           });
         }
-        const res = await credit(ip, pack.coins, `coin_pack_${pack.id}`, { packageId: pack.id });
+        const res = await credit(ip, pack.coins, `coin_pack_${pack.id}`, { packageId: pack.id, testGuest: true });
         if (res.ok) {
           socket.emit('coins-updated', { coins: res.balance, reason: `Bought ${pack.name}` });
           socket.emit('gift:pack-bought', { packageId: pack.id, coins: pack.coins, balance: res.balance });
@@ -615,6 +648,7 @@ function registerEconomy(app, io, deps) {
     sendGift,
     tierFor,
     statsFor,
+    wallet,
     GIFTS,
     TIERS,
     journal,

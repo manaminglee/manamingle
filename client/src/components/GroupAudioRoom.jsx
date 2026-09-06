@@ -1698,6 +1698,7 @@ export function GroupAudioRoom({
         channelId={channel.channelId}
         members={members}
         coins={coinBalance}
+        audioUsername={audioIdentity?.username || null}
         open={giftOpen}
         initialTarget={giftTarget}
         onClose={() => { setGiftOpen(false); setGiftTarget(null); }}

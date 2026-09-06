@@ -87,6 +87,7 @@ function registerAudioChannels(app, io, deps) {
     onChannelEmpty,
     onChannelChange,
     economy,
+    audioStore,
     screenText,
   } = deps;
 
@@ -267,6 +268,11 @@ function registerAudioChannels(app, io, deps) {
     const payload = { channels: listChannels(), events: listScheduled() };
     io.emit('audio:channels', payload);
     io.emit('audio:scheduled', { events: payload.events });
+    if (audioStore?.upsertChannel) {
+      for (const c of channels.values()) {
+        void audioStore.upsertChannel(c);
+      }
+    }
   };
 
   const getChannel = (id) => channels.get(String(id || ''));
@@ -1513,8 +1519,12 @@ function registerAudioChannels(app, io, deps) {
     res.json({ channels: listChannels(), scheduled: listScheduled() });
   });
 
-  // Remind subscribers ~15 min before scheduled events
-  const reminderIv = setInterval(() => {
+  // Remind subscribers ~15 min before scheduled events (one instance via Redis lock)
+  const reminderIv = setInterval(async () => {
+    if (audioStore?.claimReminderLock) {
+      const won = await audioStore.claimReminderLock();
+      if (!won) return;
+    }
     const soon = Date.now() + 15 * 60 * 1000;
     for (const c of channels.values()) {
       if (c.isPa || !c.scheduledStartAt || c.reminderSent) continue;

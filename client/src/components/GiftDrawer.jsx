@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { purchaseCoinPack } from '../utils/paymentCheckout';
 
 const TIER_STYLES = {
   basic: 'border-white/15',
@@ -17,8 +18,11 @@ const ROLE_SHORT = { host: 'Admin', moderator: 'Co', speaker: 'Stage', listener:
 export function GiftDrawer({
   socket,
   channelId,
+  roomId = null,
+  giftMode = 'audio',
   members = [],
   coins = 0,
+  audioUsername = null,
   open,
   onClose,
   initialTarget = null,
@@ -33,6 +37,7 @@ export function GiftDrawer({
   const [notice, setNotice] = useState(null);
   const [sending, setSending] = useState(false);
   const [displayCoins, setDisplayCoins] = useState(coins);
+  const [buyBusy, setBuyBusy] = useState(false);
 
   useEffect(() => {
     setDisplayCoins(coins);
@@ -59,8 +64,8 @@ export function GiftDrawer({
       });
       setTimeout(() => setNotice(null), 2500);
     };
-    const onCoinsUpdated = ({ coins: next }) => {
-      if (next !== undefined) setDisplayCoins(next);
+    const onCoinsUpdated = ({ coins: next, audio }) => {
+      if (next !== undefined && (!audio || audioUsername)) setDisplayCoins(next);
     };
     const onBought = ({ coins: added, balance }) => {
       if (balance !== undefined) setDisplayCoins(balance);
@@ -119,12 +124,36 @@ export function GiftDrawer({
   if (!open) return null;
 
   const send = (giftId) => {
-    if (!socket || !channelId) {
-      setNotice({ type: 'err', text: 'Not connected to a voice room.' });
+    if (!socket) {
+      setNotice({ type: 'err', text: 'Not connected.' });
       return;
     }
     if (sending) return;
     setSending(true);
+
+    if (giftMode === 'group' && roomId) {
+      const creator = others.find((m) => m.isCreator) || others[0];
+      const targetSid = target || creator?.socketId;
+      if (!targetSid) {
+        setSending(false);
+        setNotice({ type: 'err', text: 'No creator to gift.' });
+        return;
+      }
+      socket.emit('group:gift', {
+        roomId,
+        targetSocketId: targetSid,
+        giftId,
+        nonce: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      });
+      setTimeout(() => setSending(false), 800);
+      return;
+    }
+
+    if (!channelId) {
+      setSending(false);
+      setNotice({ type: 'err', text: 'Not connected to a voice room.' });
+      return;
+    }
     if (toAll) {
       const ids = (stagePeople.length ? stagePeople : others).map((m) => m.socketId);
       if (!ids.length) {
@@ -143,8 +172,29 @@ export function GiftDrawer({
     socket.emit('gift:send', { toSocketId: target, giftId, channelId });
   };
 
-  const buyPack = (packageId) => {
-    socket?.emit('coins:buy-package', { packageId });
+  const buyPack = async (pack) => {
+    if (!audioUsername) {
+      setNotice({ type: 'err', text: 'Sign in with your voice identity to buy coins.' });
+      setTimeout(() => setNotice(null), 4000);
+      return;
+    }
+    if (buyBusy) return;
+    setBuyBusy(true);
+    try {
+      await purchaseCoinPack(pack, audioUsername, {
+        onSuccess: (result) => {
+          if (result.balance != null) setDisplayCoins(result.balance);
+          setNotice({ type: 'ok', text: `+${pack.coins} Nuts added` });
+          setTab('gifts');
+          setTimeout(() => setNotice(null), 2500);
+        },
+      });
+    } catch (e) {
+      setNotice({ type: 'err', text: e.message || 'Purchase failed' });
+      setTimeout(() => setNotice(null), 4000);
+    } finally {
+      setBuyBusy(false);
+    }
   };
 
   const drawer = (
@@ -169,7 +219,8 @@ export function GiftDrawer({
               <button
                 key={p.id}
                 type="button"
-                onClick={() => buyPack(p.id)}
+                onClick={() => buyPack(p)}
+                disabled={buyBusy}
                 className="flex items-center gap-3 p-3 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/8 text-left"
               >
                 <span className="text-2xl">{p.icon}</span>
@@ -180,7 +231,7 @@ export function GiftDrawer({
                 <span className="text-xs font-bold text-white/70">${p.priceUsd}</span>
               </button>
             ))}
-            <p className="text-[10px] text-white/35">Need coins to send gifts. Test packs credit instantly when enabled on the server.</p>
+            <p className="text-[10px] text-white/35">Secure checkout via Cashfree or Razorpay. Sign in with your voice identity first.</p>
           </div>
         ) : (
           <>

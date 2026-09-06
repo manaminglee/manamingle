@@ -22,9 +22,9 @@ const giftCost = (id) => {
   if (!found) throw new Error(`__livetest: gift "${id}" is not in the catalog`);
   return found.cost;
 };
-const CHEAP = 'soft_spark';
-const OTHER = 'pulse_heart';
-const BIG = 'gravity_crown';
+const CHEAP = 'charm_donut';
+const OTHER = 'charm_blush';
+const BIG = 'legend_crown';
 const CHEAP_COST = giftCost(CHEAP);
 const BIG_COST = giftCost(BIG);
 
@@ -47,7 +47,7 @@ function makeWorld(sharedRedis = null) {
     sockets: { sockets },
   };
 
-  const wallets = new Map([['alice', 1000], ['bob', 100000]]);
+  const wallets = new Map([['alice', 100000], ['bob', 100000]]);
   const users = new Map();
   const creators = [{ id: 'c1', handle_name: 'nova', status: 'approved' }];
 
@@ -166,10 +166,10 @@ async function suite(label, sharedRedis) {
   assert.strictEqual((await alice.fire('live:gift', { liveId, giftId: OTHER, nonce: 'n-4' })).comboCount, 1);
   ok('a different gift starts its own combo');
 
-  const broke = await alice.fire('live:gift', { liveId, giftId: 'universe', nonce: 'n-5' });
+  const broke = await alice.fire('live:gift', { liveId, giftId: 'legend_crown', nonce: 'n-5' });
   assert.strictEqual(broke.ok, false);
   assert.strictEqual(broke.insufficient, true);
-  assert.strictEqual(broke.needed, 50000);
+  assert.strictEqual(broke.needed, 9999999);
   ok('insufficient balance is refused with the shortfall');
 
   assert.strictEqual((await alice.fire('live:gift', { liveId, giftId: 'nope', nonce: 'n-6' })).ok, false);
@@ -279,7 +279,10 @@ async function crossInstance() {
   ok('instance B sees a live started on instance A');
 
   b.users.set('zoe1', { audioIdentity: { username: 'Zoe', level: 5 } });
-  b.wallets.set('zoe', 500);
+  // Fund Zoe relative to the gift's real price, so a repricing of the catalog
+  // can never turn this into a false "not enough coins" failure.
+  const ZOE_START = BIG_COST + 500;
+  b.wallets.set('zoe', ZOE_START);
   const zoe = b.makeSocket('zoe1', '7.7.7.7');
   const joined = await zoe.fire('live:join', { liveId });
   assert.strictEqual(joined.ok, true);
@@ -290,7 +293,7 @@ async function crossInstance() {
 
   const gift = await zoe.fire('live:gift', { liveId, giftId: BIG, nonce: 'x-1' });
   assert.strictEqual(gift.ok, true, gift.error);
-  assert.strictEqual(b.wallets.get('zoe'), 500 - BIG_COST);
+  assert.strictEqual(b.wallets.get('zoe'), ZOE_START - BIG_COST);
   const statsOnA = await a.engine.hostStats(await a.engine.getLive(liveId));
   assert.strictEqual(statsOnA.giftCount, 1);
   assert.strictEqual(statsOnA.topGifters[0].username, 'Zoe');
@@ -299,12 +302,12 @@ async function crossInstance() {
   // The nonce store is shared, so a replay on the OTHER instance is refused —
   // this is the case a per-process Map could never catch.
   a.users.set('zoe2', { audioIdentity: { username: 'Zoe', level: 5 } });
-  a.wallets.set('zoe', 500 - BIG_COST);
+  a.wallets.set('zoe', ZOE_START - BIG_COST);
   const zoeOnA = a.makeSocket('zoe2', '7.7.7.7');
   await zoeOnA.fire('live:join', { liveId });
   const replay = await zoeOnA.fire('live:gift', { liveId, giftId: BIG, nonce: 'x-1' });
   assert.strictEqual(replay.duplicate, true);
-  assert.strictEqual(a.wallets.get('zoe'), 500 - BIG_COST);
+  assert.strictEqual(a.wallets.get('zoe'), ZOE_START - BIG_COST);
   ok('a replayed nonce is refused on a DIFFERENT instance');
 
   await hostA.fire('live:mute', { liveId, targetSocketId: 'zoe1' });

@@ -4,6 +4,7 @@ import { getCreatorAuthHeaders, getCreatorSessionToken } from '../../utils/creat
 import { emitCreatorAuth } from '../../hooks/useSocket';
 import { isMobileLiveDevice } from '../../utils/liveDevice';
 import { useMediaPreview } from '../../hooks/useMediaPreview';
+import { LIVE_FILTERS, DEFAULT_FILTER, cssPreview } from '../../utils/liveFilters';
 import { useLiveBodyLock } from '../../hooks/useLiveViewport';
 import { hapticTap } from '../../utils/haptics';
 import CreatorVerifyModal from '../CreatorVerifyModal';
@@ -130,6 +131,17 @@ export default function LiveStudio({ socket, identityHook, creatorsHook = null, 
   });
 
   const [beautyOn, setBeautyOn] = useState(true);
+
+  /* The chosen look persists — a creator who found their filter should not have
+     to hunt for it before every stream. */
+  const [filterId, setFilterId] = useState(() => {
+    try { return localStorage.getItem('mm_live_filter') || DEFAULT_FILTER; }
+    catch { return DEFAULT_FILTER; }
+  });
+  const pickFilter = useCallback((id) => {
+    setFilterId(id);
+    try { localStorage.setItem('mm_live_filter', id); } catch { /* private mode */ }
+  }, []);
   const [showGuide, setShowGuide] = useState(true);
   useEffect(() => {
     if (!preview.ready) return undefined;
@@ -199,6 +211,7 @@ export default function LiveStudio({ socket, identityHook, creatorsHook = null, 
             displayName: creator?.display_name || creator?.handle_name || data.live.displayName,
             verified: true,
             beautyEnabled: beautyOn,
+            filterId,
           });
           onStarted?.(data.live);
           return;
@@ -216,6 +229,7 @@ export default function LiveStudio({ socket, identityHook, creatorsHook = null, 
         displayName: creator?.display_name || creator?.handle_name,
         verified: true,
         beautyEnabled: beautyOn,
+        filterId,
       });
       onStarted?.(data.live);
     } catch {
@@ -322,6 +336,32 @@ export default function LiveStudio({ socket, identityHook, creatorsHook = null, 
     void start();
   };
 
+  const scheduleLive = async () => {
+    const raw = window.prompt('Schedule live for (local time):\nExample: 2026-09-05T20:00', '');
+    if (!raw) return;
+    const startsAt = Date.parse(raw);
+    if (!Number.isFinite(startsAt)) {
+      setError('Invalid date — use YYYY-MM-DDTHH:MM format.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/lives/schedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getCreatorAuthHeaders() },
+        credentials: 'include',
+        body: JSON.stringify({ title: title || undefined, startsAt: new Date(startsAt).toISOString() }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) setError(data.error || 'Could not schedule live');
+      else setError('');
+    } catch {
+      setError('Network error scheduling live');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="live-root">
       <div className="live-video-layer">
@@ -331,6 +371,10 @@ export default function LiveStudio({ socket, identityHook, creatorsHook = null, 
         <video
           ref={previewRef}
           className="live-video"
+          /* Tone is previewed with a CSS filter — cheap, and identical to what
+             the canvas pipeline applies. Smoothing and glow are added on the
+             published track and are not simulated here. */
+          style={{ filter: beautyOn ? cssPreview(filterId) : 'none' }}
           playsInline
           webkit-playsinline="true"
           muted
@@ -432,15 +476,40 @@ export default function LiveStudio({ socket, identityHook, creatorsHook = null, 
         </div>
 
         <div className="live-bottom" data-interactive>
-          <div className="prelive-beauty">
-            <span>Beauty filter {beautyOn ? 'ON' : 'OFF'}</span>
-            <button
-              type="button"
-              className={`live-btn${beautyOn ? ' live-btn--primary' : ''}`}
-              onClick={() => setBeautyOn((v) => !v)}
-            >
-              {beautyOn ? '✨ Soft look' : 'Raw camera'}
-            </button>
+          {/* Look picker. The choice is applied to the PUBLISHED track, not
+              just this screen, so what viewers get is what is chosen here. */}
+          <div className="prelive-looks">
+            <div className="prelive-looks__head">
+              <span className="prelive-looks__title">Look</span>
+              <span className="prelive-looks__hint">
+                {beautyOn
+                  ? (LIVE_FILTERS.find((f) => f.id === filterId)?.hint || '')
+                  : 'Filters off — raw camera'}
+              </span>
+            </div>
+            <div className="prelive-looks__strip">
+              {LIVE_FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  className={`prelive-look${filterId === f.id && beautyOn ? ' prelive-look--on' : ''}`}
+                  onClick={() => {
+                    hapticTap();
+                    if (f.id === 'off') { setBeautyOn(false); pickFilter('natural'); return; }
+                    setBeautyOn(true);
+                    pickFilter(f.id);
+                  }}
+                  aria-pressed={filterId === f.id && beautyOn}
+                >
+                  <span
+                    className={`prelive-look__swatch prelive-look__swatch--${f.id}`}
+                    aria-hidden
+                  />
+                  <span className="prelive-look__label">{f.label}</span>
+                  {f.cost >= 2 && <span className="prelive-look__cost" aria-hidden />}
+                </button>
+              ))}
+            </div>
           </div>
           {/* Mic check — a dead mic should be obvious here, not to an audience. */}
           <div className="prelive-mic">
@@ -491,6 +560,15 @@ export default function LiveStudio({ socket, identityHook, creatorsHook = null, 
               )}
             </p>
           )}
+
+          <button
+            type="button"
+            className="prelive-schedule"
+            disabled={busy}
+            onClick={() => void scheduleLive()}
+          >
+            Schedule for later
+          </button>
 
           <button
             type="button"

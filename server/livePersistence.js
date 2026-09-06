@@ -174,6 +174,12 @@ function createLivePersistence({ supabase, enabled = true } = {}) {
           total_viewers: summary.totalViewers,
           likes: summary.likes,
           gift_count: summary.giftCount,
+          replay_summary: {
+            durationMs: summary.durationMs,
+            topGifter: summary.topGifter || null,
+            coinsReceived: summary.coinsReceived,
+            comments: comments,
+          },
         }).eq('id', room.id),
 
         supabase.from('mm_live_gift_receipts').insert({

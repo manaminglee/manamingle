@@ -10,6 +10,7 @@ import { useIceServers } from '../hooks/useIceServers';
 import { API_BASE } from '../config/apiBase';
 import { nextMsgId } from '../utils/uniqueId';
 import { CoinBadge } from './CoinBadge';
+import { GiftDrawer } from './GiftDrawer';
 import { ReportSafetyModal } from './ReportSafetyModal';
 import { ensureNotifyPermission, notifyIfBackground } from '../utils/browserNotify';
 import { playConnectSound, playMessageSound, playDisconnectSound, playWaveSound } from '../utils/sounds';
@@ -406,6 +407,7 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showDevicePicker, setShowDevicePicker] = useState(false);
   const [showTipModal, setShowTipModal] = useState(false);
+  const [showGiftDrawer, setShowGiftDrawer] = useState(false);
   const [tipTargetSid, setTipTargetSid] = useState(null);
   const [showProfileHandle, setShowProfileHandle] = useState(null);
   const [showRating, setShowRating] = useState(false);
@@ -1885,6 +1887,11 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
               </div>
             </div>
             <div className="mm-group-desk-header__actions">
+              {!isCreator && peers.some((p) => p.isCreator) && (
+                <button type="button" className="mm-group-desk-header__btn" onClick={() => setShowGiftDrawer(true)}>
+                  🎁 Gift
+                </button>
+              )}
               {isCreator && (
                 <CoinBadge balance={balance} streak={streak} canClaim={canClaim} nextClaim={nextClaim ?? 0} claimCoins={claimCoins} registered={registered} currentActiveSeconds={currentActiveSeconds} isCreator={isCreator} />
               )}
@@ -2346,6 +2353,22 @@ export default function GroupVideoRoom({ roomId: roomIdProp, interest: interestP
         onTip={(amount) => sendTip(amount, tipTargetSid || peers.find((p) => p.isCreator)?.socketId)}
         balance={balance}
         creatorName={peers.find((p) => p.socketId === tipTargetSid)?.nickname || peers.find((p) => p.isCreator)?.nickname}
+      />
+
+      <GiftDrawer
+        socket={socket}
+        roomId={roomIdProp || roomIdRef.current}
+        giftMode="group"
+        members={peers.map((p) => ({
+          socketId: p.socketId,
+          nickname: p.nickname,
+          isCreator: p.isCreator,
+          role: p.isCreator ? 'host' : 'listener',
+        }))}
+        coins={balance}
+        open={showGiftDrawer}
+        onClose={() => setShowGiftDrawer(false)}
+        initialTarget={peers.find((p) => p.isCreator)?.socketId || null}
       />
 
       {showProfileHandle && (

@@ -118,6 +118,50 @@ export async function fetchPaymentConfig() {
 /**
  * Open Razorpay Checkout for a Nuts coin pack order created by the server.
  */
+export async function purchaseCoinPack(pack, audioUsername, { onSuccess, onError } = {}) {
+  if (!pack?.id || !audioUsername) throw new Error('Sign in to buy coins');
+  const res = await fetch(`${API_BASE}/api/payment/coins/create-order`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ packageId: pack.id, audioUsername }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Checkout unavailable');
+
+  if (data.provider === 'test' || data.testMode) {
+    const verify = await fetch(`${API_BASE}/api/payment/coins/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        packageId: pack.id,
+        audioUsername,
+        testConfirm: true,
+      }),
+    });
+    const result = await verify.json();
+    if (!verify.ok || !result.ok) throw new Error(result.error || 'Test purchase failed');
+    onSuccess?.(result);
+    return result;
+  }
+
+  if (data.provider === 'razorpay' && data.orderId) {
+    const result = await openRazorpayCoinCheckout(data, { onSuccess, onError });
+    return result;
+  }
+
+  if (data.checkoutUrl) {
+    window.location.href = data.checkoutUrl;
+    return data;
+  }
+
+  throw new Error(data.message || 'Payment provider not configured');
+}
+
+/**
+ * Open Razorpay Checkout for a Nuts coin pack order created by the server.
+ */
 export async function openRazorpayCoinCheckout(order, { onSuccess, onError } = {}) {
   const Razorpay = await loadRazorpayScript();
   return new Promise((resolve, reject) => {

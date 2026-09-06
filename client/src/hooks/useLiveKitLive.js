@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Room, RoomEvent, Track, createLocalTracks, ConnectionState } from 'livekit-client';
+import { getFilter } from '../utils/liveFilters';
 import { drawFaceProcessedFrame, loadFaceLandmarker } from '../utils/faceBlurEngine';
 
 const CLARITY_TIMEOUT_MS = 20_000;
@@ -20,6 +21,9 @@ export function useLiveKitLive({
   asGuest = false,
   videoElRef = null,
   beautyEnabled = true,
+  /* Look chosen by the creator. Held in a ref and read inside the render loop,
+     so switching filter mid-broadcast costs one frame and never republishes. */
+  filterId = 'natural',
   onClarityTimeout = null,
 }) {
   const [connected, setConnected] = useState(false);
@@ -43,6 +47,8 @@ export function useLiveKitLive({
 
   const beautyEnabledRef = useRef(beautyEnabled);
   beautyEnabledRef.current = beautyEnabled;
+  const filterRef = useRef(getFilter(filterId));
+  filterRef.current = beautyEnabled ? getFilter(filterId) : getFilter('off');
   const onClarityTimeoutRef = useRef(onClarityTimeout);
   onClarityTimeoutRef.current = onClarityTimeout;
   const videoElRefStable = useRef(videoElRef);
@@ -319,7 +325,8 @@ export function useLiveKitLive({
             const loop = () => {
               if (hidden.readyState >= 2) {
                 beautyTsRef.current += 33;
-                const mode = beautyEnabledRef.current ? 'beauty' : 'off';
+                const preset = filterRef.current;
+                const styled = preset && preset.id !== 'off';
                 drawFaceProcessedFrame(
                   ctx,
                   blurCtx,
@@ -327,7 +334,8 @@ export function useLiveKitLive({
                   landmarker,
                   false,
                   beautyTsRef.current,
-                  mode,
+                  styled ? 'beauty' : 'off',
+                  styled ? preset : null,
                 );
               }
               beautyRafRef.current = requestAnimationFrame(loop);

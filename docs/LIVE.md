@@ -185,3 +185,34 @@ no element outside the viewport, no clipped or sub-24px control.
   Redis that works across instances, in memory mode both must be on one box.
 - `mm_live_comments` is written for moderation review, not as a chat archive —
   it keeps whatever flushed before the live ended.
+
+## Nuts pricing
+
+One base rate, then visible bonuses:
+
+- **Base rate** — `BASE_NUTS_PER_INR = 100`. Every pack pays at least this.
+- **Bonus** — the amount above base, shown as both `+N% bonus` and `N Nuts / ₹`
+  so a buyer never has to divide to find the better pack. Bonuses run +2% at
+  ₹49 up to +18% at ₹19,999, and value per rupee climbs monotonically. A test
+  asserts the ladder never has a bigger pack that is worse value.
+- **Ceiling** — `MAX_NUTS_PER_INR = 118`, and this is a business constraint, not
+  a taste. Creators cash out at `NUTS_PER_USD` (10,000 Nuts = $1) and the top
+  gift tier pays them 86% of what the gift cost. Above the ceiling, a whale
+  buying the biggest pack to send the biggest gift loses the platform money on
+  every send. `__paytest.js` asserts ≥10% gross margin on every pack at the
+  highest creator share in the catalog.
+
+  The previous ladder topped out at 250 Nuts/₹, which was under water against
+  the payout rate — the current ladder is narrower for that reason.
+- **First purchase** — +50% capped at 8,000 Nuts, applied by
+  `audioIdentity.creditCoinPack` inside the wallet lock. The cap matters: an
+  uncapped percentage makes the largest pack the cheapest Nuts on the platform,
+  which is the pack with the least margin to give away. Lifetime
+  `coinsRecharged` is the first-purchase signal, so there is no extra flag to
+  keep in sync, and reading it inside the same lock as the credit means two
+  simultaneous checkouts cannot both collect it.
+- **Retired packs** — `RETIRED_PACKS` maps old ids to their replacements and
+  every server lookup goes through `findCoinPackage`, so a checkout started
+  before a price change still completes.
+- **Shortfall** — a failed gift send carries its shortfall to the market sheet,
+  which highlights the cheapest pack that covers it (`packForShortfall`).

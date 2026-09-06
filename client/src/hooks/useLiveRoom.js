@@ -43,6 +43,9 @@ export function useLiveRoom(socket, liveId, { asHost = false, onReaction, handle
   const [roomState, setRoomState] = useState('connecting'); // connecting|live|reconnecting|ended|removed
   const [endSummary, setEndSummary] = useState(null);
   const [notice, setNotice] = useState(null);
+  /* High-level arrivals get their own banner queue; everyone else stays a
+     one-line comment. Kept separate so a raid cannot flood the chat. */
+  const [vipEntries, setVipEntries] = useState([]);
   const [following, setFollowing] = useState(false);
   const [followKnown, setFollowKnown] = useState(false);
 
@@ -190,6 +193,11 @@ export function useLiveRoom(socket, liveId, { asHost = false, onReaction, handle
       },
       'live:viewer-joined': (p) => {
         if (!sameRoom(p)) return;
+        // Level 10 is the first frame tier — below it, no banner.
+        if ((p.level || 0) >= 10) {
+          setVipEntries((cur) => (cur.length >= 6 ? cur : [...cur, { ...p, key: `${p.username}-${Date.now()}` }]));
+          return;
+        }
         // A room with heavy churn would otherwise drown real comments in
         // "joined" lines, so they are coalesced into one line per window.
         const j = joinNotice.current;
@@ -349,6 +357,15 @@ export function useLiveRoom(socket, liveId, { asHost = false, onReaction, handle
     },
   }), [emit]);
 
+  // The banner component owns the playback queue; this list is only a hand-off
+  // buffer. Once it has taken a batch it tells us which keys it holds so they
+  // stop being re-delivered on the next render.
+  const clearVipEntries = useCallback((keys) => {
+    if (!keys?.length) return;
+    const gone = new Set(keys);
+    setVipEntries((cur) => cur.filter((e) => !gone.has(e.key)));
+  }, []);
+
   return {
     comments,
     pinnedComment,
@@ -365,6 +382,8 @@ export function useLiveRoom(socket, liveId, { asHost = false, onReaction, handle
     roomState,
     endSummary,
     notice,
+    vipEntries,
+    clearVipEntries,
     following,
     followKnown,
     sendComment,

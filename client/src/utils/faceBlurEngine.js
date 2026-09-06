@@ -178,8 +178,118 @@ export function drawBeautyFrame(ctx, blurCtx, video, landmarker, mirror, timesta
   return true;
 }
 
+/* ==========================================================================
+   STYLED FRAME — the creator's chosen look, applied before publish.
+   --------------------------------------------------------------------------
+   Pass budget per frame, at 28fps:
+     1. base draw with the preset's tone filter          (always)
+     2. blurred copy blended over the face only          (smooth > 0)
+     3. blurred bright copy screened over everything     (glow  > 0)
+     4. radial gradient over the corners                 (vignette > 0)
+
+   Passes 2 and 3 share one scratch canvas and are skipped entirely when the
+   preset does not ask for them, so "Natural" costs barely more than "Off".
+   ========================================================================== */
+
+/** Corner darkening. Cheap — a cached gradient, no blur. */
+let vignetteCache = null;
+function drawVignette(ctx, w, h, amount) {
+  if (amount <= 0) return;
+  if (!vignetteCache || vignetteCache.w !== w || vignetteCache.h !== h) {
+    const g = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.32, w / 2, h / 2, Math.max(w, h) * 0.72);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(1, 'rgba(0,0,0,1)');
+    vignetteCache = { w, h, g };
+  }
+  ctx.save();
+  ctx.globalAlpha = amount;
+  ctx.fillStyle = vignetteCache.g;
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+}
+
+/**
+ * Draw one frame in the creator's chosen look.
+ *
+ * @param {object} preset from utils/liveFilters — {tone, smooth, glow, vignette}
+ */
+export function drawStyledFrame(ctx, blurCtx, video, landmarker, mirror, timestampMs, preset) {
+  const w = video.videoWidth;
+  const h = video.videoHeight;
+  if (!w || !h) return false;
+
+  ensureCanvasSize(ctx, blurCtx, w, h);
+
+  const smooth = preset?.smooth || 0;
+  const glow = preset?.glow || 0;
+  const vignette = preset?.vignette || 0;
+
+  // Face detection is only worth its cost when something uses it.
+  let hasFace = false;
+  if (smooth > 0 && landmarker) {
+    try {
+      const results = landmarker.detectForVideo(video, timestampMs);
+      hasFace = (results?.faceLandmarks?.length ?? 0) > 0;
+    } catch {
+      hasFace = false;
+    }
+  }
+
+  // 1 · base
+  ctx.save();
+  if (mirror) {
+    ctx.translate(w, 0);
+    ctx.scale(-1, 1);
+  }
+  ctx.filter = preset?.tone || 'none';
+  ctx.drawImage(video, 0, 0, w, h);
+  ctx.filter = 'none';
+  ctx.restore();
+
+  // 2 · skin smoothing, only where there is a face
+  if (smooth > 0 && hasFace) {
+    blurCtx.save();
+    blurCtx.filter = 'blur(4px)';
+    drawMirroredImage(blurCtx, video, w, h, mirror);
+    blurCtx.restore();
+    blurCtx.filter = 'none';
+
+    ctx.save();
+    ctx.globalAlpha = smooth;
+    ctx.drawImage(blurCtx.canvas, 0, 0, w, h);
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // 3 · bloom
+  if (glow > 0) {
+    blurCtx.save();
+    blurCtx.filter = 'blur(12px) brightness(1.5) saturate(1.1)';
+    drawMirroredImage(blurCtx, video, w, h, mirror);
+    blurCtx.restore();
+    blurCtx.filter = 'none';
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = glow * 0.5;
+    ctx.drawImage(blurCtx.canvas, 0, 0, w, h);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.restore();
+  }
+
+  // 4 · vignette
+  drawVignette(ctx, w, h, vignette);
+
+  return true;
+}
+
 /** Unified face processing: mode = 'beauty' | 'blur' | 'off' */
-export function drawFaceProcessedFrame(ctx, blurCtx, video, landmarker, mirror, timestampMs, mode = 'blur') {
+export function drawFaceProcessedFrame(ctx, blurCtx, video, landmarker, mirror, timestampMs, mode = 'blur', preset = null) {
+  // A preset wins over the legacy modes — it is the path lives use.
+  if (preset) {
+    return drawStyledFrame(ctx, blurCtx, video, landmarker, mirror, timestampMs, preset);
+  }
   if (mode === 'off') {
     const w = video.videoWidth;
     const h = video.videoHeight;

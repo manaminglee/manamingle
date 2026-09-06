@@ -17,7 +17,7 @@ import {
 } from './LiveSheets';
 import { GiftArt } from '../icons/GiftArt';
 import {
-  Avatar, CommentStream, HeartLayer, GiftBanners, FullscreenGift,
+  Avatar, CommentStream, HeartLayer, GiftBanners, FullscreenGift, VideoLayer,
   StateOverlay, ReconnectBanner, LiveToast, ConfirmDialog, compact,
 } from './LiveBits';
 import { HellooooLoader } from '../HellooooBrand';
@@ -25,6 +25,7 @@ import HpPartnerSheet from './HpPartnerSheet';
 import GuestJoinBar from './GuestJoinBar';
 import UserProfileSheet from './UserProfileSheet';
 import DmChatSheet from './DmChatSheet';
+import VipEntry from './VipEntry';
 
 const COMBO_MS = 4000;
 
@@ -68,7 +69,7 @@ export default function LiveRoom({
   const {
     comments, pinnedComment, viewerCount, likes, banners, fullscreenGift,
     battle, topGifter, stats, settings, isModerator, muted,
-    roomState, endSummary, notice, following, followKnown,
+    roomState, endSummary, notice, vipEntries, clearVipEntries, following, followKnown,
     sendComment, sendGift, react, follow, moderation, toast,
   } = room;
 
@@ -81,6 +82,9 @@ export default function LiveRoom({
   const [statsOpen, setStatsOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
+  // Carried from the gift tray so the market can open on the pack that actually
+  // unblocks the send instead of making the buyer work it out.
+  const [shopShortfall, setShopShortfall] = useState(0);
   const [userSheet, setUserSheet] = useState(null);
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [combo, setCombo] = useState(null);
@@ -103,6 +107,7 @@ export default function LiveRoom({
     asGuest: !isHost && guestPublish,
     videoElRef: videoRef,
     beautyEnabled: (isHost || guestPublish) && (live?.beautyEnabled !== false) && beautyOn,
+    filterId: live?.filterId || 'natural',
   });
 
   /* HP split screen. `hpActive` is derived straight from the battle record, so
@@ -319,57 +324,13 @@ export default function LiveRoom({
 
   return (
     <div className="live-root" ref={rootRef} onPointerDown={unlockSound}>
-      {/* 1 · VIDEO — mounted once, never inside a conditional branch. During an
-             HP battle the same element just moves into the top half of a split
-             frame, so the stream is never torn down and rebuilt. */}
-      <div className={`live-video-layer${hpActive ? ' live-video-layer--hp' : ''}`}>
-        <div className="live-video-pane">
-          {live?.wallpaperUrl && !media.hasMedia && (
-            <div className="live-wallpaper" style={{ backgroundImage: `url(${live.wallpaperUrl})` }} />
-          )}
-          <video
-            ref={videoRef}
-            className="live-video"
-            playsInline
-            webkit-playsinline="true"
-            autoPlay
-            muted
-            disablePictureInPicture
-          />
-          {hpActive && <span className="live-video-pane__tag">@{meLabel}</span>}
-        </div>
-
-        {hpActive && (
-          <div className="live-video-pane live-video-pane--opponent">
-            <video
-              ref={opponentVideoRef}
-              className="live-video"
-              playsInline
-              webkit-playsinline="true"
-              autoPlay
-              muted
-              disablePictureInPicture
-            />
-            {!opponent.hasMedia && (
-              <div className="live-video-pane__waiting">
-                <div className="live-state__spinner" aria-hidden />
-                <p>{opponent.error ? 'Opponent unavailable' : `Connecting @${themLabel}…`}</p>
-              </div>
-            )}
-            <span className="live-video-pane__tag">@{themLabel}</span>
-            {!isHost && opponentLiveId && (
-              <button
-                type="button"
-                className="live-video-pane__switch"
-                data-interactive
-                onClick={() => onSwitchBattleLive?.(opponentLiveId)}
-              >
-                Watch
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+      {/* 1 · VIDEO — memoised, so a busy comment stream cannot reconcile it */}
+      <VideoLayer
+        videoRef={videoRef}
+        wallpaperUrl={live?.wallpaperUrl}
+        showWallpaper={!media.hasMedia}
+        mirrored={isHost && media.facingMode === 'user'}
+      />
 
       {hpActive && (
         <div className="live-hp-hud" aria-hidden={false}>
@@ -384,6 +345,7 @@ export default function LiveRoom({
 
       <HeartLayer hearts={hearts} onDone={remove} />
       <GiftBanners banners={banners} />
+      <VipEntry entries={vipEntries} onConsumed={clearVipEntries} />
       <FullscreenGift gift={fullscreenGift} />
 
       {/* 2 · UI GRID */}
@@ -730,8 +692,9 @@ export default function LiveRoom({
         onClose={() => setGiftOpen(false)}
         onSend={sendFromTray}
         balance={balance}
+        level={identity?.level ?? 0}
         battle={battle}
-        onRecharge={() => { setGiftOpen(false); setShopOpen(true); }}
+        onRecharge={(need) => { setShopShortfall(Number(need) || 0); setGiftOpen(false); setShopOpen(true); }}
       />
 
       <LiveViewerSheet
@@ -791,7 +754,8 @@ export default function LiveRoom({
 
       <AudioCoinShop
         open={shopOpen}
-        onClose={() => setShopOpen(false)}
+        shortfall={shopShortfall}
+        onClose={() => { setShopOpen(false); setShopShortfall(0); }}
         identity={identity}
         onBalanceUpdate={() => identityHook?.refresh?.()}
       />

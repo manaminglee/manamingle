@@ -4,6 +4,8 @@ import MobileNav from './components/MobileNav';
 import { useLiveManifest, launchTarget, isLiveAudioSurface } from './utils/pwaManifest';
 import { AgeVerificationGate } from './components/AgeVerificationGate';
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
+import { PwaUpdatePrompt } from './components/PwaUpdatePrompt';
+import { subscribeToPush, watchServiceWorkerUpdates } from './utils/pushNotifications';
 import { UnblockPaymentModal } from './components/UnblockPaymentModal';
 import { ToastProvider, useToast } from './components/Toast';
 import { ConnectionBanner } from './components/ConnectionBanner';
@@ -97,6 +99,22 @@ function AppShell() {
     () => ({ ...coinState, adsEnabled, adScripts }),
     [coinState, adsEnabled, adScripts]
   );
+  const [swUpdateReg, setSwUpdateReg] = useState(null);
+
+  const displayCoinBalance = audioIdentityHook.identity?.coins ?? coinState.balance;
+
+  useEffect(() => {
+    return watchServiceWorkerUpdates((_phase, reg) => {
+      if (reg?.waiting) setSwUpdateReg(reg);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!audioIdentityHook.identity?.username) return undefined;
+    const key = `audio:${String(audioIdentityHook.identity.username).toLowerCase()}`;
+    void subscribeToPush({ ownerKey: key });
+    return undefined;
+  }, [audioIdentityHook.identity?.username]);
 
   useEffect(() => {
     clearChunkReloadFlag();
@@ -277,7 +295,14 @@ function AppShell() {
   const { setBalance } = coinState;
   useEffect(() => {
     if (socket) {
-      const onCoinsUpdated = (data) => setBalance(data.coins);
+    const onCoinsUpdated = ({ coins: next, audio }) => {
+      if (next === undefined) return;
+      if (audioIdentityHook.identity?.username) {
+        if (audio) setBalance(next);
+      } else if (!audio) {
+        setBalance(next);
+      }
+    };
       const onConnected = (data) => {
         if (data?.coins !== undefined) setBalance(data.coins);
       };
@@ -297,7 +322,7 @@ function AppShell() {
         clearInterval(activityInterval);
       };
     }
-  }, [socket, connected, setBalance]);
+  }, [socket, connected, setBalance, audioIdentityHook.identity?.username]);
 
   // Manage browser back button
   useEffect(() => {
@@ -664,6 +689,7 @@ function AppShell() {
       <PwaInstallPrompt
         variant={isLiveAudioSurface(mode) ? 'live' : 'default'}
       />
+      <PwaUpdatePrompt registration={swUpdateReg} onDismiss={() => setSwUpdateReg(null)} />
     </>
   );
 }

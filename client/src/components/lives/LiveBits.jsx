@@ -54,6 +54,39 @@ export const Badges = memo(function Badges({ badges }) {
 });
 
 /* ------------------------------------------------------------------------ */
+/* Video layer                                                               */
+/* ------------------------------------------------------------------------ */
+
+/**
+ * The video and its wallpaper, isolated behind memo().
+ *
+ * LiveRoom re-renders on every comment flush, like burst, viewer-count tick and
+ * gift — dozens of times a minute in a busy room. Without this boundary React
+ * walks the <video> element on each of those. It would not swap the DOM node,
+ * but it does reconcile it, and any accidental prop change (a new object
+ * literal, a changed key) tears down the media stream mid-broadcast. Isolating
+ * it makes that class of bug impossible rather than merely unlikely.
+ */
+export const VideoLayer = memo(function VideoLayer({ videoRef, wallpaperUrl, mirrored, showWallpaper }) {
+  return (
+    <div className="live-video-layer">
+      {wallpaperUrl && showWallpaper && (
+        <div className="live-wallpaper" style={{ backgroundImage: `url(${wallpaperUrl})` }} />
+      )}
+      <video
+        ref={videoRef}
+        className={`live-video${mirrored ? ' live-video--mirror' : ''}`}
+        playsInline
+        webkit-playsinline="true"
+        autoPlay
+        muted
+        disablePictureInPicture
+      />
+    </div>
+  );
+});
+
+/* ------------------------------------------------------------------------ */
 /* Comment stream                                                            */
 /* ------------------------------------------------------------------------ */
 
@@ -205,7 +238,7 @@ export const FullscreenGift = memo(function FullscreenGift({ gift }) {
 /* ------------------------------------------------------------------------ */
 
 /** Bottom sheet. Rendered in a portal so no ancestor transform can clip it. */
-export function Sheet({ open, title, onClose, children, tall = false, foot = null }) {
+export function Sheet({ open, title, onClose, children, tall = false, foot = null, className = '' }) {
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
@@ -217,7 +250,7 @@ export function Sheet({ open, title, onClose, children, tall = false, foot = nul
   return createPortal(
     <div className="live-sheet-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
       <div
-        className={`live-sheet${tall ? ' live-sheet--tall' : ''}`}
+        className={['live-sheet', tall ? 'live-sheet--tall' : '', className].filter(Boolean).join(' ')}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="live-sheet__grip" />
