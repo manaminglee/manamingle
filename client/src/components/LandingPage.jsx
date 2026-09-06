@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, memo, Suspense } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useSocket } from '../hooks/useSocket';
 import { CoinBadge } from './CoinBadge';
 import { useCreators } from '../hooks/useCreators';
@@ -16,6 +17,9 @@ import { PHASE_4_UNIQUE } from '../constants/features';
 import { SettingsGearButton } from './SettingsGear';
 import LandingHero from './LandingHero';
 import { LandingModeCards } from './LandingModeCards';
+import LandingBackground from './LandingBackground';
+import { fadeUp, slideDown, stagger } from '../utils/landingMotion';
+import '../styles/landing-motion.css';
 import { HellooooBrand, HellooooLogo, HELLOOOO_TAGLINE, HELLOOOO_EMOJI } from './HellooooBrand';
 import { lazyRetry } from '../utils/lazyRetry';
 import { CreatorNotificationBell } from './CreatorNotificationBell';
@@ -701,10 +705,9 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
   const scrollToStart = () => startRef.current?.scrollIntoView({ behavior: 'smooth' });
 
   return (
-    <div className="mm-landing text-white relative">
+    <div className="mm-landing mm-landing--v2 text-white relative">
 
-      {/* Flat site background — same color everywhere */}
-      <div className="mm-landing-bg" aria-hidden="true" />
+      <LandingBackground lowPower={lowPower} />
 
       {/* COMMUNITY POLICY (first-time video / group video) */}
       {showCommunityPolicy && (
@@ -737,16 +740,33 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
 
       {/* SCANNING OVERLAY */}
       {scanning && (
-        <div className="fixed inset-0 z-[2000] mm-landing-scan flex flex-col items-center justify-center">
-          <div className="mm-landing-scan-ring" />
-          <span className="mt-5 text-sm font-semibold tracking-wide text-white/75">Finding your match...</span>
-          <span className="mt-1 text-xs text-white/35">Secure anonymous connection</span>
-        </div>
+        <AnimatePresence>
+          <motion.div
+            key="scan"
+            className="fixed inset-0 z-[2000] mm-landing-scan flex flex-col items-center justify-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="mm-landing-scan-ring"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2.4, repeat: Infinity, ease: 'linear' }}
+            />
+            <span className="mt-5 text-sm font-semibold tracking-wide text-white/75">Finding your match...</span>
+            <span className="mt-1 text-xs text-white/35">Secure anonymous connection</span>
+          </motion.div>
+        </AnimatePresence>
       )}
 
       {/* HEADER */}
       {!showDashboardModal && (
-        <header className="mm-landing-header">
+        <motion.header
+          className="mm-landing-header"
+          initial="hidden"
+          animate="visible"
+          variants={slideDown}
+        >
           <div className="mm-landing-header__bar">
             <div className="mm-landing-header__brand">
               <button type="button" onClick={scrollToStart} className="flex items-center gap-3 min-w-0 text-left rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/40 mm-compact-btn">
@@ -822,7 +842,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
               {(creatorUnreadCount > 0) && <span className="mm-landing-menu-btn__dot" aria-hidden />}
             </button>
           </div>
-        </header>
+        </motion.header>
       )}
 
       {/* HERO SECTION */}
@@ -837,11 +857,19 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
             isJoining={isJoining}
             onlineCount={onlineCount ?? 0}
             lowPower={lowPower}
+            onGoLive={() => handleStartInteraction('lives')}
+            onScrollToStart={scrollToStart}
           />
 
           {/* Names block — centered vertical stack */}
-          <section className="mm-landing-section mm-landing-names mm-landing-fade-in">
-            <div className="mm-landing-names__stack mm-landing-fade-in mm-landing-fade-in-delay-1">
+          <motion.section
+            className="mm-landing-section mm-landing-names lv2-section"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-30px' }}
+            variants={stagger(0.06)}
+          >
+            <motion.div className="mm-landing-names__stack" variants={fadeUp}>
               <Suspense fallback={null}>
                 <AiStatusPill online={aiOnline} />
               </Suspense>
@@ -862,12 +890,19 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
               <button type="button" onClick={() => setLowPower(!lowPower)} className="mm-landing-chip px-4">
                 {lowPower ? '⚡ Low power: On' : 'Low power: Off'}
               </button>
-            </div>
-          </section>
+            </motion.div>
+          </motion.section>
 
           {/* INTEREST DOCK - centered */}
-          <section ref={startRef} className="mm-landing-section mm-landing-section--medium mm-landing-anchor mm-landing-fade-in mm-landing-fade-in-delay-2 mm-landing-step-panel">
-            <div className="mm-landing-glass p-6 sm:p-8">
+          <motion.section
+            ref={startRef}
+            className="mm-landing-section mm-landing-section--medium mm-landing-anchor lv2-section"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-50px' }}
+            variants={fadeUp}
+          >
+            <div className="mm-landing-glass mm-landing-step-panel p-6 sm:p-8">
               <div className="flex flex-col items-center text-center relative z-[1] w-full">
                 <span className="mm-landing-section-label">Step 1</span>
                 <span className="mm-landing-section-title mb-2">Pick how you want to talk</span>
@@ -887,13 +922,15 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
 
                 <div className="flex flex-wrap justify-center gap-2 mb-8">
                   {INTERESTS.filter(r => !interests.find(i => i.id === r.id)).slice(0, 8).map((r) => (
-                    <button
+                    <motion.button
                       key={r.id}
                       onClick={() => addInterest(r.id)}
-                      className="mm-landing-chip"
+                      className="mm-landing-chip lv2-chip-motion"
+                      whileHover={{ scale: 1.05, y: -2 }}
+                      whileTap={{ scale: 0.96 }}
                     >
                       #{r.label}
-                    </button>
+                    </motion.button>
                   ))}
                 </div>
 
@@ -912,14 +949,19 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                 </div>
 
                 {interests.length > 0 && (
-                  <div className="flex flex-wrap justify-center gap-2 mt-5">
+                  <motion.div
+                    className="flex flex-wrap justify-center gap-2 mt-5"
+                    initial="hidden"
+                    animate="visible"
+                    variants={stagger(0.04)}
+                  >
                     {interests.map(i => (
-                      <div key={i.id} className="mm-landing-tag">
+                      <motion.div key={i.id} className="mm-landing-tag" variants={fadeUp} layout>
                         {i.label}
                         <button type="button" onClick={() => removeInterest(i.id)} className="mm-landing-tag-btn opacity-50 hover:opacity-100 transition-opacity ml-0.5" aria-label={`Remove ${i.label}`}>✕</button>
-                      </div>
+                      </motion.div>
                     ))}
-                  </div>
+                  </motion.div>
                 )}
 
                 <div className="mt-6 flex flex-col sm:flex-row flex-wrap items-center justify-center gap-2 w-full px-1">
@@ -956,7 +998,7 @@ export function LandingPage({ onJoin, coinState, isJoining = false, registered =
                 </p>
               </div>
             </div>
-          </section>
+          </motion.section>
 
           {PHASE_4_UNIQUE.communityEvents && publicEvents.length > 0 && (
             <Suspense fallback={null}>

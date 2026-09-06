@@ -1,6 +1,8 @@
-import React, { Suspense } from 'react';
+import { Suspense } from 'react';
+import { motion } from 'framer-motion';
 import { HellooooLockup, HELLOOOO_EMOJI } from './HellooooBrand';
 import { lazyRetry } from '../utils/lazyRetry';
+import { fadeUp, stagger, springSnappy } from '../utils/landingMotion';
 
 const HeroScene3D = lazyRetry(() => import('./three/HeroScene3D'));
 
@@ -8,60 +10,115 @@ const TRUST = [
   { icon: '🔒', label: 'No account needed' },
   { icon: '⚡', label: 'Instant matching' },
   { icon: '🛡️', label: 'AI safety monitoring' },
+  { icon: '🎁', label: 'Live gifts & Nuts' },
 ];
 
-export function LandingHero({ connected, isJoining, onlineCount = 0, lowPower = false }) {
+export function LandingHero({
+  connected,
+  isJoining,
+  onlineCount = 0,
+  lowPower = false,
+  onGoLive,
+  onScrollToStart,
+}) {
   return (
-    <section className="relative overflow-hidden w-full">
+    <section className="lv2-hero relative overflow-hidden w-full">
       {!lowPower && (
-        <div className="absolute inset-0 pointer-events-none opacity-20">
+        <div className="absolute inset-0 pointer-events-none opacity-[0.22]">
           <Suspense fallback={null}>
-            <HeroScene3D className="opacity-35" intensity={0.3} />
+            <HeroScene3D className="opacity-40" intensity={0.35} />
           </Suspense>
         </div>
       )}
 
       <div className="mm-shell mm-shell--wide relative z-10 w-full">
-        <div className="mm-landing-hero">
-          <div className="mm-landing-hero__brand mm-rise">
-            <HellooooLockup logoSize={44} brandSize="xl" showTagline />
-          </div>
+        <motion.div
+          className="lv2-hero__inner"
+          initial="hidden"
+          animate="visible"
+          variants={stagger(0.1, 0.05)}
+        >
+          <motion.div variants={fadeUp} className="lv2-hero__brand">
+            <HellooooLockup logoSize={48} brandSize="xl" showTagline />
+          </motion.div>
 
-          <div className="mm-rise">
-            <span className="mm-eyebrow">
-              {!lowPower && (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" aria-hidden />
-              )}
-              {onlineCount > 0 ? `${onlineCount.toLocaleString()} online now` : 'Live anonymous connections'}
+          <motion.div variants={fadeUp} className="lv2-hero__eyebrow-wrap">
+            <span className="lv2-hero__eyebrow">
+              <motion.span
+                className="lv2-hero__live-dot"
+                animate={{ scale: [1, 1.35, 1], opacity: [0.7, 1, 0.7] }}
+                transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+                aria-hidden
+              />
+              {onlineCount > 0
+                ? `${onlineCount.toLocaleString()} people online now`
+                : 'Live anonymous connections worldwide'}
             </span>
-          </div>
+          </motion.div>
 
-          <h1 className="mm-h1 mm-landing-hero__title mm-rise mm-rise-1">
-            {HELLOOOO_EMOJI} Meet people who share your{' '}
-            <span className="mm-gradient-text">interests</span>
-          </h1>
+          <motion.h1 variants={fadeUp} className="lv2-hero__title">
+            {HELLOOOO_EMOJI} Where strangers become{' '}
+            <span className="lv2-hero__gradient">your people</span>
+          </motion.h1>
 
-          <p className="mm-landing-hero__sub mm-rise mm-rise-2">
-            No sign-up. Pick your topics, choose how you want to talk, and connect
-            instantly with people worldwide.
-          </p>
+          <motion.p variants={fadeUp} className="lv2-hero__sub">
+            Video, voice, text, and creator lives — one app. No sign-up.
+            Pick your vibe, match in seconds, send gifts when it clicks.
+          </motion.p>
 
-          <ul className="mm-landing-trust-row mm-rise mm-rise-3" aria-label="Why Helloooo">
-            {TRUST.map((t) => (
-              <li key={t.label} className="mm-landing-trust-chip">
-                <span className="mm-landing-trust-chip__icon" aria-hidden>{t.icon}</span>
-                <span className="mm-landing-trust-chip__label">{t.label}</span>
-              </li>
+          <motion.div variants={fadeUp} className="lv2-hero__cta-row">
+            <motion.button
+              type="button"
+              className="lv2-hero__cta lv2-hero__cta--live"
+              disabled={!connected || isJoining}
+              onClick={() => onGoLive?.()}
+              whileHover={{ scale: 1.03, y: -2 }}
+              whileTap={{ scale: 0.97 }}
+              transition={springSnappy}
+            >
+              <span className="lv2-hero__cta-glow" aria-hidden />
+              <span className="lv2-hero__cta-dot" aria-hidden />
+              Go Live
+            </motion.button>
+            <motion.button
+              type="button"
+              className="lv2-hero__cta lv2-hero__cta--ghost"
+              onClick={() => onScrollToStart?.()}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              transition={springSnappy}
+            >
+              Start chatting
+            </motion.button>
+          </motion.div>
+
+          <motion.ul variants={fadeUp} className="lv2-hero__trust" aria-label="Why Helloooo">
+            {TRUST.map((t, i) => (
+              <motion.li
+                key={t.label}
+                className="lv2-hero__trust-chip"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.35 + i * 0.07, duration: 0.45 }}
+                whileHover={{ y: -2, borderColor: 'rgba(255,255,255,0.22)' }}
+              >
+                <span className="lv2-hero__trust-icon" aria-hidden>{t.icon}</span>
+                <span>{t.label}</span>
+              </motion.li>
             ))}
-          </ul>
+          </motion.ul>
 
           {!connected && (
-            <p className="mt-4 text-[11px] text-amber-300/80 mm-rise mm-rise-4">Connecting to servers…</p>
+            <motion.p variants={fadeUp} className="lv2-hero__status lv2-hero__status--warn">
+              Connecting to servers…
+            </motion.p>
           )}
           {connected && isJoining && (
-            <p className="mt-4 text-[11px] text-violet-300/80 mm-rise mm-rise-4">Joining room…</p>
+            <motion.p variants={fadeUp} className="lv2-hero__status lv2-hero__status--join">
+              Joining room…
+            </motion.p>
           )}
-        </div>
+        </motion.div>
       </div>
     </section>
   );
